@@ -42,6 +42,16 @@ function dashLayout(el, user, navItems, renderContent) {
   });
   el.querySelector('#btnLogout').addEventListener('click', () => Auth.logout());
   renderContent(el.querySelector('#dashMain'), activeTab);
+
+  // Add chat widget (only once, on body)
+  if (!document.getElementById('chatWidget')) {
+    const chatContainer = document.createElement('div');
+    chatContainer.id = 'chatWidget';
+    document.body.appendChild(chatContainer);
+    if (window.ChatWidget) {
+      window.ChatWidget(chatContainer, user);
+    }
+  }
 }
 
 function statCards(stats) {
