@@ -3,138 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Timer</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: system-ui, -apple-system, sans-serif;
-      display: flex; align-items: center; justify-content: center;
-      min-height: 100vh; background: #0f172a; color: #f1f5f9;
-    }
-    .card {
-      text-align: center; padding: 2.5rem 3rem;
-      background: #1e293b; border-radius: 16px;
-      box-shadow: 0 8px 32px rgba(0,0,0,.3);
-      min-width: 320px;
-    }
-    .display {
-      font-size: 4rem; font-weight: 700; font-variant-numeric: tabular-nums;
-      margin: 1rem 0 1.5rem; letter-spacing: .05em;
-    }
-    .inputs { display: flex; gap: .5rem; justify-content: center; margin-bottom: 1.5rem; }
-    .inputs label { display: flex; flex-direction: column; gap: .25rem; font-size: .75rem; color: #94a3b8; text-transform: uppercase; }
-    .inputs input {
-      width: 64px; padding: .5rem; font-size: 1.25rem; text-align: center;
-      background: #0f172a; border: 1px solid #334155; border-radius: 8px;
-      color: #f1f5f9; font-variant-numeric: tabular-nums;
-    }
-    .inputs input:focus { outline: none; border-color: #6366f1; }
-    .controls { display: flex; gap: .5rem; justify-content: center; }
-    button {
-      padding: .6rem 1.4rem; font-size: 1rem; font-weight: 600;
-      border: none; border-radius: 8px; cursor: pointer;
-      transition: background .15s, opacity .15s;
-    }
-    .btn-start { background: #6366f1; color: #fff; }
-    .btn-start:hover { background: #4f46e5; }
-    .btn-pause { background: #f59e0b; color: #fff; }
-    .btn-pause:hover { background: #d97706; }
-    .btn-reset { background: #334155; color: #f1f5f9; }
-    .btn-reset:hover { background: #475569; }
-    button:disabled { opacity: .4; cursor: not-allowed; }
-  </style>
+  <title>Chookee Inasal — Central Franchise System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/config.js"></script>
 </head>
 <body>
-  <div class="card">
-    <h1>Timer</h1>
-    <div class="display" id="display">00:00</div>
-    <div class="inputs">
-      <label>Min<input type="number" id="min" value="0" min="0" max="999"></label>
-      <label>Sec<input type="number" id="sec" value="0" min="0" max="59"></label>
-    </div>
-    <div class="controls">
-      <button class="btn-start" id="start">Start</button>
-      <button class="btn-reset" id="reset">Reset</button>
-    </div>
-  </div>
-  <script>
-    const display = document.getElementById('display');
-    const minInput = document.getElementById('min');
-    const secInput = document.getElementById('sec');
-    const startBtn = document.getElementById('start');
-    const resetBtn = document.getElementById('reset');
-
-    let total = 0;
-    let remaining = 0;
-    let interval = null;
-    let running = false;
-
-    function format(s) {
-      const m = Math.floor(s / 60);
-      const sec = s % 60;
-      return String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
-    }
-
-    function render() {
-      display.textContent = format(remaining);
-    }
-
-    function setInputsEnabled(enabled) {
-      minInput.disabled = !enabled;
-      secInput.disabled = !enabled;
-    }
-
-    function tick() {
-      remaining--;
-      render();
-      if (remaining <= 0) {
-        clearInterval(interval);
-        interval = null;
-        running = false;
-        startBtn.textContent = 'Start';
-        startBtn.className = 'btn-start';
-        setInputsEnabled(true);
-        display.style.color = '#22c55e';
-      }
-    }
-
-    startBtn.addEventListener('click', () => {
-      if (running) {
-        clearInterval(interval);
-        interval = null;
-        running = false;
-        startBtn.textContent = 'Start';
-        startBtn.className = 'btn-start';
-        return;
-      }
-      if (remaining <= 0) {
-        const m = Math.max(0, parseInt(minInput.value) || 0);
-        const s = Math.max(0, Math.min(59, parseInt(secInput.value) || 0));
-        total = m * 60 + s;
-        remaining = total;
-        if (remaining <= 0) return;
-        display.style.color = '';
-      }
-      running = true;
-      setInputsEnabled(false);
-      startBtn.textContent = 'Pause';
-      startBtn.className = 'btn-pause';
-      render();
-      tick();
-      interval = setInterval(tick, 1000);
-    });
-
-    resetBtn.addEventListener('click', () => {
-      clearInterval(interval);
-      interval = null;
-      running = false;
-      remaining = 0;
-      display.style.color = '';
-      startBtn.textContent = 'Start';
-      startBtn.className = 'btn-start';
-      setInputsEnabled(true);
-      render();
-    });
-  </script>
+  <div id="app"></div>
+  <script src="/js/supabase.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/pages/landing.js"></script>
+  <script src="/js/pages/auth.js"></script>
+  <script src="/js/pages/dashboard.js"></script>
+  <script src="/js/router.js"></script>
+  <script src="/js/app.js"></script>
 </body>
 </html>

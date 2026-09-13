@@ -4,11 +4,13 @@ services:
     working_dir: /app
     volumes:
       - ./:/app:ro
-    command: ["python", "-m", "http.server", "80", "--bind", "0.0.0.0"]
+    command: ["python", "/app/server.py"]
     ports:
       - "3000:80"
+    env_file:
+      - /run/base44/app.env
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:80/')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:80/config.js')"]
       interval: 5s
       timeout: 3s
       retries: 10
