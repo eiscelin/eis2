@@ -4,7 +4,7 @@ var Pages = window.Pages || {};
 Pages.adminDashboard = function(el) {
   const user = Auth.currentUser;
   const navItems = [
-    { id: 'dashboard', icon: '📊', label: 'Dashboard' },
+    { id: 'dashboard', icon: '📊', label: 'Admin Dashboard' },
     { id: 'franchises', icon: '🏪', label: 'Franchise Management' },
     { id: 'orders', icon: '🧾', label: 'All Orders' },
     { id: 'products', icon: '📦', label: 'Available Supplies' },
@@ -37,12 +37,184 @@ Pages.adminDashboard = function(el) {
     }
 
     else if (tab === 'franchises') {
-      main.innerHTML = mainHeader('Franchise Management', 'Onboard and monitor every Chookee Inasal franchisee');
-      try {
-        const { data: franchisees } = await sb.from('users').select('*').eq('role', 'franchisee').order('created_at', { ascending: false });
-        main.innerHTML += tableCard('All Franchisees', ['Name', 'Username', 'Contact', 'Role', 'Joined'],
-          (franchisees || []).map(f => [f.full_name || '—', f.username, f.contact_number || '—', statusBadge('active'), fmtDate(f.created_at)]));
-      } catch { main.innerHTML += emptyState('🏪', 'No franchises yet.'); }
+      main.innerHTML = `
+        <div class="fm-toolbar">
+          <div>
+            <h1>Franchise Management</h1>
+            <div class="subtitle">Onboard and monitor every Chookee Inasal franchisee</div>
+          </div>
+          <button class="fm-add-btn" id="addFranchiseBtn">+ Add Franchise</button>
+        </div>
+        <div class="fm-subtabs">
+          <button class="fm-subtab active" data-subtab="franchises">Franchises</button>
+          <button class="fm-subtab" data-subtab="profiles">Profiles</button>
+          <button class="fm-subtab" data-subtab="production">Production</button>
+        </div>
+        <div id="fmContent" class="loading">Loading...</div>`;
+
+      const loadFranchises = async () => {
+        const content = main.querySelector('#fmContent');
+        try {
+          const [{ data: franchisees }, { data: allUsers }] = await Promise.all([
+            sb.from('users').select('*').eq('role', 'franchisee').order('created_at', { ascending: false }),
+            sb.from('users').select('*').order('created_at', { ascending: false })
+          ]);
+          const list = franchisees || [];
+          const users = allUsers || [];
+          const active = list.filter(f => (f.status || 'active') === 'active').length;
+          const pending = list.filter(f => f.status === 'pending').length;
+          const expired = list.filter(f => f.status === 'expired').length;
+
+          const cardHtml = (f) => {
+            const status = f.status || 'active';
+            const initial = (f.full_name || f.username || '?')[0].toUpperCase();
+            const badgeClass = status === 'active' ? 'fm-badge-green' : status === 'pending' ? 'fm-badge-orange' : 'fm-badge-red';
+            return `<div class="fm-card" data-name="${(f.full_name || f.username || '').toLowerCase()}" data-status="${status}">
+              <div class="fm-card-header">
+                <div class="fm-card-avatar">${initial}</div>
+                <div class="fm-card-info">
+                  <div class="fm-card-name">${f.full_name || f.username}</div>
+                  <div class="fm-card-pkg">Standard Package</div>
+                </div>
+                <span class="fm-badge-sm ${badgeClass}">${status}</span>
+              </div>
+              <div class="fm-card-details">
+                <span>📍 ${f.contact_number || '—'}</span>
+                <span>📞 ${f.contact_number || '—'}</span>
+                <span>Expires: —</span>
+              </div>
+              <div class="fm-card-fin">
+                <div><div class="fm-fin-label">Franchise Fee</div><div class="fm-fin-val">₱0.00</div></div>
+                <div><div class="fm-fin-label">Outstanding</div><div class="fm-fin-val">₱0.00</div></div>
+                <div><div class="fm-fin-label">Royalty Due</div><div class="fm-fin-val">₱0.00</div></div>
+              </div>
+              <div class="fm-card-actions">
+                <button class="fm-edit-btn">Edit Catalog</button>
+                <span class="fm-badge-sm fm-badge-red">Unpaid</span>
+                <span class="fm-card-edit">Editable · Edit</span>
+              </div>
+            </div>`;
+          };
+
+          content.innerHTML = `
+            <div class="fm-stats">
+              <div class="fm-stat"><div class="fm-stat-num">${list.length}</div><div class="fm-stat-label">Total Franchises</div></div>
+              <div class="fm-stat"><div class="fm-stat-num">${active}</div><div class="fm-stat-label">Active</div></div>
+              <div class="fm-stat"><div class="fm-stat-num">${pending}</div><div class="fm-stat-label">Pending</div></div>
+              <div class="fm-stat"><div class="fm-stat-num">${expired}</div><div class="fm-stat-label">Expired</div></div>
+            </div>
+            <div class="fm-search-row">
+              <div class="fm-search">
+                <span>🔍</span>
+                <input type="text" id="fmSearch" placeholder="Search by name or location...">
+              </div>
+              <select id="fmStatusFilter" class="fm-filter">
+                <option value="">All Status</option>
+                <option value="active">Active</option>
+                <option value="pending">Pending</option>
+                <option value="expired">Expired</option>
+              </select>
+            </div>
+            <div class="fm-cards" id="fmCards">
+              ${list.map(cardHtml).join('') || '<div class="empty-state"><div class="icon">🏪</div><p>No franchises yet.</p></div>'}
+            </div>
+            <div class="fm-section">
+              <div class="fm-section-header">
+                <span style="font-size:1.25rem">🕐</span>
+                <h3>Pending Franchisee Approvals</h3>
+                <span class="fm-badge-orange-pill">${pending} pending</span>
+              </div>
+              <p class="fm-section-desc">New signups awaiting admin approval before they can log in.</p>
+              ${pending === 0 ? '<div class="fm-empty"><div class="fm-empty-icon">👤</div><strong>No pending approvals</strong><p>New franchisee signups will appear here for approval.</p></div>' : ''}
+            </div>
+            <div class="fm-section">
+              <div class="fm-section-header">
+                <span style="font-size:1.25rem">🛡️</span>
+                <h3>Member Access &amp; Roles</h3>
+                <span class="fm-badge-dark-pill">${users.length} accounts</span>
+              </div>
+              <p class="fm-section-desc">Assign roles: Admin, Franchisee, Production, or Dispatch teams.</p>
+              <div class="fm-roles">
+                ${users.map(u => {
+                  const initial = (u.username || '?')[0].toUpperCase();
+                  const avatarColor = u.role === 'admin' ? '#FF5722' : '#bbb';
+                  return `<div class="fm-role-row">
+                    <div class="fm-role-avatar" style="background:${avatarColor}">${initial}</div>
+                    <div class="fm-role-info">
+                      <div class="fm-role-name">${u.full_name || u.username}</div>
+                      <div class="fm-role-meta">@${u.username}</div>
+                    </div>
+                    <div class="fm-role-pw">🔑 ${u.password || '—'}</div>
+                    <select class="fm-role-select" data-uid="${u.id}">
+                      <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Admin</option>
+                      <option value="franchisee" ${u.role === 'franchisee' ? 'selected' : ''}>Franchisee</option>
+                      <option value="production" ${u.role === 'production' ? 'selected' : ''}>Production</option>
+                      <option value="dispatch" ${u.role === 'dispatch' ? 'selected' : ''}>Dispatch</option>
+                    </select>
+                  </div>`;
+                }).join('')}
+              </div>
+            </div>`;
+
+          content.querySelectorAll('.fm-role-select').forEach(sel => {
+            sel.addEventListener('change', async () => {
+              try { await sb.from('users').update({ role: sel.value }).eq('id', sel.dataset.uid); showToast('Role updated', 'success'); }
+              catch { showToast('Failed to update role', 'error'); }
+            });
+          });
+
+          const searchInput = content.querySelector('#fmSearch');
+          const statusFilter = content.querySelector('#fmStatusFilter');
+          const filterCards = () => {
+            const q = searchInput.value.toLowerCase();
+            const s = statusFilter.value;
+            content.querySelectorAll('.fm-card').forEach(card => {
+              const matchQ = !q || card.dataset.name.includes(q);
+              const matchS = !s || card.dataset.status === s;
+              card.style.display = (matchQ && matchS) ? '' : 'none';
+            });
+          };
+          searchInput.addEventListener('input', filterCards);
+          statusFilter.addEventListener('change', filterCards);
+        } catch { main.querySelector('#fmContent').innerHTML = emptyState('🏪', 'No franchises yet.'); }
+      };
+
+      loadFranchises();
+
+      main.querySelectorAll('.fm-subtab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          main.querySelectorAll('.fm-subtab').forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+        });
+      });
+
+      main.querySelector('#addFranchiseBtn').addEventListener('click', () => {
+        const content = main.querySelector('#fmContent');
+        content.innerHTML = `
+          <div class="table-card">
+            <div class="table-card-header"><h3>Add New Franchise</h3></div>
+            <div style="padding:1.25rem;">
+              <div class="form-group"><label>Full Name</label><input type="text" id="fName" placeholder="Franchisee full name"></div>
+              <div class="form-group"><label>Username</label><input type="text" id="fUsername" placeholder="Username"></div>
+              <div class="form-group"><label>Contact Number</label><input type="text" id="fContact" placeholder="Contact number"></div>
+              <div class="form-group"><label>Password</label><input type="password" id="fPassword" placeholder="Password" minlength="6"></div>
+              <button class="btn-save" id="saveFranchiseBtn">Save Franchise</button>
+              <button class="btn-cancel" id="cancelFranchiseBtn" style="margin-left:.5rem;">Cancel</button>
+            </div>
+          </div>`;
+        content.querySelector('#saveFranchiseBtn').addEventListener('click', async () => {
+          const full_name = content.querySelector('#fName').value;
+          const username = content.querySelector('#fUsername').value;
+          const password = content.querySelector('#fPassword').value;
+          if (!full_name || !username || !password) return showToast('Name, username, and password required', 'error');
+          try {
+            await sb.from('users').insert([{ full_name, username, contact_number: content.querySelector('#fContact').value, password, role: 'franchisee' }]);
+            showToast('Franchise added!', 'success');
+            loadFranchises();
+          } catch (e) { showToast('Failed: ' + e.message, 'error'); }
+        });
+        content.querySelector('#cancelFranchiseBtn').addEventListener('click', loadFranchises);
+      });
     }
 
     else if (tab === 'orders') {
@@ -152,6 +324,13 @@ Pages.adminDashboard = function(el) {
         </div>`;
     }
   });
+
+  // Customize sidebar for admin
+  el.querySelector('.dashboard')?.classList.add('dashboard-admin');
+  const header = el.querySelector('.sidebar-header');
+  if (header) {
+    header.innerHTML = '<div class="logo">CI</div><div><div style="font-weight:700;font-size:1rem">Chookee Inasal</div><div style="font-size:.7rem;color:#999;font-weight:400">Central System</div></div>';
+  }
 };
 
 window.Pages = Pages;

@@ -287,3 +287,76 @@ tr:last-child td { border-bottom: none; }
   .sidebar { display: none; }
   .main-content { padding: 1rem; }
 }
+
+/* ===== Admin White Sidebar ===== */
+.dashboard-admin .sidebar { background:#fff; color:#212121; border-right:1px solid #e5e7eb; }
+.dashboard-admin .sidebar-header { border-bottom:1px solid #e5e7eb; }
+.dashboard-admin .sidebar-nav a { color:#757575; }
+.dashboard-admin .sidebar-nav a:hover { background:#f5f5f5; color:#212121; }
+.dashboard-admin .sidebar-nav a.active { background:#FF5722; color:#fff; border-left:none; }
+.dashboard-admin .sidebar-footer { border-top:1px solid #e5e7eb; }
+.dashboard-admin .sidebar-user { color:#999; }
+.dashboard-admin .sidebar-user .name { color:#212121; }
+.dashboard-admin .btn-logout { background:transparent; color:#999; }
+
+/* ===== Franchise Management ===== */
+.fm-toolbar { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1.5rem; }
+.fm-toolbar h1 { font-size:1.5rem; font-weight:700; color:#212121; }
+.fm-toolbar .subtitle { font-size:.85rem; color:#757575; margin-top:.25rem; }
+.fm-add-btn { background:#FF5722; color:#fff; padding:.6rem 1.25rem; border-radius:8px; font-weight:600; font-size:.9rem; white-space:nowrap; }
+.fm-add-btn:hover { opacity:.9; }
+.fm-subtabs { display:flex; gap:2rem; border-bottom:1px solid #e5e7eb; margin-bottom:1.5rem; }
+.fm-subtab { padding:.75rem 0; font-size:.9rem; font-weight:500; color:#757575; background:transparent; border-bottom:2px solid transparent; margin-bottom:-1px; }
+.fm-subtab.active { color:#FF5722; border-bottom-color:#FF5722; }
+.fm-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; margin-bottom:1.5rem; }
+.fm-stat { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:1.25rem; }
+.fm-stat-num { font-size:1.75rem; font-weight:800; color:#212121; }
+.fm-stat-label { font-size:.8rem; color:#757575; margin-top:.25rem; }
+.fm-search-row { display:flex; gap:1rem; margin-bottom:1.5rem; }
+.fm-search { flex:1; position:relative; }
+.fm-search span { position:absolute; left:.75rem; top:50%; transform:translateY(-50%); color:#999; pointer-events:none; }
+.fm-search input { width:100%; padding:.65rem .75rem .65rem 2.25rem; border:1px solid #e5e7eb; border-radius:8px; font-size:.9rem; background:#fff; }
+.fm-search input:focus { outline:none; border-color:#FF5722; }
+.fm-filter { padding:.65rem .75rem; border:1px solid #e5e7eb; border-radius:8px; font-size:.9rem; background:#fff; color:#555; }
+.fm-cards { display:grid; grid-template-columns:repeat(2,1fr); gap:1.5rem; margin-bottom:1.5rem; }
+.fm-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:1.5rem; box-shadow:0 1px 3px rgba(0,0,0,.04); }
+.fm-card-header { display:flex; align-items:center; gap:.75rem; margin-bottom:1rem; }
+.fm-card-avatar { width:44px; height:44px; border-radius:50%; background:#FF5722; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:1.1rem; flex-shrink:0; }
+.fm-card-info { flex:1; }
+.fm-card-name { font-weight:700; color:#212121; font-size:.95rem; }
+.fm-card-pkg { font-size:.78rem; color:#999; }
+.fm-badge-sm { font-size:.72rem; font-weight:600; padding:.2rem .6rem; border-radius:999px; text-transform:capitalize; }
+.fm-badge-green { background:#E0F2F1; color:#00796B; }
+.fm-badge-orange { background:#FFF3E0; color:#E65100; }
+.fm-badge-red { background:#FFEBEE; color:#C62828; }
+.fm-card-details { display:flex; flex-wrap:wrap; gap:1rem; font-size:.82rem; color:#757575; margin-bottom:1rem; padding-bottom:1rem; border-bottom:1px solid #f3f4f6; }
+.fm-card-fin { display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; margin-bottom:1rem; padding-bottom:1rem; border-bottom:1px solid #f3f4f6; }
+.fm-fin-label { font-size:.72rem; color:#999; margin-bottom:.15rem; }
+.fm-fin-val { font-size:.9rem; font-weight:600; color:#212121; }
+.fm-card-actions { display:flex; align-items:center; gap:.75rem; font-size:.82rem; }
+.fm-edit-btn { background:#f3f4f6; color:#555; padding:.4rem .75rem; border-radius:6px; font-size:.82rem; font-weight:500; }
+.fm-card-edit { color:#FF5722; font-weight:500; cursor:pointer; margin-left:auto; }
+.fm-section { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:1.5rem; margin-bottom:1.5rem; }
+.fm-section-header { display:flex; align-items:center; gap:.5rem; margin-bottom:.5rem; }
+.fm-section-header h3 { font-size:1rem; font-weight:700; color:#212121; flex:1; }
+.fm-badge-orange-pill { background:#FF5722; color:#fff; font-size:.72rem; font-weight:600; padding:.2rem .6rem; border-radius:999px; }
+.fm-badge-dark-pill { background:#212121; color:#fff; font-size:.72rem; font-weight:600; padding:.2rem .6rem; border-radius:999px; }
+.fm-section-desc { font-size:.82rem; color:#757575; margin-bottom:1.5rem; }
+.fm-empty { text-align:center; padding:2rem; }
+.fm-empty-icon { width:56px; height:56px; border-radius:50%; background:#E6F7F0; display:flex; align-items:center; justify-content:center; margin:0 auto .75rem; font-size:1.5rem; }
+.fm-empty strong { display:block; color:#212121; margin-bottom:.25rem; }
+.fm-empty p { font-size:.82rem; color:#999; }
+.fm-roles { display:flex; flex-direction:column; gap:.75rem; }
+.fm-role-row { display:flex; align-items:center; gap:.75rem; padding:.75rem; border:1px solid #f3f4f6; border-radius:8px; }
+.fm-role-avatar { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; font-size:.9rem; flex-shrink:0; }
+.fm-role-info { flex:1; }
+.fm-role-name { font-weight:600; color:#212121; font-size:.88rem; }
+.fm-role-meta { font-size:.78rem; color:#999; }
+.fm-role-pw { font-size:.82rem; color:#999; }
+.fm-role-select { padding:.4rem .5rem; border:1px solid #e5e7eb; border-radius:6px; font-size:.85rem; background:#fff; color:#555; }
+
+@media (max-width: 768px) {
+  .fm-stats { grid-template-columns:repeat(2,1fr); }
+  .fm-cards { grid-template-columns:1fr; }
+  .fm-card-fin { grid-template-columns:1fr; }
+}
