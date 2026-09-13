@@ -324,13 +324,6 @@ Pages.adminDashboard = function(el) {
         </div>`;
     }
   });
-
-  // Customize sidebar for admin
-  el.querySelector('.dashboard')?.classList.add('dashboard-admin');
-  const header = el.querySelector('.sidebar-header');
-  if (header) {
-    header.innerHTML = '<div class="logo">CI</div><div><div style="font-weight:700;font-size:1rem">Chookee Inasal</div><div style="font-size:.7rem;color:#999;font-weight:400">Central System</div></div>';
-  }
 };
 
 window.Pages = Pages;

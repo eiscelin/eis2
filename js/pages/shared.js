@@ -7,13 +7,17 @@ function dashLayout(el, user, navItems, renderContent) {
     <div class="dashboard">
       <aside class="sidebar">
         <div class="sidebar-header">
-          <div class="logo">CI</div> Chookee Inasal
+          <div class="logo">CI</div>
+          <div><div>Chookee Inasal</div><div style="font-size:.7rem;color:#999;font-weight:400">Central System</div></div>
         </div>
         <nav class="sidebar-nav" id="sidebarNav"></nav>
         <div class="sidebar-footer">
           <div class="sidebar-user">
-            <div class="name">${user.full_name || user.username}</div>
-            <div>${user.role}</div>
+            <div class="sidebar-avatar">${(user.username || '?')[0].toUpperCase()}</div>
+            <div>
+              <div class="name">${user.full_name || user.username}</div>
+              <div>${user.role}</div>
+            </div>
           </div>
           <button class="btn-logout" id="btnLogout">Logout</button>
         </div>
