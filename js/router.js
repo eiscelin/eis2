@@ -12,7 +12,10 @@ const Router = {
 
   get path() {
     const hash = location.hash.replace(/^#/, '');
-    return hash || '/';
+    if (hash) return hash;
+    // Map path-based routes (e.g. /admin → /AdminDashboard)
+    if (location.pathname === '/admin') return '/AdminDashboard';
+    return '/';
   },
 
   async handle() {

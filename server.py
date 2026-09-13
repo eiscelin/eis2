@@ -14,6 +14,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(f'window.APP_CONFIG = {json.dumps(config)};'.encode())
             return
+        # SPA fallback: serve index.html for paths without a file extension
+        clean_path = self.path.split('?')[0]
+        basename = os.path.basename(clean_path)
+        if '.' not in basename:
+            self.path = '/index.html'
         return super().do_GET()
 
     def end_headers(self):
