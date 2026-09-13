@@ -1,0 +1,7 @@
+server.py
+requirements.txt
+docker-compose.base44.yml
+.base44/
+supabase/
+AGENTS.md
+Dockerfile*
