@@ -25,7 +25,6 @@ const Auth = {
 
   async register(userData) {
     if (!sb) throw new Error('Database not configured');
-    // Check if username exists
     const { data: existing } = await sb
       .from('users')
       .select('id')
@@ -53,5 +52,6 @@ const Auth = {
   isAdmin() { return this.currentUser?.role === 'admin'; },
   isFranchisee() { return this.currentUser?.role === 'franchisee'; },
   isProduction() { return this.currentUser?.role === 'production'; },
+  isDispatch() { return this.currentUser?.role === 'dispatch'; },
   getRole() { return this.currentUser?.role; }
 };

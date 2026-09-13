@@ -20,7 +20,8 @@ const Router = {
     const app = document.getElementById('app');
 
     // Auth guard for dashboard routes
-    if (path.startsWith('/dashboard') || path.startsWith('/production-dashboard') || path.startsWith('/admin-dashboard')) {
+    const protectedRoutes = ['/Dashboard', '/ProductionDashboard', '/DispatchDashboard', '/AdminDashboard'];
+    if (protectedRoutes.includes(path)) {
       if (!Auth.isLoggedIn()) {
         location.hash = '#/MemberLogin';
         return;

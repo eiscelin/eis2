@@ -200,9 +200,10 @@ Pages.productionRegister = function(el) {
 };
 
 function redirectByRole(user) {
-  if (user.role === 'admin') Router.navigate('/admin-dashboard');
-  else if (user.role === 'production') Router.navigate('/production-dashboard');
-  else Router.navigate('/dashboard');
+  if (user.role === 'admin') Router.navigate('/AdminDashboard');
+  else if (user.role === 'production') Router.navigate('/ProductionDashboard');
+  else if (user.role === 'dispatch') Router.navigate('/DispatchDashboard');
+  else Router.navigate('/Dashboard');
 }
 
 window.Pages = Pages;
