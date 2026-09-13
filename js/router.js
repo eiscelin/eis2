@@ -1,4 +1,4 @@
-// Simple hash-based router
+// Enhanced router with role-based protection
 const Router = {
   routes: {},
   beforeRender: null,
@@ -13,7 +13,6 @@ const Router = {
   get path() {
     const hash = location.hash.replace(/^#/, '');
     if (hash) return hash;
-    // Map path-based routes (e.g. /admin → /AdminDashboard)
     if (location.pathname === '/admin') return '/AdminDashboard';
     return '/';
   },
@@ -22,11 +21,27 @@ const Router = {
     const path = this.path;
     const app = document.getElementById('app');
 
-    // Auth guard for dashboard routes
-    const protectedRoutes = ['/Dashboard', '/ProductionDashboard', '/DispatchDashboard', '/AdminDashboard'];
-    if (protectedRoutes.includes(path)) {
+    // Protected routes
+    const allProtected = [
+      '/AdminDashboard','/FranchiseManagement','/Orders','/Products','/ProductionDashboard',
+      '/DispatchDashboard','/FranchiseDashboard','/MyOrders','/CreateOrder','/Inventory',
+      '/ProductionQueue','/ProductionIssues','/ReadyForDispatch','/ScheduledDeliveries',
+      '/InTransit','/Delivered','/DeliveryIssues','/Announcements','/Reports',
+      '/ActivityLogs','/Profile','/Settings'
+    ];
+
+    if (allProtected.includes(path)) {
       if (!Auth.isLoggedIn()) {
         location.hash = '#/MemberLogin';
+        return;
+      }
+      if (!Auth.canAccess(path)) {
+        app.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;">
+          <div style="font-size:3rem;">🔒</div>
+          <h2>Access Denied</h2>
+          <p style="color:#999;">You do not have permission to access this page.</p>
+          <button class="btn-save" onclick="Router.navigate('${Auth.redirectByRole()}')" style="margin-top:1rem;">Go to My Dashboard</button>
+        </div>`;
         return;
       }
     }

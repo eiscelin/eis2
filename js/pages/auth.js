@@ -1,209 +1,154 @@
-// Auth pages — login, register, production login, production register
+// Auth pages — login and registration
 var Pages = window.Pages || {};
 
-function authShell(el, opts) {
-  const isProd = opts.production;
+Pages.memberLogin = function(el) {
   el.innerHTML = `
     <div class="auth-page">
-      ${opts.backLink ? `<a class="auth-back" href="#${opts.backLink}">← ${opts.backText}</a>` : ''}
       <div class="auth-card">
-        <div class="auth-header ${isProd ? 'production' : ''}">
+        <div class="auth-header">
           <div class="logo">CI</div>
-          <h2>${opts.title}</h2>
-          <p>${opts.subtitle}</p>
+          <h1>Chookee Inasal Portal</h1>
+          <p>Franchise Management System</p>
         </div>
         <div class="auth-body">
-          <h3>${opts.formTitle}</h3>
-          <div class="auth-error" id="authError"></div>
-          <form id="authForm">${opts.formFields}</form>
-          ${opts.footer || ''}
+          <h2>Sign In</h2>
+          <div class="form-group">
+            <label>Username</label>
+            <input type="text" id="loginUsername" placeholder="Enter your username" class="form-input">
+          </div>
+          <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="loginPassword" placeholder="Enter your password" class="form-input">
+          </div>
+          <button class="btn-auth" id="loginBtn">Login →</button>
+          <p class="auth-footer">Don't have an account? <a href="#/Register">Register here</a></p>
+          <p class="auth-footer" style="margin-top:.5rem;"><a href="#/ProductionLogin">Production Team Login</a></p>
         </div>
       </div>
-    </div>
-  `;
-}
+    </div>`;
 
-function bindAuthForm(onSubmit) {
-  const form = document.getElementById('authForm');
-  const errEl = document.getElementById('authError');
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    errEl.classList.remove('show');
-    const btn = form.querySelector('button[type=submit]');
-    btn.disabled = true;
-    btn.textContent = 'Please wait...';
+  el.querySelector('#loginBtn').onclick = async () => {
+    const username = el.querySelector('#loginUsername').value;
+    const password = el.querySelector('#loginPassword').value;
+    if (!username || !password) return UI.toast('Enter username and password', 'error');
     try {
-      await onSubmit(new FormData(form));
-    } catch (err) {
-      errEl.textContent = err.message;
-      errEl.classList.add('show');
-      btn.disabled = false;
-      btn.textContent = btn.dataset.label;
-    }
-  });
-}
+      const user = await Auth.login(username, password);
+      UI.toast('Welcome back!', 'success');
+      Router.navigate(Auth.redirectByRole());
+    } catch (e) { UI.toast(e.message, 'error'); }
+  };
 
-function pwToggleScript() {
-  document.querySelectorAll('.toggle-pw').forEach(t => {
-    t.addEventListener('click', () => {
-      const input = t.parentElement.querySelector('input');
-      if (input.type === 'password') { input.type = 'text'; t.textContent = '🙈'; }
-      else { input.type = 'password'; t.textContent = '👁'; }
-    });
-  });
-}
-
-const loginFields = `
-  <div class="form-group">
-    <label>Username</label>
-    <div class="input-wrap">
-      <span class="icon">👤</span>
-      <input type="text" name="username" placeholder="Enter your username" required>
-    </div>
-  </div>
-  <div class="form-group">
-    <label>Password</label>
-    <div class="input-wrap">
-      <span class="icon">🔒</span>
-      <input type="password" name="password" placeholder="Enter your password" required>
-      <span class="toggle-pw">👁</span>
-    </div>
-  </div>
-  <button type="submit" class="btn-auth" data-label="Login">Login →</button>
-`;
-
-const registerFields = (btnLabel) => `
-  <div class="form-group">
-    <label>Full Name <span class="req">*</span></label>
-    <div class="input-wrap">
-      <span class="icon">👤</span>
-      <input type="text" name="full_name" placeholder="Enter your full name" required>
-    </div>
-  </div>
-  <div class="form-group">
-    <label>Username <span class="req">*</span></label>
-    <div class="input-wrap">
-      <span class="icon">👤</span>
-      <input type="text" name="username" placeholder="Choose a username" required>
-    </div>
-  </div>
-  <div class="form-group">
-    <label>Contact Number</label>
-    <div class="input-wrap">
-      <span class="icon">📱</span>
-      <input type="text" name="contact_number" placeholder="e.g. 0917 123 4567">
-    </div>
-  </div>
-  <div class="form-group">
-    <label>Password <span class="req">*</span></label>
-    <div class="input-wrap">
-      <span class="icon">🔒</span>
-      <input type="password" name="password" placeholder="At least 6 characters" required minlength="6">
-      <span class="toggle-pw">👁</span>
-    </div>
-  </div>
-  <div class="form-group">
-    <label>Confirm Password <span class="req">*</span></label>
-    <div class="input-wrap">
-      <span class="icon">🔒</span>
-      <input type="password" name="confirm_password" placeholder="Re-enter your password" required>
-      <span class="toggle-pw">👁</span>
-    </div>
-  </div>
-  <button type="submit" class="btn-auth" data-label="${btnLabel}">${btnLabel}</button>
-`;
-
-// ===== Member Login =====
-Pages.memberLogin = function(el) {
-  authShell(el, {
-    title: 'Chookee Inasal Portal',
-    subtitle: 'Franchise Management System',
-    formTitle: 'Sign In',
-    formFields: loginFields,
-    footer: `<div class="auth-footer">Don't have an account? <a href="#/Register">Register here</a></div>`
-  });
-  pwToggleScript();
-  bindAuthForm(async (fd) => {
-    const user = await Auth.login(fd.get('username'), fd.get('password'));
-    redirectByRole(user);
+  el.querySelector('#loginPassword').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') el.querySelector('#loginBtn').click();
   });
 };
 
-// ===== Franchisee Register =====
 Pages.register = function(el) {
-  authShell(el, {
-    title: 'Chookee Inasal Franchisee Sign Up',
-    subtitle: 'Create your franchisee portal account',
-    formTitle: '',
-    formFields: registerFields('Create Account'),
-    backLink: '/MemberLogin',
-    backText: 'Back to Login',
-    footer: `<div class="auth-footer">Already have an account? <a href="#/MemberLogin">Login here</a></div>`
-  });
-  el.querySelector('h3').style.display = 'none';
-  pwToggleScript();
-  bindAuthForm(async (fd) => {
-    if (fd.get('password') !== fd.get('confirm_password')) throw new Error('Passwords do not match');
-    const user = await Auth.register({
-      full_name: fd.get('full_name'),
-      username: fd.get('username'),
-      contact_number: fd.get('contact_number'),
-      password: fd.get('password'),
-      role: 'franchisee'
-    });
-    redirectByRole(user);
-  });
+  el.innerHTML = `
+    <div class="auth-page">
+      <div class="auth-card">
+        <div class="auth-header">
+          <div class="logo">CI</div>
+          <h1>Chookee Inasal Portal</h1>
+          <p>Franchise Registration</p>
+        </div>
+        <div class="auth-body">
+          <h2>Create Account</h2>
+          <div class="form-group"><label>Full Name</label><input type="text" id="regName" placeholder="Your full name" class="form-input"></div>
+          <div class="form-group"><label>Username</label><input type="text" id="regUsername" placeholder="Choose a username" class="form-input"></div>
+          <div class="form-group"><label>Contact Number</label><input type="text" id="regContact" placeholder="0917-xxx-xxxx" class="form-input"></div>
+          <div class="form-group"><label>Password</label><input type="password" id="regPassword" placeholder="Min 6 characters" class="form-input"></div>
+          <button class="btn-auth" id="registerBtn">Register →</button>
+          <p class="auth-footer">Already have an account? <a href="#/MemberLogin">Login here</a></p>
+        </div>
+      </div>
+    </div>`;
+
+  el.querySelector('#registerBtn').onclick = async () => {
+    const full_name = el.querySelector('#regName').value;
+    const username = el.querySelector('#regUsername').value;
+    const password = el.querySelector('#regPassword').value;
+    if (!full_name || !username || !password) return UI.toast('All fields required', 'error');
+    if (password.length < 6) return UI.toast('Password must be at least 6 characters', 'error');
+    try {
+      await Auth.register({
+        full_name, username, password,
+        contact_number: el.querySelector('#regContact').value,
+        role: 'franchisee', status: 'active'
+      });
+      UI.toast('Registration successful!', 'success');
+      Router.navigate('/FranchiseDashboard');
+    } catch (e) { UI.toast(e.message, 'error'); }
+  };
 };
 
-// ===== Production Login =====
 Pages.productionLogin = function(el) {
-  authShell(el, {
-    production: true,
-    title: 'Production Portal',
-    subtitle: 'Chookee Inasal Production Team',
-    formTitle: 'Production Sign In',
-    formFields: loginFields.replace('btn-auth', 'btn-auth production'),
-    footer: `<div class="auth-footer">Don't have a production account? <a href="#/ProductionRegister">Register here</a></div><div class="auth-footer" style="margin-top:.5rem;"><a href="#/MemberLogin">Franchisee / Admin login</a></div>`
-  });
-  pwToggleScript();
-  bindAuthForm(async (fd) => {
-    const user = await Auth.login(fd.get('username'), fd.get('password'));
-    redirectByRole(user);
-  });
+  el.innerHTML = `
+    <div class="auth-page">
+      <div class="auth-card">
+        <div class="auth-header" style="background:linear-gradient(135deg,#1565C0,#42A5F5);">
+          <div class="logo">CI</div>
+          <h1>Production Portal</h1>
+          <p>Chookee Inasal Production System</p>
+        </div>
+        <div class="auth-body">
+          <h2>Production Sign In</h2>
+          <div class="form-group"><label>Username</label><input type="text" id="prodLoginUser" placeholder="Enter your username" class="form-input"></div>
+          <div class="form-group"><label>Password</label><input type="password" id="prodLoginPass" placeholder="Enter your password" class="form-input"></div>
+          <button class="btn-auth" id="prodLoginBtn">Login →</button>
+          <p class="auth-footer"><a href="#/MemberLogin">Back to main login</a></p>
+        </div>
+      </div>
+    </div>`;
+
+  el.querySelector('#prodLoginBtn').onclick = async () => {
+    const username = el.querySelector('#prodLoginUser').value;
+    const password = el.querySelector('#prodLoginPass').value;
+    if (!username || !password) return UI.toast('Enter username and password', 'error');
+    try {
+      const user = await Auth.login(username, password);
+      if (user.role !== 'production' && user.role !== 'dispatch' && user.role !== 'admin') {
+        Auth.logout();
+        return UI.toast('This login is for production team only', 'error');
+      }
+      UI.toast('Welcome!', 'success');
+      Router.navigate(Auth.redirectByRole());
+    } catch (e) { UI.toast(e.message, 'error'); }
+  };
 };
 
-// ===== Production Register =====
 Pages.productionRegister = function(el) {
-  authShell(el, {
-    production: true,
-    title: 'Production Team Sign Up',
-    subtitle: 'Create your production portal account',
-    formTitle: '',
-    formFields: registerFields('Create Production Account').replace('btn-auth', 'btn-auth production'),
-    backLink: '/ProductionLogin',
-    backText: 'Back to Production Login',
-    footer: `<div class="auth-footer">Already have an account? <a href="#/ProductionLogin">Login here</a></div>`
-  });
-  el.querySelector('h3').style.display = 'none';
-  pwToggleScript();
-  bindAuthForm(async (fd) => {
-    if (fd.get('password') !== fd.get('confirm_password')) throw new Error('Passwords do not match');
-    const user = await Auth.register({
-      full_name: fd.get('full_name'),
-      username: fd.get('username'),
-      contact_number: fd.get('contact_number'),
-      password: fd.get('password'),
-      role: 'production'
-    });
-    redirectByRole(user);
-  });
-};
+  el.innerHTML = `
+    <div class="auth-page">
+      <div class="auth-card">
+        <div class="auth-header" style="background:linear-gradient(135deg,#1565C0,#42A5F5);">
+          <div class="logo">CI</div>
+          <h1>Production Portal</h1>
+          <p>Production Team Registration</p>
+        </div>
+        <div class="auth-body">
+          <h2>Production Sign Up</h2>
+          <div class="form-group"><label>Full Name</label><input type="text" id="pregName" placeholder="Your full name" class="form-input"></div>
+          <div class="form-group"><label>Username</label><input type="text" id="pregUser" placeholder="Choose a username" class="form-input"></div>
+          <div class="form-group"><label>Password</label><input type="password" id="pregPass" placeholder="Min 6 characters" class="form-input"></div>
+          <button class="btn-auth" id="pregBtn">Register →</button>
+          <p class="auth-footer"><a href="#/ProductionLogin">Already have an account? Login</a></p>
+        </div>
+      </div>
+    </div>`;
 
-function redirectByRole(user) {
-  if (user.role === 'admin') Router.navigate('/AdminDashboard');
-  else if (user.role === 'production') Router.navigate('/ProductionDashboard');
-  else if (user.role === 'dispatch') Router.navigate('/DispatchDashboard');
-  else Router.navigate('/Dashboard');
-}
+  el.querySelector('#pregBtn').onclick = async () => {
+    const full_name = el.querySelector('#pregName').value;
+    const username = el.querySelector('#pregUser').value;
+    const password = el.querySelector('#pregPass').value;
+    if (!full_name || !username || !password) return UI.toast('All fields required', 'error');
+    if (password.length < 6) return UI.toast('Password must be at least 6 characters', 'error');
+    try {
+      await Auth.register({ full_name, username, password, role: 'production', status: 'active' });
+      UI.toast('Registration successful!', 'success');
+      Router.navigate('/ProductionDashboard');
+    } catch (e) { UI.toast(e.message, 'error'); }
+  };
+};
 
 window.Pages = Pages;
