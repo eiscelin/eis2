@@ -77,6 +77,16 @@ Pages.dispatchDashboard = function(el) {
         </div>`;
     }
   });
+
+  // Back to Admin link
+  const nav = el.querySelector('#sidebarNav');
+  if (nav) {
+    const back = document.createElement('a');
+    back.href = '#/AdminDashboard';
+    back.innerHTML = '← Back to Admin';
+    back.style.cssText = 'padding:.7rem 1.5rem;color:#FF5722;font-size:.85rem;font-weight:600;cursor:pointer;display:block;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:.5rem;';
+    nav.insertBefore(back, nav.firstChild);
+  }
 };
 
 window.Pages = Pages;
