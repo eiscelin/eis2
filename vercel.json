@@ -1,7 +1,4 @@
 {
-  "buildCommand": "exit 0",
-  "outputDirectory": ".",
-  "rewrites": [
-    { "source": "/config.js", "destination": "/api/config" }
-  ]
+  "buildCommand": "bash build.sh",
+  "outputDirectory": "."
 }
