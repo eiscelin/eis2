@@ -1,7 +1,1 @@
-{
-  "buildCommand": "exit 0",
-  "outputDirectory": ".",
-  "rewrites": [
-    { "source": "/config.js", "destination": "/api/config" }
-  ]
-}
+{"buildCommand": null, "outputDirectory": ".", "rewrites": [{"source": "/(.*)", "destination": "/index.html"}]}
