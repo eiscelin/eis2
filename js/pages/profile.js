@@ -152,12 +152,12 @@ Pages.profileTab = function(main, user) {
       '<button class="fb-avatar-edit" id="pfAvatarEdit" type="button" title="Change profile picture" aria-label="Change profile picture">📷</button>');
   }
 
-  function paintCover() {
+  function paintCover(video) {
     const cover = main.querySelector('#pfCover');
     cover.classList.toggle('fb-cover--media', !!coverUrl);
     cover.querySelector('.fb-cover-media')?.remove();
     if (!coverUrl) return;
-    cover.insertAdjacentHTML('afterbegin', isVideo(coverUrl)
+    cover.insertAdjacentHTML('afterbegin', (video === undefined ? isVideo(coverUrl) : video)
       ? `<video class="fb-cover-media" src="${fbEscape(coverUrl)}" autoplay muted loop playsinline></video>`
       : `<img class="fb-cover-media" src="${fbEscape(coverUrl)}" alt="">`);
   }
@@ -165,14 +165,33 @@ Pages.profileTab = function(main, user) {
   async function saveMedia(kind, file) {
     if (!file) return;
     const label = kind === 'avatar' ? 'profile picture' : 'cover';
-    if (!sb) return showToast('Connect the database to change your ' + label, 'error');
+    const video = kind === 'cover' && file.type.startsWith('video/');
+    const previous = kind === 'avatar' ? avatarUrl : coverUrl;
+    const preview = URL.createObjectURL(file);
+
+    // Show the picked file straight away so choosing it has a visible result
+    if (kind === 'avatar') { avatarUrl = preview; paintAvatar(); }
+    else { coverUrl = preview; paintCover(video); }
+
+    function restore() {
+      if (kind === 'avatar') { avatarUrl = previous; paintAvatar(); }
+      else { coverUrl = previous; paintCover(); }
+    }
+
+    if (!sb) {
+      restore();
+      return showToast('Connect the database to change your ' + label, 'error', 6000);
+    }
+
     try {
       showToast('Updating ' + label + '…');
-      const video = kind === 'cover' && file.type.startsWith('video/');
       if (video && file.size > 40 * 1024 * 1024) throw new Error('that video is larger than 40 MB');
-      const url = video
-        ? await cloudinaryUpload(file)
-        : await cloudinaryUpload(await shrinkImage(file, kind === 'cover' ? 1800 : 640));
+      let payload = file;
+      if (!video) {
+        // Phone photos (HEIC etc.) the browser cannot decode are uploaded as they are
+        try { payload = await shrinkImage(file, kind === 'cover' ? 1800 : 640); } catch { payload = file; }
+      }
+      const url = await cloudinaryUpload(payload);
       if (!url) throw new Error('image hosting is not connected');
 
       const next = {
@@ -194,13 +213,16 @@ Pages.profileTab = function(main, user) {
         localStorage.setItem('chookee_user', JSON.stringify(Auth.currentUser));
       }
       paintAvatar();
-      paintCover();
+      paintCover(video);
       showToast('Your ' + label + ' is updated', 'success');
     } catch (e) {
+      restore();
       const message = String(e.message || e);
       showToast(/set_profile_media/.test(message)
         ? 'Run 005_add_profile_media.sql in Supabase, then try again'
-        : 'Could not update your ' + label + ': ' + message, 'error');
+        : 'Could not update your ' + label + ': ' + message, 'error', 6000);
+    } finally {
+      URL.revokeObjectURL(preview);
     }
   }
 
@@ -214,12 +236,9 @@ Pages.profileTab = function(main, user) {
   coverFile.hidden = true;
   main.append(avatarFile, coverFile);
 
-  main.querySelector('#pfAvatar').addEventListener('click', e => {
-    if (e.target.closest('#pfAvatarEdit')) avatarFile.click();
-  });
-  main.querySelector('#pfCover').addEventListener('click', e => {
-    if (e.target.closest('#pfCoverEdit')) coverFile.click();
-  });
+  // The picture and the whole banner open the picker, not just the small buttons
+  main.querySelector('#pfAvatar').addEventListener('click', () => avatarFile.click());
+  main.querySelector('#pfCover').addEventListener('click', () => coverFile.click());
   avatarFile.addEventListener('change', () => {
     const file = avatarFile.files[0];
     avatarFile.value = '';

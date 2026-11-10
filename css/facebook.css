@@ -435,6 +435,7 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
 
 .fb-cover {
   position: relative;
+  cursor: pointer;
   height: 232px;
   overflow: hidden;
   border-radius: 0 0 var(--fb-radius) var(--fb-radius);

@@ -16,12 +16,12 @@ function fbBrand() {
   return window.BRAND || { name: 'MetMuk', initial: 'M', tagline: '' };
 }
 
-function showToast(msg, type = '') {
+function showToast(msg, type = '', ms = 3000) {
   const t = document.createElement('div');
   t.className = `toast ${type}`;
   t.textContent = msg;
   document.body.appendChild(t);
-  setTimeout(() => t.remove(), 3000);
+  setTimeout(() => t.remove(), ms);
 }
 
 function emptyState(icon, msg) {
