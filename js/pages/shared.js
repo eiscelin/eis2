@@ -53,6 +53,11 @@ function appShell(el, user, navItems, renderContent) {
         <div class="fb-topbar-right">
           <button class="fb-icon-btn" id="fbMessages" type="button" title="Messages" aria-label="Messages">💬</button>
           <button class="fb-user-btn" id="fbUserBtn" type="button" title="My profile" aria-label="My profile">${fbAvatar(displayName, 'fb-avatar-sm')}</button>
+          <button class="fb-icon-btn fb-burger" id="fbBurger" type="button" title="Menu" aria-label="Menu">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+              <path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
         </div>
       </header>
       <div class="fb-body">
@@ -163,6 +168,9 @@ function appShell(el, user, navItems, renderContent) {
   el.querySelector('#fbMessages').addEventListener('click', () => {
     if (window.ChatWidget && window.ChatWidget.open) window.ChatWidget.open();
     else select('messages');
+  });
+  el.querySelector('#fbBurger').addEventListener('click', () => {
+    if (window.openAppMenu) window.openAppMenu({ user, onSelect: select });
   });
   el.querySelector('#railLogout').addEventListener('click', () => Auth.logout());
 
