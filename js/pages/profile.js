@@ -26,9 +26,9 @@ Pages.profileTab = function(main, user) {
             ? `<video class="fb-cover-media" src="${fbEscape(coverUrl)}" autoplay muted loop playsinline></video>`
             : `<img class="fb-cover-media" src="${fbEscape(coverUrl)}" alt="">`
           : ''}
-        <div class="fb-cover-text">${fbEscape(brand.name.toUpperCase())}</div>
-        <span class="fb-cover-badge">${fbEscape(brand.name)}</span>
-        <button class="fb-cover-edit" id="pfCoverEdit" type="button">📷 Edit cover</button>
+        ${coverUrl && isVideo(coverUrl)
+          ? `<button class="fb-cover-expand" id="pfCoverExpand" type="button" aria-label="Play the whole video with sound" title="Play the whole video with sound">⤢</button>`
+          : ''}
       </div>
 
       <div class="fb-profile-head">
@@ -156,11 +156,16 @@ Pages.profileTab = function(main, user) {
     const cover = main.querySelector('#pfCover');
     cover.classList.toggle('fb-cover--media', !!coverUrl);
     cover.querySelector('.fb-cover-media')?.remove();
+    cover.querySelector('#pfCoverExpand')?.remove();
     if (!coverUrl) return;
     const isVid = video === undefined ? isVideo(coverUrl) : video;
     cover.insertAdjacentHTML('afterbegin', isVid
       ? `<video class="fb-cover-media" src="${fbEscape(coverUrl)}" autoplay muted loop playsinline></video>`
       : `<img class="fb-cover-media" src="${fbEscape(coverUrl)}" alt="">`);
+    if (isVid) {
+      cover.insertAdjacentHTML('beforeend',
+        '<button class="fb-cover-expand" id="pfCoverExpand" type="button" aria-label="Play the whole video with sound" title="Play the whole video with sound">⤢</button>');
+    }
 
     const rect = framedRect(coverUrl);
     if (!rect) return;
@@ -421,9 +426,15 @@ Pages.profileTab = function(main, user) {
   coverFile.hidden = true;
   main.append(avatarFile, coverFile);
 
-  // The picture and the whole banner open the picker, not just the small buttons
+  // The picture and the whole banner open the picker; the expand button plays the clip instead
   main.querySelector('#pfAvatar').addEventListener('click', () => avatarFile.click());
-  main.querySelector('#pfCover').addEventListener('click', () => coverFile.click());
+  main.querySelector('#pfCover').addEventListener('click', e => {
+    if (e.target.closest('#pfCoverExpand')) {
+      fbPlayFullVideo(coverUrl);
+      return;
+    }
+    coverFile.click();
+  });
   avatarFile.addEventListener('change', () => {
     const file = avatarFile.files[0];
     avatarFile.value = '';
