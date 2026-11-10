@@ -5,7 +5,9 @@ export default function handler(req, res) {
   res.setHeader('Cache-Control', 'no-cache');
   const config = {
     SUPABASE_URL: process.env.SUPABASE_URL || '',
-    SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || ''
+    SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY || '',
+    CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME || '',
+    CLOUDINARY_UPLOAD_PRESET: process.env.CLOUDINARY_UPLOAD_PRESET || ''
   };
   res.send(`window.APP_CONFIG = ${JSON.stringify(config)};`);
 }

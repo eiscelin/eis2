@@ -95,19 +95,19 @@ Pages.feedTab = function (main, user) {
     }
   }
 
-  // Shrink the photo in the browser before saving it
-  function imageToDataUrl(file) {
+  // Shrink the photo in the browser before uploading it
+  function shrinkImage(file) {
     return new Promise((resolve, reject) => {
       const objectUrl = URL.createObjectURL(file);
       const img = new Image();
       img.onload = () => {
-        const scale = Math.min(1, 1000 / Math.max(img.width, img.height));
+        const scale = Math.min(1, 1400 / Math.max(img.width, img.height));
         const canvas = document.createElement('canvas');
         canvas.width = Math.max(1, Math.round(img.width * scale));
         canvas.height = Math.max(1, Math.round(img.height * scale));
         canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
         URL.revokeObjectURL(objectUrl);
-        resolve(canvas.toDataURL('image/jpeg', 0.78));
+        canvas.toBlob(blob => (blob ? resolve(blob) : reject(new Error('that file is not an image'))), 'image/jpeg', 0.85);
       };
       img.onerror = () => {
         URL.revokeObjectURL(objectUrl);
@@ -117,10 +117,21 @@ Pages.feedTab = function (main, user) {
     });
   }
 
+  function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error('could not read that image'));
+      reader.readAsDataURL(blob);
+    });
+  }
+
   async function addStory(file) {
     if (!sb) return showToast('Stories need a connected database', 'error');
     try {
-      const image = await imageToDataUrl(file);
+      showToast('Adding your story…');
+      const blob = await shrinkImage(file);
+      const image = cloudinaryReady ? await cloudinaryUpload(blob) : await blobToDataUrl(blob);
       const { error } = await sb.from('stories').insert([{
         user_id: user.id,
         author_name: name,

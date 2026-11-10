@@ -7,7 +7,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if self.path == '/config.js' or self.path.startswith('/config.js?'):
             config = {
                 'SUPABASE_URL': os.environ.get('SUPABASE_URL', ''),
-                'SUPABASE_ANON_KEY': os.environ.get('SUPABASE_ANON_KEY', '')
+                'SUPABASE_ANON_KEY': os.environ.get('SUPABASE_ANON_KEY', ''),
+                'CLOUDINARY_CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME', ''),
+                'CLOUDINARY_UPLOAD_PRESET': os.environ.get('CLOUDINARY_UPLOAD_PRESET', '')
             }
             self.send_response(200)
             self.send_header('Content-Type', 'application/javascript')
