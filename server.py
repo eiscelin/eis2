@@ -6,7 +6,7 @@ import urllib.request
 import urllib.parse
 import urllib.error
 
-MAX_UPLOAD_BYTES = 8 * 1024 * 1024
+MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 MAX_VIDEO_BYTES = 100 * 1024 * 1024
 
 

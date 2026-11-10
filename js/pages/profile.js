@@ -370,6 +370,7 @@ Pages.profileTab = function(main, user) {
     try {
       showToast('Updating ' + label + '…');
       if (video && file.size > 100 * 1024 * 1024) throw new Error('that video is larger than 100 MB');
+      if (!video && file.size > 20 * 1024 * 1024) throw new Error('that image is larger than 20 MB');
       let payload = file;
       if (!video && !crop) {
         // Phone photos (HEIC etc.) the browser cannot decode are uploaded as they are
