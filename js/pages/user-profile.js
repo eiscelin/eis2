@@ -60,7 +60,7 @@ Pages.userProfile = async function (el, username) {
   let person = null;
   if (sb) {
     const publicColumns = 'id, username, full_name, role, avatar_url, cover_url';
-    const overlayColumns = ', overlay_image_url, overlay_video_url, overlay_media, overlay_opacity';
+    const overlayColumns = ', overlay_image_url, overlay_video_url, overlay_media, overlay_opacity, overlay_volume';
     let { data, error } = await sb.from('users')
       .select(publicColumns + overlayColumns)
       .eq('username', username)
@@ -93,7 +93,6 @@ Pages.userProfile = async function (el, username) {
   el.innerHTML = `<div class="fb-public">
     ${bar}
     <div class="fb-profile">
-      ${ProfileOverlay.html(person)}
       <div class="fb-cover${cover ? ' fb-cover--media' : ''}" id="upCover">
         ${cover
           ? coverIsVideo
@@ -131,4 +130,5 @@ Pages.userProfile = async function (el, username) {
   const expand = el.querySelector('#upExpand');
   if (expand) expand.addEventListener('click', () => fbPlayFullVideo(cover));
   if (cover && upIsVideo(cover)) upApplyFraming(el.querySelector('#upCover'));
+  ProfileOverlay.paint(el.querySelector('.fb-profile'), person);
 };

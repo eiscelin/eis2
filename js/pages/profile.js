@@ -156,17 +156,19 @@ Pages.profileTab = function(main, user) {
         p_overlay_image_url: values.image || null,
         p_overlay_video_url: values.video || null,
         p_overlay_media: values.media,
-        p_overlay_opacity: values.opacity
+        p_overlay_opacity: values.opacity,
+        p_overlay_volume: values.volume
       });
       if (error) throw new Error(/set_profile_overlay/.test(error.message)
-        ? 'Run 006_add_profile_overlay.sql in Supabase, then try again'
+        ? 'Run 007_add_overlay_volume.sql in Supabase, then try again'
         : error.message);
 
       const saved = {
         overlay_image_url: values.image || null,
         overlay_video_url: values.video || null,
         overlay_media: values.media,
-        overlay_opacity: values.opacity
+        overlay_opacity: values.opacity,
+        overlay_volume: values.volume
       };
       Object.assign(user, saved);
       if (Auth.currentUser) {

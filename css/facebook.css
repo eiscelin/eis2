@@ -1309,6 +1309,7 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
 .overlay-show-btn:hover { background: var(--fb-hover); }
 .overlay-show-btn.active { background: var(--fb-blue); color: #fff; }
 .overlay-show-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.overlay-volume[hidden] { display: none; }
 
 @media (max-width: 520px) {
   .overlay-editor-slots { grid-template-columns: 1fr; }
