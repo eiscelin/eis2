@@ -14,5 +14,6 @@ Run each file in `migrations/` once in the Supabase dashboard (SQL Editor > New 
 3. `003_create_announcements.sql` — feed posts
 4. `004_create_stories.sql` — My Day photo stories
 5. `005_add_profile_media.sql` — profile picture + cover photo/video (and the `set_profile_media` write function)
+6. `006_add_profile_overlay.sql` — see-through image/video that floats in front of the profile page (and the `set_profile_overlay` write function)
 
 The app stays connected but featureless (no login, no posts, no chat) until these tables exist.
