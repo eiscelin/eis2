@@ -18,6 +18,15 @@ Pages.profileTab = function(main, user) {
   let coverUrl = user.cover_url || '';
   const isVideo = url => /\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i.test(String(url));
 
+  // A profile picture can be a photo or a short video
+  function avatarMedia(video) {
+    const isVid = video === undefined ? isVideo(avatarUrl) : video;
+    if (!avatarUrl) return fbEscape(initial);
+    return isVid
+      ? `<video class="fb-avatar-img" src="${fbEscape(avatarUrl)}" autoplay muted loop playsinline></video>`
+      : `<img class="fb-avatar-img" src="${fbEscape(avatarUrl)}" alt="${fbEscape(name)}">`;
+  }
+
   main.innerHTML = `
     <div class="fb-profile">
       <div class="fb-cover${coverUrl ? ' fb-cover--media' : ''}" id="pfCover">
@@ -32,9 +41,7 @@ Pages.profileTab = function(main, user) {
       </div>
 
       <div class="fb-profile-head">
-        <div class="fb-avatar fb-profile-avatar" id="pfAvatar">${avatarUrl
-          ? `<img class="fb-avatar-img" src="${fbEscape(avatarUrl)}" alt="${fbEscape(name)}">`
-          : fbEscape(initial)}<button class="fb-avatar-edit" id="pfAvatarEdit" type="button" title="Change profile picture" aria-label="Change profile picture">📷</button>
+        <div class="fb-avatar fb-profile-avatar" id="pfAvatar">${avatarMedia()}<button class="fb-avatar-edit" id="pfAvatarEdit" type="button" title="Change profile picture" aria-label="Change profile picture">📷</button>
         </div>
         <div class="fb-profile-id">
           <h1 class="fb-profile-name">${fbEscape(name)}</h1>
@@ -139,14 +146,8 @@ Pages.profileTab = function(main, user) {
   // ---------- Profile picture + cover (image or video) ----------
 
   function paintAvatar(video) {
-    const isVid = video === undefined ? isVideo(avatarUrl) : video;
-    main.querySelector('#pfAvatar').innerHTML = avatarUrl
-      ? isVid
-        ? `<video class="fb-avatar-img" src="${fbEscape(avatarUrl)}" autoplay muted loop playsinline></video>`
-        : `<img class="fb-avatar-img" src="${fbEscape(avatarUrl)}" alt="${fbEscape(name)}">`
-      : fbEscape(initial);
-    main.querySelector('#pfAvatar').insertAdjacentHTML('beforeend',
-      '<button class="fb-avatar-edit" id="pfAvatarEdit" type="button" title="Change profile picture" aria-label="Change profile picture">📷</button>');
+    main.querySelector('#pfAvatar').innerHTML = avatarMedia(video) +
+      '<button class="fb-avatar-edit" id="pfAvatarEdit" type="button" title="Change profile picture" aria-label="Change profile picture">📷</button>';
   }
 
   function paintCover(video) {
