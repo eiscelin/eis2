@@ -1,18 +1,10 @@
 // Facebook-style account page — shared "My Profile" tab for every dashboard
 var Pages = window.Pages || {};
 
-function fbEscape(value) {
-  return String(value == null ? '' : value).replace(/[&<>"']/g, c => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-  }[c]));
-}
-
 function fbRoleLabel(role) {
   return ({
     admin: 'Administrator',
-    franchisee: 'Franchisee',
-    production: 'Production team',
-    dispatch: 'Dispatch team'
+    member: 'Member'
   })[role] || role || 'Member';
 }
 
@@ -20,14 +12,14 @@ Pages.profileTab = function(main, user) {
   const name = user.full_name || user.username || 'Member';
   const initial = (name.trim()[0] || '?').toUpperCase();
   const role = fbRoleLabel(user.role);
-  const isAdmin = user.role === 'admin';
+  const brand = fbBrand();
   const canChat = !!window.fbChat;
 
   main.innerHTML = `
     <div class="fb-profile">
       <div class="fb-cover">
-        <div class="fb-cover-text">CHOOKEE INASAL</div>
-        <span class="fb-cover-badge">Franchise Central</span>
+        <div class="fb-cover-text">${fbEscape(brand.name.toUpperCase())}</div>
+        <span class="fb-cover-badge">${fbEscape(brand.name)}</span>
       </div>
 
       <div class="fb-profile-head">
@@ -59,8 +51,7 @@ Pages.profileTab = function(main, user) {
             <ul class="fb-detail-list">
               <li><span class="ico" aria-hidden="true">🏷️</span><span class="k">Role:</span> ${fbEscape(role)}</li>
               <li><span class="ico" aria-hidden="true">👤</span><span class="k">Username:</span> @${fbEscape(user.username)}</li>
-              <li><span class="ico" aria-hidden="true">📞</span><span class="k">Contact:</span> ${fbEscape(user.contact_number || '—')}</li>
-              <li><span class="ico" aria-hidden="true">🏪</span><span class="k">Brand:</span> Chookee Inasal</li>
+              <li><span class="ico" aria-hidden="true">🌐</span><span class="k">App:</span> ${fbEscape(brand.name)}</li>
             </ul>
           </section>
 
@@ -82,12 +73,11 @@ Pages.profileTab = function(main, user) {
 
           <section class="fb-card" data-section="posts" id="pfPosts">
             <div class="fb-card-head"><h3>Posts</h3></div>
-            ${isAdmin ? `
-              <div class="fb-composer">
-                <span class="fb-avatar fb-avatar-sm">${fbEscape(initial)}</span>
-                <input id="pfComposerInput" type="text" placeholder="What's on your mind?">
-                <button id="pfComposerPost" type="button">Post</button>
-              </div>` : ''}
+            <div class="fb-composer">
+              <span class="fb-avatar fb-avatar-sm">${fbEscape(initial)}</span>
+              <input id="pfComposerInput" type="text" placeholder="What's on your mind?">
+              <button id="pfComposerPost" type="button">Post</button>
+            </div>
             <div id="pfFeed">
               <div class="loading" style="padding:1rem;">Loading…</div>
             </div>
@@ -206,18 +196,17 @@ Pages.profileTab = function(main, user) {
         ? posts.map(p => `
           <article class="fb-post">
             <div class="fb-post-head">
-              <span class="fb-avatar">C</span>
+              <span class="fb-avatar">${fbEscape(brand.initial)}</span>
               <div>
-                <div class="fb-post-name">Chookee Inasal</div>
+                <div class="fb-post-name">${fbEscape(brand.name)}</div>
                 <div class="fb-post-time">${fbEscape(fmtDate(p.date || p.created_at))} · 🌐</div>
               </div>
             </div>
             <div class="fb-post-body">
               ${p.priority === 'high' ? '<span class="fb-post-tag">IMPORTANT</span>' : ''}
-              <strong>${fbEscape(p.title || 'Announcement')}</strong>
+              <strong>${fbEscape(p.title || 'Post')}</strong>
               ${fbEscape(p.content || '')}
             </div>
-            <div class="fb-post-actions"><span>👍 Like</span><span>💬 Comment</span><span>↗ Share</span></div>
           </article>`).join('')
         : '<div class="empty-state" style="padding:1.5rem;">No posts yet.</div>';
     } catch {

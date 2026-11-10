@@ -1,68 +1,70 @@
-// Landing page — Chookee Inasal presented as a Facebook-style account page
+// Landing page — the social app presented as a Facebook-style account page
 var Pages = window.Pages || {};
 
 Pages.landing = function(el) {
+  const brand = fbBrand();
+
   el.innerHTML = `
     <div class="landing fb-account">
       <header class="fb-topbar">
         <div class="fb-topbar-left">
-          <span class="fb-logo" aria-hidden="true">🐔</span>
-          <span class="fb-brand-name">Chookee Inasal</span>
+          <span class="fb-logo" aria-hidden="true">${fbEscape(brand.initial)}</span>
+          <span class="fb-brand-name">${fbEscape(brand.name)}</span>
         </div>
         <div class="fb-topbar-right">
           <a class="fb-icon-btn" href="#/Register" title="Create account" aria-label="Create account">＋</a>
-          <a class="fb-icon-btn" href="#/MemberLogin" title="Log in" aria-label="Log in">👤</a>
+          <a class="fb-icon-btn" href="#/Login" title="Log in" aria-label="Log in">👤</a>
         </div>
       </header>
 
       <div class="fb-profile landing-profile">
         <div class="fb-cover">
-          <div class="fb-cover-text">CHOOKEE INASAL</div>
-          <span class="fb-cover-badge">Franchise Central</span>
+          <div class="fb-cover-text">${fbEscape(brand.name.toUpperCase())}</div>
+          <span class="fb-cover-badge">Social network</span>
         </div>
 
         <div class="fb-profile-head">
-          <div class="fb-avatar fb-profile-avatar" aria-hidden="true">🐔</div>
+          <div class="fb-avatar fb-profile-avatar" aria-hidden="true">${fbEscape(brand.initial)}</div>
           <div class="fb-profile-id">
-            <h1 class="fb-profile-name">Chookee Inasal</h1>
-            <div class="fb-profile-meta">Central Franchise System · 24 active branches</div>
+            <h1 class="fb-profile-name">${fbEscape(brand.name)}</h1>
+            <div class="fb-profile-meta">Public · Share posts, meet friends, chat instantly</div>
           </div>
           <div class="fb-profile-actions">
-            <a class="fb-btn fb-btn-primary" href="#/Register">＋ Get Started</a>
-            <a class="fb-btn fb-btn-secondary" href="#/MemberLogin">Log In to Portal</a>
+            <a class="fb-btn fb-btn-primary" href="#/Register">＋ Join now</a>
+            <a class="fb-btn fb-btn-secondary" href="#/Login">Log in</a>
           </div>
         </div>
 
         <nav class="fb-profile-tabs" aria-label="Sections">
           <button class="fb-profile-tab active" type="button" data-ltab="all">All</button>
-          <button class="fb-profile-tab" type="button" data-ltab="about">Intro</button>
-          <button class="fb-profile-tab" type="button" data-ltab="stats">Stats</button>
+          <button class="fb-profile-tab" type="button" data-ltab="about">About</button>
+          <button class="fb-profile-tab" type="button" data-ltab="stats">Community</button>
           <button class="fb-profile-tab" type="button" data-ltab="features">Features</button>
-          <button class="fb-profile-tab" type="button" data-ltab="portals">Portals</button>
+          <button class="fb-profile-tab" type="button" data-ltab="join">Join</button>
         </nav>
 
         <div class="fb-profile-cols">
           <div class="fb-col">
             <section class="fb-card" data-lsection="about">
-              <div class="fb-card-head"><h3>Intro</h3></div>
+              <div class="fb-card-head"><h3>About</h3></div>
               <ul class="fb-detail-list">
-                <li><span class="ico" aria-hidden="true">🔥</span>Central Franchise System</li>
-                <li><span class="ico" aria-hidden="true">🏪</span>24 active branches</li>
-                <li><span class="ico" aria-hidden="true">📦</span>1,800+ orders processed</li>
-                <li><span class="ico" aria-hidden="true">📊</span>₱4.2M monthly sales</li>
+                <li><span class="ico" aria-hidden="true">🌐</span>Public social network</li>
+                <li><span class="ico" aria-hidden="true">📝</span>Share posts with friends</li>
+                <li><span class="ico" aria-hidden="true">👥</span>Meet new people</li>
+                <li><span class="ico" aria-hidden="true">💬</span>Chat instantly</li>
               </ul>
               <div class="fb-intro-cta">
-                <a class="fb-btn fb-btn-primary" href="#/Register">Get Started →</a>
+                <a class="fb-btn fb-btn-primary" href="#/Register">Join ${fbEscape(brand.name)}</a>
               </div>
             </section>
 
             <section class="fb-card" data-lsection="stats">
-              <div class="fb-card-head"><h3>Network at a glance</h3></div>
+              <div class="fb-card-head"><h3>Community at a glance</h3></div>
               <div class="dash-stats fb-stats-compact">
-                <div class="dash-stat-card"><div class="label">Active Branches</div><div class="value accent">24</div></div>
-                <div class="dash-stat-card"><div class="label">Orders Processed</div><div class="value">1,800+</div></div>
-                <div class="dash-stat-card"><div class="label">Monthly Sales</div><div class="value">₱4.2M</div></div>
-                <div class="dash-stat-card"><div class="label">Royalty Collected</div><div class="value">₱210K</div></div>
+                <div class="dash-stat-card"><div class="label">Members</div><div class="value accent">1,200+</div></div>
+                <div class="dash-stat-card"><div class="label">Posts shared</div><div class="value">8,400+</div></div>
+                <div class="dash-stat-card"><div class="label">Messages sent</div><div class="value">24K</div></div>
+                <div class="dash-stat-card"><div class="label">Active today</div><div class="value">310</div></div>
               </div>
             </section>
           </div>
@@ -70,70 +72,62 @@ Pages.landing = function(el) {
           <div class="fb-col">
             <section class="fb-card fb-post-card">
               <div class="fb-post-head">
-                <span class="fb-avatar">C</span>
+                <span class="fb-avatar">${fbEscape(brand.initial)}</span>
                 <div>
-                  <div class="fb-post-name">Chookee Inasal</div>
-                  <div class="fb-post-time">Sponsored · 🌐</div>
+                  <div class="fb-post-name">${fbEscape(brand.name)}</div>
+                  <div class="fb-post-time">Public · 🌐</div>
                 </div>
               </div>
               <div class="fb-post-body">
-                <span class="fb-post-tag">🔥 Central Franchise System</span>
-                <strong>Manage Every Chookee Inasal Branch</strong>
-                One centralized platform for franchise onboarding, supply ordering, production tracking, and daily operations monitoring — from the main office to every franchisee.
+                <span class="fb-post-tag">🌐 Now open to everyone</span>
+                <strong>Share your moments with friends</strong>
+                ${fbEscape(brand.tagline)} Post updates, meet new people, and keep every conversation in one place.
               </div>
             </section>
 
             <section class="fb-card" data-lsection="features">
               <div class="fb-card-head">
-                <h3>Everything in One System</h3>
+                <h3>Everything in One App</h3>
               </div>
               <div class="fb-feature-list">
                 <div class="fb-feature">
-                  <span class="fb-feature-icon" aria-hidden="true">🏪</span>
+                  <span class="fb-feature-icon" aria-hidden="true">📝</span>
                   <div class="fb-feature-text">
-                    <h4>Franchise Management</h4>
-                    <p>Onboard and monitor every franchisee from contract signing to daily operations.</p>
+                    <h4>Share posts</h4>
+                    <p>Post what's on your mind and see everything your friends are sharing.</p>
                   </div>
                 </div>
                 <div class="fb-feature">
-                  <span class="fb-feature-icon" aria-hidden="true">📦</span>
+                  <span class="fb-feature-icon" aria-hidden="true">👥</span>
                   <div class="fb-feature-text">
-                    <h4>Supply Ordering</h4>
-                    <p>Franchisees order products online with auto-generated order numbers and live tracking.</p>
+                    <h4>Find friends</h4>
+                    <p>Browse the community directory and start a conversation with one tap.</p>
                   </div>
                 </div>
                 <div class="fb-feature">
-                  <span class="fb-feature-icon" aria-hidden="true">📊</span>
+                  <span class="fb-feature-icon" aria-hidden="true">💬</span>
                   <div class="fb-feature-text">
-                    <h4>Sales &amp; Royalty Monitoring</h4>
-                    <p>Track daily and monthly sales, royalty fees, and outstanding balances across all branches.</p>
+                    <h4>Instant messages</h4>
+                    <p>A Messenger-style chat that follows you across every page.</p>
                   </div>
                 </div>
                 <div class="fb-feature">
-                  <span class="fb-feature-icon" aria-hidden="true">🚚</span>
+                  <span class="fb-feature-icon" aria-hidden="true">👤</span>
                   <div class="fb-feature-text">
-                    <h4>Production &amp; Order Tracking</h4>
-                    <p>Main office processes and ships supply orders with full status visibility.</p>
+                    <h4>Your profile</h4>
+                    <p>A personal page with your posts, friends and details.</p>
                   </div>
                 </div>
               </div>
             </section>
 
-            <section class="fb-card" data-lsection="portals">
-              <div class="fb-card-head"><h3>Ready to Grow Your Franchise?</h3></div>
+            <section class="fb-card" data-lsection="join">
+              <div class="fb-card-head"><h3>Join ${fbEscape(brand.name)}</h3></div>
               <div class="fb-portal-body">
-                <p>Join the Chookee Inasal network and manage your branch operations from a single powerful dashboard.</p>
+                <p>All you need is a username and a password — no email, no forms.</p>
                 <div class="fb-profile-actions">
-                  <a class="fb-btn fb-btn-primary" href="#/Register">Create Account</a>
-                  <a class="fb-btn fb-btn-secondary" href="#/MemberLogin">Already a Franchisee?</a>
-                </div>
-              </div>
-              <div class="fb-portal-split">
-                <h3>Production Team Portal</h3>
-                <p>Production staff have a dedicated dashboard for daily consolidated production and inventory monitoring.</p>
-                <div class="fb-profile-actions">
-                  <a class="fb-btn fb-btn-primary" href="#/ProductionRegister">Production Sign Up</a>
-                  <a class="fb-btn fb-btn-secondary" href="#/ProductionLogin">Production Log In</a>
+                  <a class="fb-btn fb-btn-primary" href="#/Register">Create account</a>
+                  <a class="fb-btn fb-btn-secondary" href="#/Login">Already a member?</a>
                 </div>
               </div>
             </section>
@@ -143,15 +137,15 @@ Pages.landing = function(el) {
 
       <nav class="fb-bottom-nav" aria-label="Sections">
         <button class="fb-bottom-item active" type="button" data-ltab-go="all"><span class="ico" aria-hidden="true">🏠</span><span>Home</span></button>
-        <button class="fb-bottom-item" type="button" data-ltab-go="about"><span class="ico" aria-hidden="true">ℹ️</span><span>Intro</span></button>
+        <button class="fb-bottom-item" type="button" data-ltab-go="about"><span class="ico" aria-hidden="true">ℹ️</span><span>About</span></button>
         <button class="fb-bottom-item" type="button" data-ltab-go="features"><span class="ico" aria-hidden="true">📊</span><span>Features</span></button>
-        <button class="fb-bottom-item" type="button" data-ltab-go="portals"><span class="ico" aria-hidden="true">🏪</span><span>Portals</span></button>
-        <a class="fb-bottom-item" href="#/MemberLogin"><span class="ico" aria-hidden="true">👤</span><span>Log In</span></a>
+        <button class="fb-bottom-item" type="button" data-ltab-go="join"><span class="ico" aria-hidden="true">＋</span><span>Join</span></button>
+        <a class="fb-bottom-item" href="#/Login"><span class="ico" aria-hidden="true">👤</span><span>Log in</span></a>
       </nav>
     </div>
   `;
 
-  const sectionMap = { all: null, about: ['about'], stats: ['stats'], features: ['features'], portals: ['portals'] };
+  const sectionMap = { all: null, about: ['about'], stats: ['stats'], features: ['features'], join: ['join'] };
 
   function showTab(tab) {
     el.querySelectorAll('[data-lsection]').forEach(section => {

@@ -477,6 +477,30 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
 .fb-post-actions { display: flex; gap: 0.25rem; border-top: 1px solid var(--fb-line); padding: 0.3rem 0; }
 .fb-post-actions span { flex: 1; text-align: center; padding: 0.4rem; border-radius: 8px; color: var(--fb-muted); font-size: 0.87rem; font-weight: 600; }
 
+/* ===================== Social feed & people ===================== */
+.fb-feed { max-width: 680px; margin: 0 auto; display: flex; flex-direction: column; gap: 0.75rem; }
+.fb-composer-card { padding: 0.9rem 1rem 0.8rem; }
+.fb-composer-card .fb-composer { padding: 0; }
+.fb-composer-foot { display: flex; justify-content: flex-end; margin-top: 0.55rem; }
+.fb-composer-foot .fb-btn { padding: 0.45rem 1.1rem; }
+.fb-feed .fb-post { border-top: none; padding: 0.85rem 1rem 1rem; }
+.fb-feed .fb-post .fb-post-head { padding: 0; }
+
+.fb-person-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 1rem; }
+.fb-person-row + .fb-person-row { border-top: 1px solid var(--fb-line-soft); }
+.fb-person-info { flex: 1; min-width: 0; }
+.fb-person-info .name {
+  font-weight: 600; font-size: 0.95rem; color: var(--fb-text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.fb-person-info .meta { font-size: 0.78rem; color: var(--fb-muted); }
+.fb-person-row .fb-btn { padding: 0.4rem 0.9rem; font-size: 0.83rem; }
+
+@media (max-width: 900px) {
+  .fb-feed { max-width: none; }
+  .fb-person-row { padding: 0.55rem 0.75rem; }
+}
+
 .fb-flash { animation: fbFlash 1.4s ease; }
 @keyframes fbFlash {
   0%, 100% { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); }

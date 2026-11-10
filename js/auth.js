@@ -49,9 +49,5 @@ const Auth = {
   },
 
   isLoggedIn() { return !!this.currentUser; },
-  isAdmin() { return this.currentUser?.role === 'admin'; },
-  isFranchisee() { return this.currentUser?.role === 'franchisee'; },
-  isProduction() { return this.currentUser?.role === 'production'; },
-  isDispatch() { return this.currentUser?.role === 'dispatch'; },
   getRole() { return this.currentUser?.role; }
 };
