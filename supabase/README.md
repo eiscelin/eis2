@@ -12,5 +12,6 @@ Run each file in `migrations/` once in the Supabase dashboard (SQL Editor > New 
 1. `001_create_chat_messages.sql` — direct messages
 2. `002_create_users.sql` — accounts used by the username/password login
 3. `003_create_announcements.sql` — feed posts
+4. `004_create_stories.sql` — My Day photo stories
 
 The app stays connected but featureless (no login, no posts, no chat) until these tables exist.

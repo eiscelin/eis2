@@ -511,21 +511,25 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
   scroll-snap-align: start;
 }
 
-/* Member story: full-bleed cover, ringed avatar top-left, name at the bottom */
+/* Member story: uploaded photo cover, ringed avatar top-left, name at the bottom */
 .fb-story-media {
   position: absolute;
   inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
   transition: filter 0.15s ease;
 }
-.fb-story-media::after {
+.fb-story-open::after {
   content: '';
   position: absolute;
   inset: 0;
+  pointer-events: none;
   background: linear-gradient(180deg, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0) 34%, rgba(0, 0, 0, 0.08) 58%, rgba(0, 0, 0, 0.78) 100%);
 }
-.fb-story:hover .fb-story-media { filter: brightness(1.12); }
+.fb-story-open:hover .fb-story-media { filter: brightness(1.08); }
 
-.fb-story-badge { position: absolute; top: 0.4rem; left: 0.4rem; display: flex; }
+.fb-story-badge { position: absolute; top: 0.4rem; left: 0.4rem; display: flex; z-index: 1; }
 .fb-story .fb-story-badge-avatar {
   width: 34px; height: 34px;
   font-size: 0.82rem;
@@ -536,6 +540,7 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
 .fb-story-name {
   position: absolute;
   left: 0.5rem; right: 0.5rem; bottom: 0.45rem;
+  z-index: 1;
   color: #fff;
   font-size: 0.78rem; font-weight: 700; line-height: 1.25;
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
@@ -585,6 +590,92 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
   background: var(--fb-card);
 }
 
+/* Fullscreen story player */
+.fb-story-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.92);
+}
+.fb-story-frame {
+  position: relative;
+  width: min(420px, 100%);
+  height: min(88vh, 760px);
+  border-radius: 14px;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.6);
+}
+.fb-story-full {
+  position: absolute;
+  inset: 0;
+  width: 100%; height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+/* keep the name and progress bars readable over bright photos */
+.fb-story-frame::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 130px;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0));
+}
+
+.fb-story-bars {
+  position: absolute;
+  top: 0.55rem; left: 0.6rem; right: 0.6rem;
+  z-index: 3;
+  display: flex;
+  gap: 0.25rem;
+}
+.fb-story-bar {
+  flex: 1;
+  height: 3px;
+  border-radius: 2px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.35);
+}
+.fb-story-bar i { display: block; height: 100%; width: 0; background: #fff; }
+.fb-story-bar.filled i { width: 100%; }
+@keyframes fbStoryFill { from { width: 0; } to { width: 100%; } }
+
+.fb-story-head {
+  position: absolute;
+  top: 1.15rem; left: 0.7rem; right: 0.7rem;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+.fb-story-head-text { flex: 1; min-width: 0; }
+.fb-story-head-name {
+  font-size: 0.9rem; font-weight: 700; line-height: 1.2;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.fb-story-head-time { font-size: 0.74rem; opacity: 0.85; }
+.fb-story-close {
+  width: 32px; height: 32px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  font-size: 0.9rem;
+}
+.fb-story-close:hover { background: rgba(255, 255, 255, 0.16); }
+
+.fb-story-zone { position: absolute; top: 3.2rem; bottom: 0; width: 50%; z-index: 2; background: transparent; }
+.fb-story-zone-prev { left: 0; }
+.fb-story-zone-next { right: 0; }
+
 .fb-person-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 1rem; }
 .fb-person-row + .fb-person-row { border-top: 1px solid var(--fb-line-soft); }
 .fb-person-info { flex: 1; min-width: 0; }
@@ -605,6 +696,15 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
   .fb-story .fb-story-badge-avatar { width: 32px; height: 32px; font-size: 0.78rem; }
   .fb-story .fb-story-thumb-pic { width: 68px; height: 68px; font-size: 1.7rem; }
   .fb-story-name { font-size: 0.75rem; }
+
+  /* Story player takes the whole screen on phones */
+  .fb-story-viewer { padding: 0; }
+  .fb-story-frame {
+    width: 100%; height: 100%;
+    border-radius: 0;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }
 
 .fb-flash { animation: fbFlash 1.4s ease; }
