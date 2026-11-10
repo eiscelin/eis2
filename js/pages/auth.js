@@ -8,7 +8,7 @@ function authShell(el, opts) {
       ${opts.backLink ? `<a class="auth-back" href="#${opts.backLink}">← ${opts.backText}</a>` : ''}
       <div class="auth-card">
         <div class="auth-header">
-          <div class="logo">${fbEscape(brand.initial)}</div>
+          <div class="logo">${fbBrandMark()}</div>
           <h2>${opts.title}</h2>
           <p>${opts.subtitle}</p>
         </div>

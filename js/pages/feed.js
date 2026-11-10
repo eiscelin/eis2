@@ -32,7 +32,7 @@ Pages.feedTab = function (main, user) {
       ? shown.map(p => `
         <article class="fb-card fb-post">
           <div class="fb-post-head">
-            <span class="fb-avatar">${fbEscape(brand.initial)}</span>
+            ${fbBrandAvatar()}
             <div>
               <div class="fb-post-name">${fbEscape(brand.name)}</div>
               <div class="fb-post-time">${fbEscape(fmtDate(p.date || p.created_at))} · 🌐</div>

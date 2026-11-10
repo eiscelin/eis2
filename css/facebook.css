@@ -64,16 +64,16 @@ body {
 
 .fb-logo {
   width: 40px; height: 40px; flex-shrink: 0;
-  border-radius: 50%;
-  background: var(--fb-blue);
-  color: #fff;
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 1.85rem; font-weight: 700; line-height: 1;
+  background: transparent;
   display: flex; align-items: center; justify-content: center;
-  padding-bottom: 0.22rem;
+  padding: 0;
   border: none;
 }
-.fb-logo:hover { background: var(--fb-blue-hover); }
+.fb-logo:hover { filter: brightness(1.09); }
+
+/* App logo — 3D squircle "m" mark (see assets/logo.svg) */
+.brand-logo { display: block; width: 100%; height: 100%; }
+.fb-avatar.brand-avatar { background: transparent; border-radius: 28%; padding: 0; }
 
 .fb-search {
   display: flex; align-items: center; gap: 0.5rem;
@@ -511,7 +511,7 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
 .auth-page { background: var(--fb-bg); }
 .auth-card { background: var(--fb-card); box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45); }
 .auth-header, .auth-header.production { background: var(--fb-blue); }
-.auth-header .logo { background: #fff; color: var(--fb-blue); border-radius: 50%; }
+.auth-header .logo { background: transparent; border-radius: 0; padding: 0; }
 .auth-body h3 { color: var(--fb-text); }
 .auth-footer, .auth-footer a { color: var(--fb-muted); }
 .auth-footer a { color: var(--fb-blue-hover); }

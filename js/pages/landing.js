@@ -8,7 +8,7 @@ Pages.landing = function(el) {
     <div class="landing fb-account">
       <header class="fb-topbar">
         <div class="fb-topbar-left">
-          <span class="fb-logo" aria-hidden="true">${fbEscape(brand.initial)}</span>
+          <span class="fb-logo" aria-hidden="true">${fbBrandMark()}</span>
           <span class="fb-brand-name">${fbEscape(brand.name)}</span>
         </div>
         <div class="fb-topbar-right">
@@ -24,7 +24,7 @@ Pages.landing = function(el) {
         </div>
 
         <div class="fb-profile-head">
-          <div class="fb-avatar fb-profile-avatar" aria-hidden="true">${fbEscape(brand.initial)}</div>
+          ${fbBrandAvatar('fb-profile-avatar')}
           <div class="fb-profile-id">
             <h1 class="fb-profile-name">${fbEscape(brand.name)}</h1>
             <div class="fb-profile-meta">Public · Share posts, meet friends, chat instantly</div>
@@ -72,7 +72,7 @@ Pages.landing = function(el) {
           <div class="fb-col">
             <section class="fb-card fb-post-card">
               <div class="fb-post-head">
-                <span class="fb-avatar">${fbEscape(brand.initial)}</span>
+                ${fbBrandAvatar()}
                 <div>
                   <div class="fb-post-name">${fbEscape(brand.name)}</div>
                   <div class="fb-post-time">Public · 🌐</div>

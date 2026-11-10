@@ -16,6 +16,17 @@ function fbBrand() {
   return window.BRAND || { name: 'MetMuk', initial: 'M', tagline: '' };
 }
 
+// App logo — the 3D blue "m" mark, used wherever the app signs its own name
+const BRAND_LOGO_SRC = '/assets/logo.svg';
+
+function fbBrandMark() {
+  return `<img class="brand-logo" src="${BRAND_LOGO_SRC}" alt="">`;
+}
+
+function fbBrandAvatar(cls) {
+  return `<span class="fb-avatar brand-avatar ${cls || ''}" aria-hidden="true">${fbBrandMark()}</span>`;
+}
+
 function showToast(msg, type = '') {
   const t = document.createElement('div');
   t.className = `toast ${type}`;
@@ -43,7 +54,7 @@ function appShell(el, user, navItems, renderContent) {
     <div class="fb-shell">
       <header class="fb-topbar">
         <div class="fb-topbar-left">
-          <button class="fb-logo" id="fbLogo" type="button" title="${brand.name}" aria-label="${brand.name}">${brand.initial}</button>
+          <button class="fb-logo" id="fbLogo" type="button" title="${brand.name}" aria-label="${brand.name}">${fbBrandMark()}</button>
           <label class="fb-search">
             <span aria-hidden="true">🔍</span>
             <input id="fbSearch" type="search" placeholder="Search ${brand.name}" aria-label="Search ${brand.name}">
