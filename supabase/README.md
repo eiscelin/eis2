@@ -1,0 +1,16 @@
+# Supabase setup
+
+The app talks to Supabase directly from the browser using the anon key served at `/config.js`.
+
+## Credentials
+- Sandbox/preview: `SUPABASE_URL` and `SUPABASE_ANON_KEY` are app secrets (Dashboard > Secrets) and are read by `server.py` when it serves `/config.js`.
+- Vercel: set the same two variables in Project Settings > Environment Variables (`api/config.js` serves them).
+
+## Tables
+Run each file in `migrations/` once in the Supabase dashboard (SQL Editor > New query):
+
+1. `001_create_chat_messages.sql` — direct messages
+2. `002_create_users.sql` — accounts used by the username/password login
+3. `003_create_announcements.sql` — feed posts
+
+The app stays connected but featureless (no login, no posts, no chat) until these tables exist.

@@ -141,6 +141,21 @@ window.ChatWidget = function(container, currentUser) {
   sendBtn.addEventListener('click', sendMessage);
   input.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
 
+  // Public hook so the top bar can open the message list
+  window.ChatWidget.open = () => {
+    panel.style.display = 'flex';
+    loadUsers();
+  };
+
+  // Public hook so other pages (e.g. the profile friends list) can open a conversation
+  window.ChatWidget.openWith = async (uid) => {
+    if (!uid) return;
+    panel.style.display = 'flex';
+    await loadUsers();
+    const target = users.find(u => String(u.id) === String(uid));
+    if (target) openConversation(target);
+  };
+
   function startPolling() { stopPolling(); pollTimer = setInterval(loadMessages, 3000); }
   function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
   function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }

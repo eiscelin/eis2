@@ -12,23 +12,17 @@ const Router = {
 
   get path() {
     const hash = location.hash.replace(/^#/, '');
-    if (hash) return hash;
-    // Map path-based routes (e.g. /admin → /AdminDashboard)
-    if (location.pathname === '/admin') return '/AdminDashboard';
-    return '/';
+    return hash || '/';
   },
 
   async handle() {
     const path = this.path;
     const app = document.getElementById('app');
 
-    // Auth guard for dashboard routes
-    const protectedRoutes = ['/Dashboard', '/ProductionDashboard', '/DispatchDashboard', '/AdminDashboard'];
-    if (protectedRoutes.includes(path)) {
-      if (!Auth.isLoggedIn()) {
-        location.hash = '#/MemberLogin';
-        return;
-      }
+    // The social app needs an account
+    if (path === '/App' && !Auth.isLoggedIn()) {
+      location.hash = '#/Login';
+      return;
     }
 
     const handler = this.routes[path] || this.routes['/404'];
