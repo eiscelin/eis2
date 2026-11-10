@@ -11,13 +11,16 @@ CREATE TABLE IF NOT EXISTS public.chat_messages (
 
 ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "chat_select" ON public.chat_messages
+DROP POLICY IF EXISTS "chat_select" ON public.chat_messages;
+CREATE POLICY "chat_select" ON public.chat_messages
   FOR SELECT USING (true);
 
-CREATE POLICY IF NOT EXISTS "chat_insert" ON public.chat_messages
+DROP POLICY IF EXISTS "chat_insert" ON public.chat_messages;
+CREATE POLICY "chat_insert" ON public.chat_messages
   FOR INSERT WITH CHECK (true);
 
-CREATE POLICY IF NOT EXISTS "chat_delete" ON public.chat_messages
+DROP POLICY IF EXISTS "chat_delete" ON public.chat_messages;
+CREATE POLICY "chat_delete" ON public.chat_messages
   FOR DELETE USING (true);
 
 CREATE INDEX IF NOT EXISTS idx_chat_receiver ON public.chat_messages(receiver_id);
