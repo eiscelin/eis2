@@ -226,9 +226,12 @@ Pages.profileTab = function(main, user) {
       source.autoplay = true;
     }
     const decoded = await new Promise(resolve => {
-      if (video) source.onloadedmetadata = () => resolve(true);
-      else source.onload = () => resolve(true);
-      source.onerror = () => resolve(false);
+      // a clip this browser cannot preview still uploads, just without framing
+      const timer = setTimeout(() => resolve(false), 6000);
+      const settle = ok => { clearTimeout(timer); resolve(ok); };
+      if (video) source.onloadedmetadata = () => settle(true);
+      else source.onload = () => settle(true);
+      source.onerror = () => settle(false);
       source.src = src;
       if (video) source.play().catch(() => {});
     });

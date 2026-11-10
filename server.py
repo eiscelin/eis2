@@ -3,6 +3,7 @@ import os
 import json
 import uuid
 import urllib.request
+import urllib.parse
 import urllib.error
 
 MAX_UPLOAD_BYTES = 8 * 1024 * 1024
@@ -13,14 +14,22 @@ def is_video(content_type):
     return (content_type or '').startswith('video/')
 
 
-def cloudinary_upload(data, content_type):
+def safe_filename(name, content_type):
+    """Keep the original name so Cloudinary knows the real video format."""
+    default = 'upload.mp4' if is_video(content_type) else 'upload.jpg'
+    name = os.path.basename(urllib.parse.unquote(name or '').strip())
+    name = ''.join(c for c in name if c.isalnum() or c in '._-')
+    return name if name and '.' in name else default
+
+
+def cloudinary_upload(data, content_type, filename=None):
     """Forward a photo or video to Cloudinary; the preset stays on the server, never in the browser."""
     cloud = os.environ.get('CLOUDINARY_CLOUD_NAME', '')
     preset = os.environ.get('CLOUDINARY_UPLOAD_PRESET', '')
     if not cloud or not preset:
         return None
     kind = 'video' if is_video(content_type) else 'image'
-    filename = 'upload.mp4' if kind == 'video' else 'upload.jpg'
+    filename = safe_filename(filename, content_type)
     boundary = 'base44' + uuid.uuid4().hex
     body = b''.join([
         f'--{boundary}\r\nContent-Disposition: form-data; name="upload_preset"\r\n\r\n{preset}\r\n'.encode(),
@@ -33,7 +42,7 @@ def cloudinary_upload(data, content_type):
         data=body,
         headers={'Content-Type': f'multipart/form-data; boundary={boundary}'}
     )
-    with urllib.request.urlopen(req, timeout=45) as res:
+    with urllib.request.urlopen(req, timeout=120 if kind == 'video' else 60) as res:
         return json.loads(res.read().decode()).get('secure_url')
 
 
@@ -56,7 +65,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self.send_json(413, {'error': 'File must be smaller than %d MB' % (limit // (1024 * 1024))})
         data = self.rfile.read(length)
         try:
-            url = cloudinary_upload(data, content_type)
+            url = cloudinary_upload(data, content_type, self.headers.get('X-File-Name') or '')
         except urllib.error.HTTPError as e:
             message = 'Cloudinary upload failed'
             try:
@@ -74,7 +83,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if self.path == '/config.js' or self.path.startswith('/config.js?'):
             config = {
                 'SUPABASE_URL': os.environ.get('SUPABASE_URL', ''),
-                'SUPABASE_ANON_KEY': os.environ.get('SUPABASE_ANON_KEY', '')
+                'SUPABASE_ANON_KEY': os.environ.get('SUPABASE_ANON_KEY', ''),
+                # Unsigned upload preset: public by design, so the browser can upload directly
+                'CLOUDINARY_CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME', ''),
+                'CLOUDINARY_UPLOAD_PRESET': os.environ.get('CLOUDINARY_UPLOAD_PRESET', '')
             }
             self.send_response(200)
             self.send_header('Content-Type', 'application/javascript')

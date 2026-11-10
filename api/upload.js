@@ -23,9 +23,14 @@ export default async function handler(req, res) {
 
   const type = req.headers['content-type'] || 'image/jpeg';
   const kind = type.startsWith('video/') ? 'video' : 'image';
+  let name = kind === 'video' ? 'upload.mp4' : 'upload.jpg';
+  try {
+    const sent = decodeURIComponent(req.headers['x-file-name'] || '');
+    if (sent && sent.indexOf('.') > -1) name = sent.replace(/[^\w.-]/g, '');
+  } catch (e) { /* keep the default name */ }
   const form = new FormData();
   form.append('upload_preset', preset);
-  form.append('file', new Blob([photo], { type }), kind === 'video' ? 'upload.mp4' : 'upload.jpg');
+  form.append('file', new Blob([photo], { type }), name);
   const upstream = await fetch(`https://api.cloudinary.com/v1_1/${cloud}/${kind}/upload`, {
     method: 'POST',
     body: form
