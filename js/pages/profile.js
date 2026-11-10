@@ -162,7 +162,129 @@ Pages.profileTab = function(main, user) {
       : `<img class="fb-cover-media" src="${fbEscape(coverUrl)}" alt="">`);
   }
 
-  async function saveMedia(kind, file) {
+  // Cloudinary crops the photo down to exactly what the owner framed
+  function cloudinaryCrop(url, rect) {
+    const transform = `c_crop,w_${Math.round(rect.w)},h_${Math.round(rect.h)},x_${Math.round(rect.x)},y_${Math.round(rect.y)}`;
+    return String(url).replace('image/upload/', 'image/upload/' + transform + '/');
+  }
+
+  // Drag the photo to choose what shows and zoom to resize it
+  async function openCoverEditor(file) {
+    let blob = file;
+    try { blob = await shrinkImage(file, 2400); } catch { /* formats the browser cannot decode (HEIC) go up as they are */ }
+    const src = URL.createObjectURL(blob);
+
+    const source = new Image();
+    const decoded = await new Promise(resolve => {
+      source.onload = () => resolve(true);
+      source.onerror = () => resolve(false);
+      source.src = src;
+    });
+    if (!decoded) {
+      URL.revokeObjectURL(src);
+      return { blob: file };
+    }
+
+    const coverBox = main.querySelector('#pfCover');
+    const ratio = (coverBox && coverBox.clientHeight) ? coverBox.clientWidth / coverBox.clientHeight : 3.1;
+    const available = Math.min(((coverBox && coverBox.clientWidth) || 620), window.innerWidth - 64);
+    const width = Math.max(240, Math.min(620, Math.round(available)));
+    const height = Math.round(width / (ratio || 3.1));
+    const base = Math.max(width / source.naturalWidth, height / source.naturalHeight);
+    const zoomMax = 3;
+
+    let zoom = 1;
+    let dx = 0;
+    let dy = 0;
+    const size = () => ({ w: source.naturalWidth * base * zoom, h: source.naturalHeight * base * zoom });
+
+    const overlay = document.createElement('div');
+    overlay.className = 'cover-editor';
+    overlay.innerHTML = `
+      <div class="cover-editor-box">
+        <h3>Position your cover</h3>
+        <div class="cover-editor-frame" id="ceFrame" style="width:${width}px;height:${height}px">
+          <img id="ceImg" src="${src}" alt="">
+        </div>
+        <div class="cover-editor-controls">
+          <span aria-hidden="true">−</span>
+          <input id="ceZoom" type="range" min="1" max="${zoomMax}" step="0.01" value="1" aria-label="Zoom cover photo">
+          <span aria-hidden="true">+</span>
+        </div>
+        <p class="cover-editor-hint">Drag the photo to choose what shows, and zoom to resize it.</p>
+        <div class="cover-editor-actions">
+          <button class="fb-btn fb-btn-secondary" id="ceCancel" type="button">Cancel</button>
+          <button class="fb-btn fb-btn-primary" id="ceSave" type="button">Save cover</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    const frame = overlay.querySelector('#ceFrame');
+    const picture = overlay.querySelector('#ceImg');
+
+    function layout() {
+      const { w, h } = size();
+      dx = Math.min(0, Math.max(width - w, dx));
+      dy = Math.min(0, Math.max(height - h, dy));
+      picture.style.width = w + 'px';
+      picture.style.height = h + 'px';
+      picture.style.left = dx + 'px';
+      picture.style.top = dy + 'px';
+    }
+    // start with the middle of the photo showing
+    const start = size();
+    dx = (width - start.w) / 2;
+    dy = (height - start.h) / 2;
+    layout();
+
+    let grab = null;
+    frame.addEventListener('pointerdown', e => {
+      grab = { x: e.clientX - dx, y: e.clientY - dy };
+      try { frame.setPointerCapture(e.pointerId); } catch { /* pointer capture is optional */ }
+    });
+    frame.addEventListener('pointermove', e => {
+      if (!grab) return;
+      dx = e.clientX - grab.x;
+      dy = e.clientY - grab.y;
+      layout();
+    });
+    const release = () => { grab = null; };
+    frame.addEventListener('pointerup', release);
+    frame.addEventListener('pointercancel', release);
+    overlay.querySelector('#ceZoom').addEventListener('input', e => {
+      // keep the middle of the frame in place while resizing
+      const next = Number(e.target.value) || 1;
+      const ratio = zoom / next;
+      const keepX = (width / 2 - dx) * ratio;
+      const keepY = (height / 2 - dy) * ratio;
+      zoom = next;
+      dx = width / 2 - keepX;
+      dy = height / 2 - keepY;
+      layout();
+    });
+
+    const finish = result => {
+      overlay.remove();
+      URL.revokeObjectURL(src);
+      return result;
+    };
+
+    return new Promise(resolve => {
+      overlay.querySelector('#ceCancel').addEventListener('click', () => resolve(finish(null)));
+      overlay.querySelector('#ceSave').addEventListener('click', () => {
+        const scale = base * zoom; // shown pixels per source pixel
+        const rect = {
+          x: Math.max(0, -dx / scale),
+          y: Math.max(0, -dy / scale),
+          w: Math.min(source.naturalWidth, width / scale),
+          h: Math.min(source.naturalHeight, height / scale)
+        };
+        resolve(finish({ blob, crop: rect }));
+      });
+    });
+  }
+
+  async function saveMedia(kind, file, crop) {
     if (!file) return;
     const label = kind === 'avatar' ? 'profile picture' : 'cover';
     const video = kind === 'cover' && file.type.startsWith('video/');
@@ -185,14 +307,15 @@ Pages.profileTab = function(main, user) {
 
     try {
       showToast('Updating ' + label + '…');
-      if (video && file.size > 40 * 1024 * 1024) throw new Error('that video is larger than 40 MB');
+      if (video && file.size > 100 * 1024 * 1024) throw new Error('that video is larger than 100 MB');
       let payload = file;
-      if (!video) {
+      if (!video && !crop) {
         // Phone photos (HEIC etc.) the browser cannot decode are uploaded as they are
         try { payload = await shrinkImage(file, kind === 'cover' ? 1800 : 640); } catch { payload = file; }
       }
-      const url = await cloudinaryUpload(payload);
-      if (!url) throw new Error('image hosting is not connected');
+      const uploaded = await cloudinaryUpload(payload);
+      if (!uploaded) throw new Error('image hosting is not connected');
+      const url = crop ? cloudinaryCrop(uploaded, crop) : uploaded;
 
       const next = {
         avatar_url: kind === 'avatar' ? url : avatarUrl,
@@ -244,10 +367,13 @@ Pages.profileTab = function(main, user) {
     avatarFile.value = '';
     saveMedia('avatar', file);
   });
-  coverFile.addEventListener('change', () => {
+  coverFile.addEventListener('change', async () => {
     const file = coverFile.files[0];
     coverFile.value = '';
-    saveMedia('cover', file);
+    if (!file) return;
+    if (file.type.startsWith('video/')) return saveMedia('cover', file);
+    const edited = await openCoverEditor(file);
+    if (edited) saveMedia('cover', edited.blob, edited.crop);
   });
 
   // People / friends (team directory)
