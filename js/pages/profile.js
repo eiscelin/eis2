@@ -144,9 +144,12 @@ Pages.profileTab = function(main, user) {
 
   // ---------- Profile picture + cover (image or video) ----------
 
-  function paintAvatar() {
+  function paintAvatar(video) {
+    const isVid = video === undefined ? isVideo(avatarUrl) : video;
     main.querySelector('#pfAvatar').innerHTML = avatarUrl
-      ? `<img class="fb-avatar-img" src="${fbEscape(avatarUrl)}" alt="${fbEscape(name)}">`
+      ? isVid
+        ? `<video class="fb-avatar-img" src="${fbEscape(avatarUrl)}" autoplay muted loop playsinline></video>`
+        : `<img class="fb-avatar-img" src="${fbEscape(avatarUrl)}" alt="${fbEscape(name)}">`
       : fbEscape(initial);
     main.querySelector('#pfAvatar').insertAdjacentHTML('beforeend',
       '<button class="fb-avatar-edit" id="pfAvatarEdit" type="button" title="Change profile picture" aria-label="Change profile picture">📷</button>');
@@ -349,12 +352,12 @@ Pages.profileTab = function(main, user) {
   async function saveMedia(kind, file, crop, cropSize) {
     if (!file) return;
     const label = kind === 'avatar' ? 'profile picture' : 'cover';
-    const video = kind === 'cover' && file.type.startsWith('video/');
+    const video = String(file.type || '').startsWith('video/');
     const previous = kind === 'avatar' ? avatarUrl : coverUrl;
     const preview = URL.createObjectURL(file);
 
     // Show the picked file straight away so choosing it has a visible result
-    if (kind === 'avatar') { avatarUrl = preview; paintAvatar(); }
+    if (kind === 'avatar') { avatarUrl = preview; paintAvatar(video); }
     else { coverUrl = preview; paintCover(video); }
 
     function restore() {
@@ -403,8 +406,8 @@ Pages.profileTab = function(main, user) {
         Object.assign(Auth.currentUser, next);
         localStorage.setItem('chookee_user', JSON.stringify(Auth.currentUser));
       }
-      paintAvatar();
-      paintCover(video);
+      paintAvatar(kind === 'avatar' ? video : undefined);
+      paintCover(kind === 'cover' ? video : undefined);
       showToast('Your ' + label + ' is updated', 'success');
     } catch (e) {
       restore();
@@ -419,7 +422,7 @@ Pages.profileTab = function(main, user) {
 
   const avatarFile = document.createElement('input');
   avatarFile.type = 'file';
-  avatarFile.accept = 'image/*';
+  avatarFile.accept = 'image/*,video/*';
   avatarFile.hidden = true;
   const coverFile = document.createElement('input');
   coverFile.type = 'file';
