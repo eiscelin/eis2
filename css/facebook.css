@@ -433,6 +433,15 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
 /* ===================== Profile (Facebook account page) ===================== */
 .fb-profile { max-width: 1120px; margin: 0 auto; }
 
+/* Shared profile link (#/u/<username>) — open to visitors */
+.fb-public { max-width: 1120px; margin: 0 auto; padding-bottom: 2rem; }
+.fb-public-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: 0.85rem 1rem;
+}
+.fb-detail-list a { color: var(--fb-blue-hover); text-decoration: none; }
+.fb-detail-list a:hover { text-decoration: underline; }
+
 .fb-cover {
   position: relative;
   cursor: pointer;

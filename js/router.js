@@ -3,7 +3,21 @@ const Router = {
   routes: {},
   beforeRender: null,
 
+  fallbacks: [],
+
   register(path, handler) { this.routes[path] = handler; },
+
+  // Routes with a variable part (e.g. /u/<username>) resolve here
+  registerFallback(resolver) { this.fallbacks.push(resolver); },
+
+  resolve(path) {
+    if (this.routes[path]) return this.routes[path];
+    for (const resolver of this.fallbacks) {
+      const handler = resolver(path);
+      if (handler) return handler;
+    }
+    return this.routes['/404'];
+  },
 
   init() {
     window.addEventListener('hashchange', () => this.handle());
@@ -25,7 +39,7 @@ const Router = {
       return;
     }
 
-    const handler = this.routes[path] || this.routes['/404'];
+    const handler = this.resolve(path);
     if (handler) {
       app.innerHTML = '';
       if (this.beforeRender) this.beforeRender();

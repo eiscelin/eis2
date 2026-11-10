@@ -12,6 +12,31 @@ function fbAvatar(name, cls) {
   return `<span class="fb-avatar ${cls || ''}">${initial}</span>`;
 }
 
+// Shareable link to a member's profile page
+function fbProfileLink(username) {
+  return location.origin + location.pathname + '#/u/' + encodeURIComponent(username || '');
+}
+
+// Opens the device share sheet, or copies the link
+async function fbShareLink(link, title) {
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: title || document.title, url: link });
+      return;
+    }
+  } catch (e) {
+    if (e && e.name === 'AbortError') return;
+  }
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(link);
+      showToast('Profile link copied', 'success');
+      return;
+    }
+  } catch (e) { /* fall through to showing the link */ }
+  showToast('Profile link: ' + link, '', 6000);
+}
+
 function fbBrand() {
   return window.BRAND || { name: 'MetMuk', initial: 'M', tagline: '' };
 }

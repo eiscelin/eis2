@@ -63,6 +63,7 @@ Pages.profileTab = function(main, user) {
             <ul class="fb-detail-list">
               <li><span class="ico" aria-hidden="true">🏷️</span><span class="k">Role:</span> ${fbEscape(role)}</li>
               <li><span class="ico" aria-hidden="true">👤</span><span class="k">Username:</span> @${fbEscape(user.username)}</li>
+              <li><span class="ico" aria-hidden="true">🔗</span><span class="k">Profile link:</span> <a href="#/u/${fbEscape(user.username)}">#/u/${fbEscape(user.username)}</a></li>
               <li><span class="ico" aria-hidden="true">🌐</span><span class="k">App:</span> ${fbEscape(brand.name)}</li>
             </ul>
           </section>
@@ -130,14 +131,7 @@ Pages.profileTab = function(main, user) {
   });
 
   main.querySelector('#pfShare').addEventListener('click', () => {
-    const link = location.href;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(link)
-        .then(() => showToast('Profile link copied', 'success'))
-        .catch(() => showToast('Profile link: ' + link));
-    } else {
-      showToast('Profile link: ' + link);
-    }
+    fbShareLink(fbProfileLink(user.username), name);
   });
 
   main.querySelector('#pfLogout').addEventListener('click', () => Auth.logout());
