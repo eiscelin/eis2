@@ -37,11 +37,11 @@ Pages.profileTab = function(main, user) {
           <div class="fb-profile-meta">
             ${fbEscape(role)} · @${fbEscape(user.username)} · <span id="pfFriendCount">…</span> friends
           </div>
-          <div class="fb-profile-actions">
-            <button class="fb-btn fb-btn-primary" id="pfEdit" type="button">✏️ Edit profile</button>
-            <button class="fb-btn fb-btn-secondary" id="pfShare" type="button">↗ Share profile</button>
-            <button class="fb-btn fb-btn-secondary" id="pfLogout" type="button">⎋ Log out</button>
-          </div>
+        </div>
+        <div class="fb-profile-actions">
+          <button class="fb-btn fb-btn-primary" id="pfEdit" type="button">✏️ Edit profile</button>
+          <button class="fb-btn fb-btn-secondary" id="pfShare" type="button">↗ Share profile</button>
+          <button class="fb-btn fb-btn-secondary" id="pfLogout" type="button">⎋ Log out</button>
         </div>
       </div>
 
