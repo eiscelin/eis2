@@ -17,13 +17,56 @@ Pages.feedTab = function (main, user) {
           <button class="fb-btn fb-btn-primary" id="feedPostBtn" type="button">Post</button>
         </div>
       </section>
+      <section class="fb-card fb-stories-card" aria-label="Stories">
+        <div class="fb-stories" id="storyRow"></div>
+      </section>
       <div id="feedList"></div>
     </div>
   `;
 
   const list = main.querySelector('#feedList');
   const input = main.querySelector('#feedInput');
+  const storyRow = main.querySelector('#storyRow');
   let posts = [];
+
+  // Story cards stand in for photos with a gradient cover per member
+  const STORY_ART = [
+    ['#1877f2', '#0a2f6b'],
+    ['#8b5cf6', '#2e1065'],
+    ['#f97316', '#7c2d12'],
+    ['#10b981', '#064e3b'],
+    ['#ec4899', '#500724'],
+    ['#06b6d4', '#083344']
+  ];
+
+  function renderStories(people) {
+    storyRow.innerHTML = `
+      <div class="fb-story fb-story-create">
+        <div class="fb-story-thumb">${fbAvatar(name, 'fb-story-thumb-pic')}</div>
+        <span class="fb-story-plus" aria-hidden="true">+</span>
+        <span class="fb-story-create-label">Create story</span>
+      </div>
+      ${people.map((p, i) => {
+        const pname = p.full_name || p.username || 'Member';
+        const art = STORY_ART[i % STORY_ART.length];
+        return `<div class="fb-story">
+          <div class="fb-story-media" style="background: radial-gradient(circle at 72% 18%, rgba(255, 255, 255, 0.3), transparent 55%), linear-gradient(165deg, ${art[0]}, ${art[1]})"></div>
+          <span class="fb-story-badge">${fbAvatar(pname, 'fb-story-badge-avatar')}</span>
+          <div class="fb-story-name">${fbEscape(pname)}</div>
+        </div>`;
+      }).join('')}
+    `;
+  }
+
+  async function loadStories() {
+    if (!sb) return;
+    try {
+      const { data } = await sb.from('users').select('*').order('username', { ascending: true });
+      renderStories((data || []).filter(u => String(u.id) !== String(user.id)));
+    } catch {
+      renderStories([]);
+    }
+  }
 
   function renderPosts(query) {
     const q = query || '';
@@ -82,6 +125,8 @@ Pages.feedTab = function (main, user) {
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitPost(); });
 
   window.__appSearchHandler = (q) => renderPosts(q);
+  renderStories([]);
+  loadStories();
   loadPosts();
 };
 
