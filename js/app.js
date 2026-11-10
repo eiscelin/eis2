@@ -4,6 +4,8 @@ Router.register('/', Pages.landing);
 Router.register('/Login', Pages.login);
 Router.register('/Register', Pages.register);
 Router.register('/App', Pages.app);
+// Own profile link opens the profile tab straight away
+Router.register('/App/Profile', (el) => Pages.app(el, 'profile'));
 // Shared profile link: #/u/<username>
 Router.registerFallback(path => {
   const match = path.match(/^\/u\/([^/?#]+)$/);

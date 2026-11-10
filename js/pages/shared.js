@@ -89,7 +89,7 @@ function blobToDataUrl(blob) {
 }
 
 // App shell: top bar, left rail (desktop), bottom tab bar (mobile)
-function appShell(el, user, navItems, renderContent) {
+function appShell(el, user, navItems, renderContent, startTab) {
   const brand = fbBrand();
   const displayName = user.full_name || user.username;
   const mobileItems = navItems.slice(0, 4);
@@ -230,7 +230,7 @@ function appShell(el, user, navItems, renderContent) {
   });
   el.querySelector('#railLogout').addEventListener('click', () => Auth.logout());
 
-  select(navItems[0].id);
+  select(navItems.some(i => i.id === startTab) ? startTab : navItems[0].id);
 
   // Mount the Messenger-style chat widget once
   if (!document.getElementById('chatWidget')) {

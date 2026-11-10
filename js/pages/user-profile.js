@@ -41,6 +41,11 @@ function upApplyFraming(cover) {
 
 Pages.userProfile = async function (el, username) {
   const viewer = Auth.isLoggedIn() ? Auth.currentUser : null;
+  // Your own link opens your profile page in the app, not a read-only copy
+  if (viewer && String(viewer.username || '').toLowerCase() === String(username).toLowerCase()) {
+    location.replace('#/App/Profile');
+    return;
+  }
   const brand = fbBrand();
   const bar = `<div class="fb-public-bar">
       <a class="fb-logo" href="#/" title="${fbEscape(brand.name)}" aria-label="${fbEscape(brand.name)}">${fbEscape(brand.initial)}</a>
@@ -77,7 +82,6 @@ Pages.userProfile = async function (el, username) {
   const coverIsVideo = upIsVideo(cover);
   const avatar = person.avatar_url || '';
   const avatarIsVideo = upIsVideo(avatar);
-  const isSelf = viewer && String(viewer.username) === String(person.username);
   const link = fbProfileLink(person.username);
 
   el.innerHTML = `<div class="fb-public">
@@ -105,11 +109,9 @@ Pages.userProfile = async function (el, username) {
           <div class="fb-profile-meta">${fbEscape(fbRoleLabel(person.role))} · @${fbEscape(person.username)}</div>
         </div>
         <div class="fb-profile-actions">
-          ${isSelf
-            ? '<a class="fb-btn fb-btn-primary" href="#/App">Open my profile</a>'
-            : viewer && window.fbChat
-              ? '<button class="fb-btn fb-btn-primary" id="upMessage" type="button">Message</button>'
-              : ''}
+          ${viewer && window.fbChat
+            ? '<button class="fb-btn fb-btn-primary" id="upMessage" type="button">Message</button>'
+            : ''}
           <button class="fb-btn fb-btn-secondary" id="upCopy" type="button">Copy link</button>
         </div>
       </div>

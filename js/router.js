@@ -34,7 +34,7 @@ const Router = {
     const app = document.getElementById('app');
 
     // The social app needs an account
-    if (path === '/App' && !Auth.isLoggedIn()) {
+    if ((path === '/App' || path.indexOf('/App/') === 0) && !Auth.isLoggedIn()) {
       location.hash = '#/Login';
       return;
     }
