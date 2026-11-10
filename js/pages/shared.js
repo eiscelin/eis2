@@ -12,16 +12,41 @@ function fbAvatar(name, cls) {
   return `<span class="fb-avatar ${cls || ''}">${initial}</span>`;
 }
 
+// Shareable link to a member's profile page
+function fbProfileLink(username) {
+  return location.origin + location.pathname + '#/u/' + encodeURIComponent(username || '');
+}
+
+// Opens the device share sheet, or copies the link
+async function fbShareLink(link, title) {
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: title || document.title, url: link });
+      return;
+    }
+  } catch (e) {
+    if (e && e.name === 'AbortError') return;
+  }
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(link);
+      showToast('Profile link copied', 'success');
+      return;
+    }
+  } catch (e) { /* fall through to showing the link */ }
+  showToast('Profile link: ' + link, '', 6000);
+}
+
 function fbBrand() {
   return window.BRAND || { name: 'MetMuk', initial: 'M', tagline: '' };
 }
 
-function showToast(msg, type = '') {
+function showToast(msg, type = '', ms = 3000) {
   const t = document.createElement('div');
   t.className = `toast ${type}`;
   t.textContent = msg;
   document.body.appendChild(t);
-  setTimeout(() => t.remove(), 3000);
+  setTimeout(() => t.remove(), ms);
 }
 
 function emptyState(icon, msg) {
@@ -32,8 +57,39 @@ function fmtDate(d) {
   return d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 }
 
+// Shrink a photo in the browser before uploading it (longest side capped)
+function shrinkImage(file, maxSide = 1400) {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(img.width * scale));
+      canvas.height = Math.max(1, Math.round(img.height * scale));
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(objectUrl);
+      canvas.toBlob(blob => (blob ? resolve(blob) : reject(new Error('that file is not an image'))), 'image/jpeg', 0.85);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('that file is not an image'));
+    };
+    img.src = objectUrl;
+  });
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('could not read that image'));
+    reader.readAsDataURL(blob);
+  });
+}
+
 // App shell: top bar, left rail (desktop), bottom tab bar (mobile)
-function appShell(el, user, navItems, renderContent) {
+function appShell(el, user, navItems, renderContent, startTab) {
   const brand = fbBrand();
   const displayName = user.full_name || user.username;
   const mobileItems = navItems.slice(0, 4);
@@ -53,6 +109,11 @@ function appShell(el, user, navItems, renderContent) {
         <div class="fb-topbar-right">
           <button class="fb-icon-btn" id="fbMessages" type="button" title="Messages" aria-label="Messages">💬</button>
           <button class="fb-user-btn" id="fbUserBtn" type="button" title="My profile" aria-label="My profile">${fbAvatar(displayName, 'fb-avatar-sm')}</button>
+          <button class="fb-icon-btn fb-burger" id="fbBurger" type="button" title="Menu" aria-label="Menu">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+              <path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
         </div>
       </header>
       <div class="fb-body">
@@ -164,9 +225,12 @@ function appShell(el, user, navItems, renderContent) {
     if (window.ChatWidget && window.ChatWidget.open) window.ChatWidget.open();
     else select('messages');
   });
+  el.querySelector('#fbBurger').addEventListener('click', () => {
+    if (window.openAppMenu) window.openAppMenu({ user, onSelect: select });
+  });
   el.querySelector('#railLogout').addEventListener('click', () => Auth.logout());
 
-  select(navItems[0].id);
+  select(navItems.some(i => i.id === startTab) ? startTab : navItems[0].id);
 
   // Mount the Messenger-style chat widget once
   if (!document.getElementById('chatWidget')) {

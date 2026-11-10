@@ -1,7 +1,7 @@
 // Signed-in app: Home feed, Friends, Messages and Profile
 var Pages = window.Pages || {};
 
-Pages.app = function (el) {
+Pages.app = function (el, startTab) {
   const user = Auth.currentUser;
   const navItems = [
     { id: 'home', icon: '🏠', label: 'Home' },
@@ -15,7 +15,7 @@ Pages.app = function (el) {
     else if (tab === 'friends') Pages.peopleTab(main, user);
     else if (tab === 'messages') Pages.messagesTab(main, user);
     else Pages.profileTab(main, user);
-  });
+  }, startTab);
 };
 
 window.Pages = Pages;

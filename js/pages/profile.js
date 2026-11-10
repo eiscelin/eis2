@@ -14,16 +14,35 @@ Pages.profileTab = function(main, user) {
   const role = fbRoleLabel(user.role);
   const brand = fbBrand();
   const canChat = !!window.fbChat;
+  let avatarUrl = user.avatar_url || '';
+  let coverUrl = user.cover_url || '';
+  const isVideo = url => /\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i.test(String(url));
+
+  // A profile picture can be a photo or a short video
+  function avatarMedia(video) {
+    const isVid = video === undefined ? isVideo(avatarUrl) : video;
+    if (!avatarUrl) return fbEscape(initial);
+    return isVid
+      ? `<video class="fb-avatar-img" src="${fbEscape(avatarUrl)}" autoplay muted loop playsinline></video>`
+      : `<img class="fb-avatar-img" src="${fbEscape(avatarUrl)}" alt="${fbEscape(name)}">`;
+  }
 
   main.innerHTML = `
     <div class="fb-profile">
-      <div class="fb-cover">
-        <div class="fb-cover-text">${fbEscape(brand.name.toUpperCase())}</div>
-        <span class="fb-cover-badge">${fbEscape(brand.name)}</span>
+      <div class="fb-cover${coverUrl ? ' fb-cover--media' : ''}" id="pfCover">
+        ${coverUrl
+          ? isVideo(coverUrl)
+            ? `<video class="fb-cover-media" src="${fbEscape(coverUrl)}" autoplay muted loop playsinline></video>`
+            : `<img class="fb-cover-media" src="${fbEscape(coverUrl)}" alt="">`
+          : ''}
+        ${coverUrl && isVideo(coverUrl)
+          ? `<button class="fb-cover-expand" id="pfCoverExpand" type="button" aria-label="Play the whole video with sound" title="Play the whole video with sound">⤢</button>`
+          : ''}
       </div>
 
       <div class="fb-profile-head">
-        <div class="fb-avatar fb-profile-avatar">${fbEscape(initial)}</div>
+        <div class="fb-avatar fb-profile-avatar" id="pfAvatar">${avatarMedia()}<button class="fb-avatar-edit" id="pfAvatarEdit" type="button" title="Change profile picture" aria-label="Change profile picture">📷</button>
+        </div>
         <div class="fb-profile-id">
           <h1 class="fb-profile-name">${fbEscape(name)}</h1>
           <div class="fb-profile-meta">
@@ -51,6 +70,7 @@ Pages.profileTab = function(main, user) {
             <ul class="fb-detail-list">
               <li><span class="ico" aria-hidden="true">🏷️</span><span class="k">Role:</span> ${fbEscape(role)}</li>
               <li><span class="ico" aria-hidden="true">👤</span><span class="k">Username:</span> @${fbEscape(user.username)}</li>
+              <li><span class="ico" aria-hidden="true">🔗</span><span class="k">Profile link:</span> <a href="#/u/${fbEscape(user.username)}">#/u/${fbEscape(user.username)}</a></li>
               <li><span class="ico" aria-hidden="true">🌐</span><span class="k">App:</span> ${fbEscape(brand.name)}</li>
             </ul>
           </section>
@@ -118,17 +138,317 @@ Pages.profileTab = function(main, user) {
   });
 
   main.querySelector('#pfShare').addEventListener('click', () => {
-    const link = location.href;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(link)
-        .then(() => showToast('Profile link copied', 'success'))
-        .catch(() => showToast('Profile link: ' + link));
-    } else {
-      showToast('Profile link: ' + link);
-    }
+    fbShareLink(fbProfileLink(user.username), name);
   });
 
   main.querySelector('#pfLogout').addEventListener('click', () => Auth.logout());
+
+  // ---------- Profile picture + cover (image or video) ----------
+
+  function paintAvatar(video) {
+    main.querySelector('#pfAvatar').innerHTML = avatarMedia(video) +
+      '<button class="fb-avatar-edit" id="pfAvatarEdit" type="button" title="Change profile picture" aria-label="Change profile picture">📷</button>';
+  }
+
+  function paintCover(video) {
+    const cover = main.querySelector('#pfCover');
+    cover.classList.toggle('fb-cover--media', !!coverUrl);
+    cover.querySelector('.fb-cover-media')?.remove();
+    cover.querySelector('#pfCoverExpand')?.remove();
+    if (!coverUrl) return;
+    const isVid = video === undefined ? isVideo(coverUrl) : video;
+    cover.insertAdjacentHTML('afterbegin', isVid
+      ? `<video class="fb-cover-media" src="${fbEscape(coverUrl)}" autoplay muted loop playsinline></video>`
+      : `<img class="fb-cover-media" src="${fbEscape(coverUrl)}" alt="">`);
+    if (isVid) {
+      cover.insertAdjacentHTML('beforeend',
+        '<button class="fb-cover-expand" id="pfCoverExpand" type="button" aria-label="Play the whole video with sound" title="Play the whole video with sound">⤢</button>');
+    }
+
+    const rect = framedRect(coverUrl);
+    if (!rect) return;
+    const media = cover.querySelector('.fb-cover-media');
+    const apply = () => frameMedia(media, rect);
+    if (isVid) {
+      if (media.readyState >= 1) apply();
+      else media.addEventListener('loadedmetadata', apply, { once: true });
+    } else if (media.complete) {
+      apply();
+    } else {
+      media.addEventListener('load', apply, { once: true });
+    }
+  }
+
+  // Framing saved with a cover video: #f=x,y,w,h as fractions of the clip
+  function framedRect(url) {
+    const match = String(url).match(/#f=([\d.]+),([\d.]+),([\d.]+),([\d.]+)/);
+    return match ? { x: +match[1], y: +match[2], w: +match[3], h: +match[4] } : null;
+  }
+
+  // Shows exactly the part of the video the owner framed
+  function frameMedia(media, rect) {
+    const cover = main.querySelector('#pfCover');
+    const naturalW = media.videoWidth || media.naturalWidth;
+    const naturalH = media.videoHeight || media.naturalHeight;
+    const frameW = cover.clientWidth;
+    const frameH = cover.clientHeight;
+    if (!naturalW || !naturalH || !frameW || !frameH) return;
+    const scale = Math.max(frameW / (rect.w * naturalW), frameH / (rect.h * naturalH));
+    const width = naturalW * scale;
+    const height = naturalH * scale;
+    const left = Math.min(0, Math.max(frameW - width, -(rect.x * width) - (rect.w * width - frameW) / 2));
+    const top = Math.min(0, Math.max(frameH - height, -(rect.y * height) - (rect.h * height - frameH) / 2));
+    media.style.position = 'absolute';
+    media.style.objectFit = 'fill';
+    media.style.width = (width / frameW * 100) + '%';
+    media.style.height = (height / frameH * 100) + '%';
+    media.style.left = (left / frameW * 100) + '%';
+    media.style.top = (top / frameH * 100) + '%';
+  }
+
+  // Cloudinary crops the photo down to exactly what the owner framed
+  function cloudinaryCrop(url, rect) {
+    const transform = `c_crop,w_${Math.round(rect.w)},h_${Math.round(rect.h)},x_${Math.round(rect.x)},y_${Math.round(rect.y)}`;
+    return String(url).replace('image/upload/', 'image/upload/' + transform + '/');
+  }
+
+  // Drag the photo or video to choose what shows and zoom to resize it
+  async function openCoverEditor(file) {
+    const video = file.type.startsWith('video/');
+    let blob = file;
+    if (!video) {
+      try { blob = await shrinkImage(file, 2400); } catch { /* formats the browser cannot decode (HEIC) go up as they are */ }
+    }
+    const src = URL.createObjectURL(blob);
+
+    const source = document.createElement(video ? 'video' : 'img');
+    if (video) {
+      source.muted = true;
+      source.loop = true;
+      source.playsInline = true;
+      source.autoplay = true;
+    }
+    const decoded = await new Promise(resolve => {
+      // a clip this browser cannot preview still uploads, just without framing
+      const timer = setTimeout(() => resolve(false), 6000);
+      const settle = ok => { clearTimeout(timer); resolve(ok); };
+      if (video) source.onloadedmetadata = () => settle(true);
+      else source.onload = () => settle(true);
+      source.onerror = () => settle(false);
+      source.src = src;
+      if (video) source.play().catch(() => {});
+    });
+    const naturalW = video ? source.videoWidth : source.naturalWidth;
+    const naturalH = video ? source.videoHeight : source.naturalHeight;
+    if (!decoded || !naturalW || !naturalH) {
+      URL.revokeObjectURL(src);
+      return { blob: file };
+    }
+
+    const coverBox = main.querySelector('#pfCover');
+    const ratio = (coverBox && coverBox.clientHeight) ? coverBox.clientWidth / coverBox.clientHeight : 3.1;
+    const available = Math.min(((coverBox && coverBox.clientWidth) || 620), window.innerWidth - 64);
+    const width = Math.max(240, Math.min(620, Math.round(available)));
+    const height = Math.round(width / (ratio || 3.1));
+    const base = Math.max(width / naturalW, height / naturalH);
+    const zoomMax = 3;
+
+    let zoom = 1;
+    let dx = 0;
+    let dy = 0;
+    const size = () => ({ w: naturalW * base * zoom, h: naturalH * base * zoom });
+
+    const overlay = document.createElement('div');
+    overlay.className = 'cover-editor';
+    overlay.innerHTML = `
+      <div class="cover-editor-box">
+        <h3>Position your cover</h3>
+        <div class="cover-editor-frame" id="ceFrame" style="width:${width}px;height:${height}px"></div>
+        <div class="cover-editor-controls">
+          <span aria-hidden="true">−</span>
+          <input id="ceZoom" type="range" min="1" max="${zoomMax}" step="0.01" value="1" aria-label="Zoom cover photo">
+          <span aria-hidden="true">+</span>
+        </div>
+        <p class="cover-editor-hint">Drag to choose what shows, and zoom to resize it.</p>
+        <div class="cover-editor-actions">
+          <button class="fb-btn fb-btn-secondary" id="ceCancel" type="button">Cancel</button>
+          <button class="fb-btn fb-btn-primary" id="ceSave" type="button">Save cover</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    const frame = overlay.querySelector('#ceFrame');
+    source.id = 'ceImg';
+    frame.appendChild(source);
+    const picture = source;
+
+    function layout() {
+      const { w, h } = size();
+      dx = Math.min(0, Math.max(width - w, dx));
+      dy = Math.min(0, Math.max(height - h, dy));
+      picture.style.width = w + 'px';
+      picture.style.height = h + 'px';
+      picture.style.left = dx + 'px';
+      picture.style.top = dy + 'px';
+    }
+    // start with the middle of the photo showing
+    const start = size();
+    dx = (width - start.w) / 2;
+    dy = (height - start.h) / 2;
+    layout();
+
+    let grab = null;
+    frame.addEventListener('pointerdown', e => {
+      grab = { x: e.clientX - dx, y: e.clientY - dy };
+      try { frame.setPointerCapture(e.pointerId); } catch { /* pointer capture is optional */ }
+    });
+    frame.addEventListener('pointermove', e => {
+      if (!grab) return;
+      dx = e.clientX - grab.x;
+      dy = e.clientY - grab.y;
+      layout();
+    });
+    const release = () => { grab = null; };
+    frame.addEventListener('pointerup', release);
+    frame.addEventListener('pointercancel', release);
+    overlay.querySelector('#ceZoom').addEventListener('input', e => {
+      // keep the middle of the frame in place while resizing
+      const next = Number(e.target.value) || 1;
+      const ratio = zoom / next;
+      const keepX = (width / 2 - dx) * ratio;
+      const keepY = (height / 2 - dy) * ratio;
+      zoom = next;
+      dx = width / 2 - keepX;
+      dy = height / 2 - keepY;
+      layout();
+    });
+
+    const finish = result => {
+      overlay.remove();
+      URL.revokeObjectURL(src);
+      return result;
+    };
+
+    return new Promise(resolve => {
+      overlay.querySelector('#ceCancel').addEventListener('click', () => resolve(finish(null)));
+      overlay.querySelector('#ceSave').addEventListener('click', () => {
+        const scale = base * zoom; // shown pixels per source pixel
+        const rect = {
+          x: Math.max(0, -dx / scale / naturalW),
+          y: Math.max(0, -dy / scale / naturalH),
+          w: Math.min(1, width / scale / naturalW),
+          h: Math.min(1, height / scale / naturalH)
+        };
+        resolve(finish({ blob, crop: rect, size: { w: naturalW, h: naturalH } }));
+      });
+    });
+  }
+
+  async function saveMedia(kind, file, crop, cropSize) {
+    if (!file) return;
+    const label = kind === 'avatar' ? 'profile picture' : 'cover';
+    const video = String(file.type || '').startsWith('video/');
+    const previous = kind === 'avatar' ? avatarUrl : coverUrl;
+    const preview = URL.createObjectURL(file);
+
+    // Show the picked file straight away so choosing it has a visible result
+    if (kind === 'avatar') { avatarUrl = preview; paintAvatar(video); }
+    else { coverUrl = preview; paintCover(video); }
+
+    function restore() {
+      if (kind === 'avatar') { avatarUrl = previous; paintAvatar(); }
+      else { coverUrl = previous; paintCover(); }
+    }
+
+    if (!sb) {
+      restore();
+      return showToast('Connect the database to change your ' + label, 'error', 6000);
+    }
+
+    try {
+      showToast('Updating ' + label + '…');
+      if (video && file.size > 100 * 1024 * 1024) throw new Error('that video is larger than 100 MB');
+      if (!video && file.size > 20 * 1024 * 1024) throw new Error('that image is larger than 20 MB');
+      let payload = file;
+      if (!video && !crop) {
+        // Phone photos (HEIC etc.) the browser cannot decode are uploaded as they are
+        try { payload = await shrinkImage(file, kind === 'cover' ? 1800 : 640); } catch { payload = file; }
+      }
+      const uploaded = await cloudinaryUpload(payload);
+      if (!uploaded) throw new Error('image hosting is not connected');
+      const url = !crop ? uploaded
+        : video
+          ? uploaded + '#f=' + [crop.x, crop.y, crop.w, crop.h].map(v => v.toFixed(4)).join(',')
+          : cloudinaryCrop(uploaded, {
+            x: crop.x * cropSize.w, y: crop.y * cropSize.h, w: crop.w * cropSize.w, h: crop.h * cropSize.h
+          });
+
+      const next = {
+        avatar_url: kind === 'avatar' ? url : avatarUrl,
+        cover_url: kind === 'cover' ? url : coverUrl
+      };
+      const { error } = await sb.rpc('set_profile_media', {
+        p_user_id: user.id,
+        p_avatar_url: next.avatar_url || null,
+        p_cover_url: next.cover_url || null
+      });
+      if (error) throw error;
+
+      avatarUrl = next.avatar_url;
+      coverUrl = next.cover_url;
+      Object.assign(user, next);
+      if (Auth.currentUser) {
+        Object.assign(Auth.currentUser, next);
+        localStorage.setItem('chookee_user', JSON.stringify(Auth.currentUser));
+      }
+      paintAvatar(kind === 'avatar' ? video : undefined);
+      paintCover(kind === 'cover' ? video : undefined);
+      showToast('Your ' + label + ' is updated', 'success');
+    } catch (e) {
+      restore();
+      const message = String(e.message || e);
+      showToast(/set_profile_media/.test(message)
+        ? 'Run 005_add_profile_media.sql in Supabase, then try again'
+        : 'Could not update your ' + label + ': ' + message, 'error', 6000);
+    } finally {
+      URL.revokeObjectURL(preview);
+    }
+  }
+
+  const avatarFile = document.createElement('input');
+  avatarFile.type = 'file';
+  avatarFile.accept = 'image/*,video/*';
+  avatarFile.hidden = true;
+  const coverFile = document.createElement('input');
+  coverFile.type = 'file';
+  coverFile.accept = 'image/*,video/*';
+  coverFile.hidden = true;
+  main.append(avatarFile, coverFile);
+
+  // The picture and the whole banner open the picker; the expand button plays the clip instead
+  main.querySelector('#pfAvatar').addEventListener('click', () => avatarFile.click());
+  main.querySelector('#pfCover').addEventListener('click', e => {
+    if (e.target.closest('#pfCoverExpand')) {
+      fbPlayFullVideo(coverUrl);
+      return;
+    }
+    coverFile.click();
+  });
+  avatarFile.addEventListener('change', () => {
+    const file = avatarFile.files[0];
+    avatarFile.value = '';
+    saveMedia('avatar', file);
+  });
+  coverFile.addEventListener('change', async () => {
+    const file = coverFile.files[0];
+    coverFile.value = '';
+    if (!file) return;
+    const edited = await openCoverEditor(file);
+    if (edited) saveMedia('cover', edited.blob, edited.crop, edited.size);
+  });
+
+  // a cover saved with framing shows that framing straight away
+  if (framedRect(coverUrl)) paintCover();
 
   // People / friends (team directory)
   const loadPeople = async () => {
