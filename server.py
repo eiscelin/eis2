@@ -6,23 +6,30 @@ import urllib.request
 import urllib.error
 
 MAX_UPLOAD_BYTES = 8 * 1024 * 1024
+MAX_VIDEO_BYTES = 40 * 1024 * 1024
+
+
+def is_video(content_type):
+    return (content_type or '').startswith('video/')
 
 
 def cloudinary_upload(data, content_type):
-    """Forward a photo to Cloudinary; the preset stays on the server, never in the browser."""
+    """Forward a photo or video to Cloudinary; the preset stays on the server, never in the browser."""
     cloud = os.environ.get('CLOUDINARY_CLOUD_NAME', '')
     preset = os.environ.get('CLOUDINARY_UPLOAD_PRESET', '')
     if not cloud or not preset:
         return None
+    kind = 'video' if is_video(content_type) else 'image'
+    filename = 'upload.mp4' if kind == 'video' else 'upload.jpg'
     boundary = 'base44' + uuid.uuid4().hex
     body = b''.join([
         f'--{boundary}\r\nContent-Disposition: form-data; name="upload_preset"\r\n\r\n{preset}\r\n'.encode(),
-        f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="story.jpg"\r\nContent-Type: {content_type}\r\n\r\n'.encode(),
+        f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="{filename}"\r\nContent-Type: {content_type}\r\n\r\n'.encode(),
         data,
         f'\r\n--{boundary}--\r\n'.encode()
     ])
     req = urllib.request.Request(
-        f'https://api.cloudinary.com/v1_1/{cloud}/image/upload',
+        f'https://api.cloudinary.com/v1_1/{cloud}/{kind}/upload',
         data=body,
         headers={'Content-Type': f'multipart/form-data; boundary={boundary}'}
     )
@@ -42,12 +49,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def do_POST(self):
         if self.path.split('?')[0] != '/api/upload':
             return self.send_error(404)
+        content_type = self.headers.get('Content-Type') or 'image/jpeg'
+        limit = MAX_VIDEO_BYTES if is_video(content_type) else MAX_UPLOAD_BYTES
         length = int(self.headers.get('Content-Length') or 0)
-        if length <= 0 or length > MAX_UPLOAD_BYTES:
-            return self.send_json(413, {'error': 'Photo must be smaller than 8 MB'})
+        if length <= 0 or length > limit:
+            return self.send_json(413, {'error': 'File must be smaller than %d MB' % (limit // (1024 * 1024))})
         data = self.rfile.read(length)
         try:
-            url = cloudinary_upload(data, self.headers.get('Content-Type') or 'image/jpeg')
+            url = cloudinary_upload(data, content_type)
         except urllib.error.HTTPError as e:
             message = 'Cloudinary upload failed'
             try:

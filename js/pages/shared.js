@@ -32,6 +32,37 @@ function fmtDate(d) {
   return d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 }
 
+// Shrink a photo in the browser before uploading it (longest side capped)
+function shrinkImage(file, maxSide = 1400) {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(img.width * scale));
+      canvas.height = Math.max(1, Math.round(img.height * scale));
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(objectUrl);
+      canvas.toBlob(blob => (blob ? resolve(blob) : reject(new Error('that file is not an image'))), 'image/jpeg', 0.85);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('that file is not an image'));
+    };
+    img.src = objectUrl;
+  });
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('could not read that image'));
+    reader.readAsDataURL(blob);
+  });
+}
+
 // App shell: top bar, left rail (desktop), bottom tab bar (mobile)
 function appShell(el, user, navItems, renderContent) {
   const brand = fbBrand();

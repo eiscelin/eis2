@@ -14,16 +14,28 @@ Pages.profileTab = function(main, user) {
   const role = fbRoleLabel(user.role);
   const brand = fbBrand();
   const canChat = !!window.fbChat;
+  let avatarUrl = user.avatar_url || '';
+  let coverUrl = user.cover_url || '';
+  const isVideo = url => /\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i.test(String(url));
 
   main.innerHTML = `
     <div class="fb-profile">
-      <div class="fb-cover">
+      <div class="fb-cover${coverUrl ? ' fb-cover--media' : ''}" id="pfCover">
+        ${coverUrl
+          ? isVideo(coverUrl)
+            ? `<video class="fb-cover-media" src="${fbEscape(coverUrl)}" autoplay muted loop playsinline></video>`
+            : `<img class="fb-cover-media" src="${fbEscape(coverUrl)}" alt="">`
+          : ''}
         <div class="fb-cover-text">${fbEscape(brand.name.toUpperCase())}</div>
         <span class="fb-cover-badge">${fbEscape(brand.name)}</span>
+        <button class="fb-cover-edit" id="pfCoverEdit" type="button">📷 Edit cover</button>
       </div>
 
       <div class="fb-profile-head">
-        <div class="fb-avatar fb-profile-avatar">${fbEscape(initial)}</div>
+        <div class="fb-avatar fb-profile-avatar" id="pfAvatar">${avatarUrl
+          ? `<img class="fb-avatar-img" src="${fbEscape(avatarUrl)}" alt="${fbEscape(name)}">`
+          : fbEscape(initial)}<button class="fb-avatar-edit" id="pfAvatarEdit" type="button" title="Change profile picture" aria-label="Change profile picture">📷</button>
+        </div>
         <div class="fb-profile-id">
           <h1 class="fb-profile-name">${fbEscape(name)}</h1>
           <div class="fb-profile-meta">
@@ -129,6 +141,95 @@ Pages.profileTab = function(main, user) {
   });
 
   main.querySelector('#pfLogout').addEventListener('click', () => Auth.logout());
+
+  // ---------- Profile picture + cover (image or video) ----------
+
+  function paintAvatar() {
+    main.querySelector('#pfAvatar').innerHTML = avatarUrl
+      ? `<img class="fb-avatar-img" src="${fbEscape(avatarUrl)}" alt="${fbEscape(name)}">`
+      : fbEscape(initial);
+    main.querySelector('#pfAvatar').insertAdjacentHTML('beforeend',
+      '<button class="fb-avatar-edit" id="pfAvatarEdit" type="button" title="Change profile picture" aria-label="Change profile picture">📷</button>');
+  }
+
+  function paintCover() {
+    const cover = main.querySelector('#pfCover');
+    cover.classList.toggle('fb-cover--media', !!coverUrl);
+    cover.querySelector('.fb-cover-media')?.remove();
+    if (!coverUrl) return;
+    cover.insertAdjacentHTML('afterbegin', isVideo(coverUrl)
+      ? `<video class="fb-cover-media" src="${fbEscape(coverUrl)}" autoplay muted loop playsinline></video>`
+      : `<img class="fb-cover-media" src="${fbEscape(coverUrl)}" alt="">`);
+  }
+
+  async function saveMedia(kind, file) {
+    if (!file) return;
+    const label = kind === 'avatar' ? 'profile picture' : 'cover';
+    if (!sb) return showToast('Connect the database to change your ' + label, 'error');
+    try {
+      showToast('Updating ' + label + '…');
+      const video = kind === 'cover' && file.type.startsWith('video/');
+      if (video && file.size > 40 * 1024 * 1024) throw new Error('that video is larger than 40 MB');
+      const url = video
+        ? await cloudinaryUpload(file)
+        : await cloudinaryUpload(await shrinkImage(file, kind === 'cover' ? 1800 : 640));
+      if (!url) throw new Error('image hosting is not connected');
+
+      const next = {
+        avatar_url: kind === 'avatar' ? url : avatarUrl,
+        cover_url: kind === 'cover' ? url : coverUrl
+      };
+      const { error } = await sb.rpc('set_profile_media', {
+        p_user_id: user.id,
+        p_avatar_url: next.avatar_url || null,
+        p_cover_url: next.cover_url || null
+      });
+      if (error) throw error;
+
+      avatarUrl = next.avatar_url;
+      coverUrl = next.cover_url;
+      Object.assign(user, next);
+      if (Auth.currentUser) {
+        Object.assign(Auth.currentUser, next);
+        localStorage.setItem('chookee_user', JSON.stringify(Auth.currentUser));
+      }
+      paintAvatar();
+      paintCover();
+      showToast('Your ' + label + ' is updated', 'success');
+    } catch (e) {
+      const message = String(e.message || e);
+      showToast(/set_profile_media/.test(message)
+        ? 'Run 005_add_profile_media.sql in Supabase, then try again'
+        : 'Could not update your ' + label + ': ' + message, 'error');
+    }
+  }
+
+  const avatarFile = document.createElement('input');
+  avatarFile.type = 'file';
+  avatarFile.accept = 'image/*';
+  avatarFile.hidden = true;
+  const coverFile = document.createElement('input');
+  coverFile.type = 'file';
+  coverFile.accept = 'image/*,video/*';
+  coverFile.hidden = true;
+  main.append(avatarFile, coverFile);
+
+  main.querySelector('#pfAvatar').addEventListener('click', e => {
+    if (e.target.closest('#pfAvatarEdit')) avatarFile.click();
+  });
+  main.querySelector('#pfCover').addEventListener('click', e => {
+    if (e.target.closest('#pfCoverEdit')) coverFile.click();
+  });
+  avatarFile.addEventListener('change', () => {
+    const file = avatarFile.files[0];
+    avatarFile.value = '';
+    saveMedia('avatar', file);
+  });
+  coverFile.addEventListener('change', () => {
+    const file = coverFile.files[0];
+    coverFile.value = '';
+    saveMedia('cover', file);
+  });
 
   // People / friends (team directory)
   const loadPeople = async () => {

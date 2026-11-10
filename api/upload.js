@@ -21,10 +21,12 @@ export default async function handler(req, res) {
     return;
   }
 
+  const type = req.headers['content-type'] || 'image/jpeg';
+  const kind = type.startsWith('video/') ? 'video' : 'image';
   const form = new FormData();
   form.append('upload_preset', preset);
-  form.append('file', new Blob([photo], { type: req.headers['content-type'] || 'image/jpeg' }), 'story.jpg');
-  const upstream = await fetch(`https://api.cloudinary.com/v1_1/${cloud}/image/upload`, {
+  form.append('file', new Blob([photo], { type }), kind === 'video' ? 'upload.mp4' : 'upload.jpg');
+  const upstream = await fetch(`https://api.cloudinary.com/v1_1/${cloud}/${kind}/upload`, {
     method: 'POST',
     body: form
   });

@@ -95,36 +95,7 @@ Pages.feedTab = function (main, user) {
     }
   }
 
-  // Shrink the photo in the browser before uploading it
-  function shrinkImage(file) {
-    return new Promise((resolve, reject) => {
-      const objectUrl = URL.createObjectURL(file);
-      const img = new Image();
-      img.onload = () => {
-        const scale = Math.min(1, 1400 / Math.max(img.width, img.height));
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.max(1, Math.round(img.width * scale));
-        canvas.height = Math.max(1, Math.round(img.height * scale));
-        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-        URL.revokeObjectURL(objectUrl);
-        canvas.toBlob(blob => (blob ? resolve(blob) : reject(new Error('that file is not an image'))), 'image/jpeg', 0.85);
-      };
-      img.onerror = () => {
-        URL.revokeObjectURL(objectUrl);
-        reject(new Error('that file is not an image'));
-      };
-      img.src = objectUrl;
-    });
-  }
-
-  function blobToDataUrl(blob) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = () => reject(new Error('could not read that image'));
-      reader.readAsDataURL(blob);
-    });
-  }
+  // Shrink the photo before uploading it (shrinkImage lives in shared.js)
 
   async function addStory(file) {
     if (!sb) return showToast('Stories need a connected database', 'error');

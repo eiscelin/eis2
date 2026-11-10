@@ -456,11 +456,48 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
   color: #fff; text-shadow: 0 2px 12px rgba(0, 0, 0, 0.55);
 }
 .fb-cover-badge {
-  position: absolute; right: 1.25rem; bottom: 1.3rem;
+  position: absolute; right: 1.25rem; top: 1.1rem;
   padding: 0.3rem 0.7rem; border-radius: 999px;
   background: rgba(0, 0, 0, 0.45);
   color: #fff; font-size: 0.78rem; font-weight: 600;
   backdrop-filter: blur(2px);
+}
+
+/* Cover photo / video picked by the account owner */
+.fb-cover-media {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  background: #000;
+}
+.fb-cover--media::before { display: none; }
+.fb-cover-edit {
+  position: absolute; right: 1.25rem; bottom: 1.15rem;
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  padding: 0.45rem 0.8rem;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff; font-size: 0.82rem; font-weight: 600;
+  backdrop-filter: blur(2px);
+}
+.fb-cover-edit:hover { background: rgba(0, 0, 0, 0.78); }
+
+.fb-avatar-edit {
+  position: absolute; right: 4px; bottom: 4px;
+  width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: var(--fb-elevated);
+  color: var(--fb-text);
+  border: 2px solid var(--fb-card);
+  font-size: 0.9rem; line-height: 1;
+}
+.fb-avatar-edit:hover { background: var(--fb-hover); }
+.fb-avatar-img {
+  width: 100%; height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
 }
 
 .fb-profile-head {
@@ -471,6 +508,7 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
 }
 .fb-profile-head > .fb-profile-id { flex: 1 1 auto; }
 .fb-profile-avatar {
+  position: relative;
   width: 152px; height: 152px; flex-shrink: 0;
   border-radius: 50%;
   border: 4px solid var(--fb-card);
@@ -1034,6 +1072,8 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
     margin-top: -46px;
   }
   .fb-profile-avatar { width: 92px; height: 92px; font-size: 2rem; border-width: 3px; }
+  .fb-avatar-edit { width: 27px; height: 27px; font-size: 0.75rem; right: 2px; bottom: 2px; }
+  .fb-cover-edit { right: 0.6rem; bottom: 0.7rem; padding: 0.4rem 0.65rem; font-size: 0.76rem; }
   .fb-profile-id { padding-bottom: 0.3rem; }
   .fb-profile-name { font-size: 1.32rem; line-height: 1.2; }
   .fb-profile-meta { font-size: 0.79rem; }
