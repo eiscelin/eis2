@@ -676,6 +676,29 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
 .fb-story-zone-prev { left: 0; }
 .fb-story-zone-next { right: 0; }
 
+/* Play / pause — sits over the story like the Facebook app */
+.fb-story-controls {
+  position: absolute;
+  left: 0; right: 0; bottom: 1rem;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+}
+.fb-story-play {
+  width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+}
+.fb-story-play:hover { background: rgba(255, 255, 255, 0.18); }
+.fb-story-play svg { width: 20px; height: 20px; fill: #fff; }
+.fb-story-play .icon-play { display: none; }
+.fb-story-play.paused .icon-pause { display: none; }
+.fb-story-play.paused .icon-play { display: block; }
+
 .fb-person-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 1rem; }
 .fb-person-row + .fb-person-row { border-top: 1px solid var(--fb-line-soft); }
 .fb-person-info { flex: 1; min-width: 0; }

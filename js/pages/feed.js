@@ -148,7 +148,6 @@ Pages.feedTab = function (main, user) {
 
   function closeStoryViewer() {
     if (!storyViewer) return;
-    clearTimeout(storyViewer.timer);
     document.removeEventListener('keydown', storyViewer.keys);
     storyViewer.el.remove();
     storyViewer = null;
@@ -178,6 +177,12 @@ Pages.feedTab = function (main, user) {
         <img class="fb-story-full" id="storyFull" alt="">
         <button class="fb-story-zone fb-story-zone-prev" type="button" aria-label="Previous story"></button>
         <button class="fb-story-zone fb-story-zone-next" type="button" aria-label="Next story"></button>
+        <div class="fb-story-controls">
+          <button class="fb-story-play" type="button" aria-label="Pause story" aria-pressed="false">
+            <svg class="icon-pause" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="5" width="3.6" height="14" rx="1"></rect><rect x="13.4" y="5" width="3.6" height="14" rx="1"></rect></svg>
+            <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true"><polygon points="8,5 19,12 8,19"></polygon></svg>
+          </button>
+        </div>
       </div>`;
     document.body.appendChild(el);
     document.body.style.overflow = 'hidden';
@@ -187,8 +192,10 @@ Pages.feedTab = function (main, user) {
     const headAvatar = el.querySelector('#storyHeadAvatar');
     const headName = el.querySelector('#storyHeadName');
     const headTime = el.querySelector('#storyHeadTime');
+    const playBtn = el.querySelector('.fb-story-play');
 
-    const viewer = { el, timer: null, index: 0 };
+    const STORY_MS = 5000;
+    const viewer = { el, index: 0, paused: false };
     storyViewer = viewer;
 
     function show(index) {
@@ -203,14 +210,13 @@ Pages.feedTab = function (main, user) {
       headName.textContent = item.group.name;
       headTime.textContent = storyAge(item.story.created_at);
       full.src = item.story.image;
-      clearTimeout(viewer.timer);
       const fill = bars.querySelector('.fb-story-bar.active i');
       if (fill) {
-        fill.style.animation = 'none';
-        void fill.offsetWidth;
-        fill.style.animation = 'fbStoryFill 5s linear forwards';
+        // the progress bar is the clock: when it finishes, the next story plays
+        fill.style.animation = `fbStoryFill ${STORY_MS}ms linear forwards`;
+        if (viewer.paused) fill.style.animationPlayState = 'paused';
+        fill.addEventListener('animationend', () => step(1));
       }
-      viewer.timer = setTimeout(() => step(1), 5000);
     }
 
     function step(direction) {
@@ -220,13 +226,26 @@ Pages.feedTab = function (main, user) {
       show(next);
     }
 
+    // Play / pause: freezes the progress bar, which is what advances the story
+    function setPaused(paused) {
+      viewer.paused = paused;
+      playBtn.classList.toggle('paused', paused);
+      playBtn.setAttribute('aria-label', paused ? 'Play story' : 'Pause story');
+      playBtn.setAttribute('aria-pressed', String(paused));
+      const fill = bars.querySelector('.fb-story-bar.active i');
+      if (fill) fill.style.animationPlayState = paused ? 'paused' : 'running';
+    }
+    viewer.setPaused = setPaused;
+
     viewer.step = step;
     viewer.keys = (e) => {
       if (e.key === 'Escape') closeStoryViewer();
       else if (e.key === 'ArrowRight') step(1);
       else if (e.key === 'ArrowLeft') step(-1);
+      else if (e.key === ' ') { e.preventDefault(); setPaused(!viewer.paused); }
     };
     document.addEventListener('keydown', viewer.keys);
+    playBtn.addEventListener('click', () => setPaused(!viewer.paused));
     el.querySelector('.fb-story-close').addEventListener('click', closeStoryViewer);
     el.querySelector('.fb-story-zone-prev').addEventListener('click', () => step(-1));
     el.querySelector('.fb-story-zone-next').addEventListener('click', () => step(1));
