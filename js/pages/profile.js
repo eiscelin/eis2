@@ -157,9 +157,50 @@ Pages.profileTab = function(main, user) {
     cover.classList.toggle('fb-cover--media', !!coverUrl);
     cover.querySelector('.fb-cover-media')?.remove();
     if (!coverUrl) return;
-    cover.insertAdjacentHTML('afterbegin', (video === undefined ? isVideo(coverUrl) : video)
+    const isVid = video === undefined ? isVideo(coverUrl) : video;
+    cover.insertAdjacentHTML('afterbegin', isVid
       ? `<video class="fb-cover-media" src="${fbEscape(coverUrl)}" autoplay muted loop playsinline></video>`
       : `<img class="fb-cover-media" src="${fbEscape(coverUrl)}" alt="">`);
+
+    const rect = framedRect(coverUrl);
+    if (!rect) return;
+    const media = cover.querySelector('.fb-cover-media');
+    const apply = () => frameMedia(media, rect);
+    if (isVid) {
+      if (media.readyState >= 1) apply();
+      else media.addEventListener('loadedmetadata', apply, { once: true });
+    } else if (media.complete) {
+      apply();
+    } else {
+      media.addEventListener('load', apply, { once: true });
+    }
+  }
+
+  // Framing saved with a cover video: #f=x,y,w,h as fractions of the clip
+  function framedRect(url) {
+    const match = String(url).match(/#f=([\d.]+),([\d.]+),([\d.]+),([\d.]+)/);
+    return match ? { x: +match[1], y: +match[2], w: +match[3], h: +match[4] } : null;
+  }
+
+  // Shows exactly the part of the video the owner framed
+  function frameMedia(media, rect) {
+    const cover = main.querySelector('#pfCover');
+    const naturalW = media.videoWidth || media.naturalWidth;
+    const naturalH = media.videoHeight || media.naturalHeight;
+    const frameW = cover.clientWidth;
+    const frameH = cover.clientHeight;
+    if (!naturalW || !naturalH || !frameW || !frameH) return;
+    const scale = Math.max(frameW / (rect.w * naturalW), frameH / (rect.h * naturalH));
+    const width = naturalW * scale;
+    const height = naturalH * scale;
+    const left = Math.min(0, Math.max(frameW - width, -(rect.x * width) - (rect.w * width - frameW) / 2));
+    const top = Math.min(0, Math.max(frameH - height, -(rect.y * height) - (rect.h * height - frameH) / 2));
+    media.style.position = 'absolute';
+    media.style.objectFit = 'fill';
+    media.style.width = (width / frameW * 100) + '%';
+    media.style.height = (height / frameH * 100) + '%';
+    media.style.left = (left / frameW * 100) + '%';
+    media.style.top = (top / frameH * 100) + '%';
   }
 
   // Cloudinary crops the photo down to exactly what the owner framed
@@ -168,19 +209,32 @@ Pages.profileTab = function(main, user) {
     return String(url).replace('image/upload/', 'image/upload/' + transform + '/');
   }
 
-  // Drag the photo to choose what shows and zoom to resize it
+  // Drag the photo or video to choose what shows and zoom to resize it
   async function openCoverEditor(file) {
+    const video = file.type.startsWith('video/');
     let blob = file;
-    try { blob = await shrinkImage(file, 2400); } catch { /* formats the browser cannot decode (HEIC) go up as they are */ }
+    if (!video) {
+      try { blob = await shrinkImage(file, 2400); } catch { /* formats the browser cannot decode (HEIC) go up as they are */ }
+    }
     const src = URL.createObjectURL(blob);
 
-    const source = new Image();
+    const source = document.createElement(video ? 'video' : 'img');
+    if (video) {
+      source.muted = true;
+      source.loop = true;
+      source.playsInline = true;
+      source.autoplay = true;
+    }
     const decoded = await new Promise(resolve => {
-      source.onload = () => resolve(true);
+      if (video) source.onloadedmetadata = () => resolve(true);
+      else source.onload = () => resolve(true);
       source.onerror = () => resolve(false);
       source.src = src;
+      if (video) source.play().catch(() => {});
     });
-    if (!decoded) {
+    const naturalW = video ? source.videoWidth : source.naturalWidth;
+    const naturalH = video ? source.videoHeight : source.naturalHeight;
+    if (!decoded || !naturalW || !naturalH) {
       URL.revokeObjectURL(src);
       return { blob: file };
     }
@@ -190,28 +244,26 @@ Pages.profileTab = function(main, user) {
     const available = Math.min(((coverBox && coverBox.clientWidth) || 620), window.innerWidth - 64);
     const width = Math.max(240, Math.min(620, Math.round(available)));
     const height = Math.round(width / (ratio || 3.1));
-    const base = Math.max(width / source.naturalWidth, height / source.naturalHeight);
+    const base = Math.max(width / naturalW, height / naturalH);
     const zoomMax = 3;
 
     let zoom = 1;
     let dx = 0;
     let dy = 0;
-    const size = () => ({ w: source.naturalWidth * base * zoom, h: source.naturalHeight * base * zoom });
+    const size = () => ({ w: naturalW * base * zoom, h: naturalH * base * zoom });
 
     const overlay = document.createElement('div');
     overlay.className = 'cover-editor';
     overlay.innerHTML = `
       <div class="cover-editor-box">
         <h3>Position your cover</h3>
-        <div class="cover-editor-frame" id="ceFrame" style="width:${width}px;height:${height}px">
-          <img id="ceImg" src="${src}" alt="">
-        </div>
+        <div class="cover-editor-frame" id="ceFrame" style="width:${width}px;height:${height}px"></div>
         <div class="cover-editor-controls">
           <span aria-hidden="true">−</span>
           <input id="ceZoom" type="range" min="1" max="${zoomMax}" step="0.01" value="1" aria-label="Zoom cover photo">
           <span aria-hidden="true">+</span>
         </div>
-        <p class="cover-editor-hint">Drag the photo to choose what shows, and zoom to resize it.</p>
+        <p class="cover-editor-hint">Drag to choose what shows, and zoom to resize it.</p>
         <div class="cover-editor-actions">
           <button class="fb-btn fb-btn-secondary" id="ceCancel" type="button">Cancel</button>
           <button class="fb-btn fb-btn-primary" id="ceSave" type="button">Save cover</button>
@@ -220,7 +272,9 @@ Pages.profileTab = function(main, user) {
     document.body.appendChild(overlay);
 
     const frame = overlay.querySelector('#ceFrame');
-    const picture = overlay.querySelector('#ceImg');
+    source.id = 'ceImg';
+    frame.appendChild(source);
+    const picture = source;
 
     function layout() {
       const { w, h } = size();
@@ -274,17 +328,17 @@ Pages.profileTab = function(main, user) {
       overlay.querySelector('#ceSave').addEventListener('click', () => {
         const scale = base * zoom; // shown pixels per source pixel
         const rect = {
-          x: Math.max(0, -dx / scale),
-          y: Math.max(0, -dy / scale),
-          w: Math.min(source.naturalWidth, width / scale),
-          h: Math.min(source.naturalHeight, height / scale)
+          x: Math.max(0, -dx / scale / naturalW),
+          y: Math.max(0, -dy / scale / naturalH),
+          w: Math.min(1, width / scale / naturalW),
+          h: Math.min(1, height / scale / naturalH)
         };
-        resolve(finish({ blob, crop: rect }));
+        resolve(finish({ blob, crop: rect, size: { w: naturalW, h: naturalH } }));
       });
     });
   }
 
-  async function saveMedia(kind, file, crop) {
+  async function saveMedia(kind, file, crop, cropSize) {
     if (!file) return;
     const label = kind === 'avatar' ? 'profile picture' : 'cover';
     const video = kind === 'cover' && file.type.startsWith('video/');
@@ -315,7 +369,12 @@ Pages.profileTab = function(main, user) {
       }
       const uploaded = await cloudinaryUpload(payload);
       if (!uploaded) throw new Error('image hosting is not connected');
-      const url = crop ? cloudinaryCrop(uploaded, crop) : uploaded;
+      const url = !crop ? uploaded
+        : video
+          ? uploaded + '#f=' + [crop.x, crop.y, crop.w, crop.h].map(v => v.toFixed(4)).join(',')
+          : cloudinaryCrop(uploaded, {
+            x: crop.x * cropSize.w, y: crop.y * cropSize.h, w: crop.w * cropSize.w, h: crop.h * cropSize.h
+          });
 
       const next = {
         avatar_url: kind === 'avatar' ? url : avatarUrl,
@@ -371,10 +430,12 @@ Pages.profileTab = function(main, user) {
     const file = coverFile.files[0];
     coverFile.value = '';
     if (!file) return;
-    if (file.type.startsWith('video/')) return saveMedia('cover', file);
     const edited = await openCoverEditor(file);
-    if (edited) saveMedia('cover', edited.blob, edited.crop);
+    if (edited) saveMedia('cover', edited.blob, edited.crop, edited.size);
   });
+
+  // a cover saved with framing shows that framing straight away
+  if (framedRect(coverUrl)) paintCover();
 
   // People / friends (team directory)
   const loadPeople = async () => {
