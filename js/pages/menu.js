@@ -19,7 +19,7 @@ var openAppMenu = (function () {
   const settings = [
     { label: 'Settings', icon: '⚙️' },
     { label: 'Orders and payments', icon: '💳' },
-    { label: 'Dark mode', icon: '🌙', toggle: true },
+    { label: 'Dark mode', icon: '🌙', toggle: true, theme: true },
     { label: 'Language', icon: '🌐', meta: 'English' }
   ];
 
@@ -76,11 +76,11 @@ var openAppMenu = (function () {
             </button>
             <div class="fb-menu-rows" id="menuSettingsBody">
               ${settings.map(row => `
-                <button class="fb-menu-row" type="button" data-label="${fbEscape(row.label)}">
+                <button class="fb-menu-row" type="button" data-label="${fbEscape(row.label)}"${row.theme ? ' data-theme-row="1"' : ''}>
                   <span class="fb-menu-row-icon" aria-hidden="true">${row.icon}</span>
                   <span class="fb-menu-row-label">${fbEscape(row.label)}</span>
                   ${row.toggle
-                    ? '<span class="fb-menu-switch" role="switch" aria-checked="true"><i></i></span>'
+                    ? `<span class="fb-menu-switch" role="switch" data-theme-switch aria-checked="${Theme.current === 'dark'}"><i></i></span>`
                     : row.meta ? `<span class="fb-menu-row-meta">${fbEscape(row.meta)}</span>` : ''}
                 </button>`).join('')}
             </div>
@@ -135,9 +135,12 @@ var openAppMenu = (function () {
 
     el.querySelectorAll('.fb-menu-row').forEach(row => {
       row.addEventListener('click', () => {
-        showToast(row.querySelector('.fb-menu-switch')
-          ? 'Dark mode is always on for now'
-          : row.dataset.label + ' isn\'t available yet');
+        if (row.dataset.themeRow) {
+          Theme.toggle();
+          showToast(Theme.current === 'dark' ? 'Dark mode on' : 'Light mode on');
+          return;
+        }
+        showToast(row.dataset.label + ' isn\'t available yet');
       });
     });
 

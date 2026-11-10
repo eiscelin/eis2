@@ -12,6 +12,7 @@ Pages.landing = function(el) {
           <span class="fb-brand-name">${fbEscape(brand.name)}</span>
         </div>
         <div class="fb-topbar-right">
+          ${Theme.toggleButtonHTML()}
           <a class="fb-icon-btn" href="#/Register" title="Create account" aria-label="Create account">＋</a>
           <a class="fb-icon-btn" href="#/Login" title="Log in" aria-label="Log in">👤</a>
         </div>

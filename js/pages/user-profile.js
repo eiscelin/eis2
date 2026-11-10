@@ -49,9 +49,12 @@ Pages.userProfile = async function (el, username) {
   const brand = fbBrand();
   const bar = `<div class="fb-public-bar">
       <a class="fb-logo" href="#/" title="${fbEscape(brand.name)}" aria-label="${fbEscape(brand.name)}">${fbEscape(brand.initial)}</a>
-      ${viewer
-        ? '<a class="fb-btn fb-btn-secondary" href="#/App">Open app</a>'
-        : '<a class="fb-btn fb-btn-primary" href="#/Login">Log in</a>'}
+      <div class="fb-public-actions">
+        ${Theme.toggleButtonHTML('fb-btn fb-btn-secondary')}
+        ${viewer
+          ? '<a class="fb-btn fb-btn-secondary" href="#/App">Open app</a>'
+          : '<a class="fb-btn fb-btn-primary" href="#/Login">Log in</a>'}
+      </div>
     </div>`;
 
   el.innerHTML = `<div class="fb-public">${bar}<div class="loading" style="padding:2rem;text-align:center;">Loading profile…</div></div>`;

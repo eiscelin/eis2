@@ -107,6 +107,7 @@ function appShell(el, user, navItems, renderContent, startTab) {
         </div>
         <nav class="fb-topbar-center" id="fbTopNav" aria-label="Sections"></nav>
         <div class="fb-topbar-right">
+          ${Theme.toggleButtonHTML()}
           <button class="fb-icon-btn" id="fbMessages" type="button" title="Messages" aria-label="Messages">💬</button>
           <button class="fb-user-btn" id="fbUserBtn" type="button" title="My profile" aria-label="My profile">${fbAvatar(displayName, 'fb-avatar-sm')}</button>
           <button class="fb-icon-btn fb-burger" id="fbBurger" type="button" title="Menu" aria-label="Menu">

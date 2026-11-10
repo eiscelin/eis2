@@ -5,6 +5,7 @@ function authShell(el, opts) {
   const brand = fbBrand();
   el.innerHTML = `
     <div class="auth-page">
+      ${Theme.toggleButtonHTML('auth-theme')}
       ${opts.backLink ? `<a class="auth-back" href="#${opts.backLink}">← ${opts.backText}</a>` : ''}
       <div class="auth-card">
         <div class="auth-header">
