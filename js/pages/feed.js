@@ -131,7 +131,8 @@ Pages.feedTab = function (main, user) {
     try {
       showToast('Adding your story…');
       const blob = await shrinkImage(file);
-      const image = cloudinaryReady ? await cloudinaryUpload(blob) : await blobToDataUrl(blob);
+      const uploaded = await cloudinaryUpload(blob);
+      const image = uploaded || await blobToDataUrl(blob);
       const { error } = await sb.from('stories').insert([{
         user_id: user.id,
         author_name: name,

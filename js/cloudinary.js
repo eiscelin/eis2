@@ -1,24 +1,14 @@
-// Cloudinary uploads — story photos are stored publicly on the connected Cloudinary account
-const cloudinaryConf = window.APP_CONFIG || {};
-const cloudinaryReady = !!(cloudinaryConf.CLOUDINARY_CLOUD_NAME && cloudinaryConf.CLOUDINARY_UPLOAD_PRESET);
-
-if (!cloudinaryReady) {
-  console.info('Cloudinary not configured — story photos stay inline in the database');
-}
-
-// Unsigned upload: the cloud name and upload preset are safe to expose in the browser
+// Photos are uploaded through the app's own server, which holds the Cloudinary settings
+// (stored publicly — anyone with the link can open them).
+// An empty string means Cloudinary is not connected, so the caller stores the photo inline.
 async function cloudinaryUpload(blob) {
-  if (!cloudinaryReady) throw new Error('Cloudinary is not connected');
-  const body = new FormData();
-  body.append('file', blob);
-  body.append('upload_preset', cloudinaryConf.CLOUDINARY_UPLOAD_PRESET);
-  const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudinaryConf.CLOUDINARY_CLOUD_NAME}/image/upload`, {
+  const res = await fetch('/api/upload', {
     method: 'POST',
-    body
+    headers: { 'Content-Type': blob.type || 'image/jpeg' },
+    body: blob
   });
+  if (res.status === 404 || res.status === 501) return '';
   const data = await res.json().catch(() => ({}));
-  if (!res.ok || !data.secure_url) {
-    throw new Error((data.error && data.error.message) || 'Cloudinary upload failed');
-  }
-  return data.secure_url;
+  if (!res.ok || !data.url) throw new Error(data.error || 'Cloudinary upload failed');
+  return data.url;
 }
