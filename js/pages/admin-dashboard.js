@@ -311,17 +311,7 @@ Pages.adminDashboard = function(el) {
     }
 
     else if (tab === 'profile') {
-      main.innerHTML = mainHeader('My Profile', 'Manage your account');
-      main.innerHTML += `
-        <div class="table-card">
-          <div class="table-card-header"><h3>Account Information</h3></div>
-          <div style="padding:1.25rem;">
-            <div class="form-group"><label>Full Name</label><input type="text" value="${user.full_name || ''}" disabled></div>
-            <div class="form-group"><label>Username</label><input type="text" value="${user.username}" disabled></div>
-            <div class="form-group"><label>Contact Number</label><input type="text" value="${user.contact_number || '—'}" disabled></div>
-            <div class="form-group"><label>Role</label><input type="text" value="${user.role}" disabled></div>
-          </div>
-        </div>`;
+      Pages.profileTab(main, user);
     }
   });
 };
