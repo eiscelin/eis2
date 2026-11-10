@@ -13,7 +13,7 @@ function fbAvatar(name, cls) {
 }
 
 function fbBrand() {
-  return window.BRAND || { name: 'Social', initial: 'S', tagline: '' };
+  return window.BRAND || { name: 'MetMuk', initial: 'M', tagline: '' };
 }
 
 function showToast(msg, type = '') {
