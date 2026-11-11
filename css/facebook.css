@@ -647,8 +647,6 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
   align-items: start;
 }
 .fb-col { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
-/* My Information tab: the details form takes the whole width */
-.fb-profile-cols.fb-cols-single { grid-template-columns: minmax(0, 1fr); }
 
 .fb-card-head {
   display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;

@@ -63,7 +63,6 @@ Pages.profileTab = function(main, user) {
           <div class="fb-media-note" id="pfMediaNote" hidden></div>
         </div>
         <div class="fb-profile-actions">
-          <button class="fb-btn fb-btn-primary" id="pfEdit" type="button">✏️ Edit profile</button>
           <button class="fb-btn fb-btn-secondary" id="pfOverlay" type="button">✨ Overlay</button>
           <button class="fb-btn fb-btn-secondary" id="pfShare" type="button">↗ Share profile</button>
           <button class="fb-btn fb-btn-secondary" id="pfLogout" type="button">⎋ Log out</button>
@@ -73,7 +72,6 @@ Pages.profileTab = function(main, user) {
       <nav class="fb-profile-tabs" aria-label="Profile sections">
         <button class="fb-profile-tab active" data-ptab="all" type="button">All</button>
         <button class="fb-profile-tab" data-ptab="about" type="button">About</button>
-        <button class="fb-profile-tab" data-ptab="info" type="button">My Information</button>
         <button class="fb-profile-tab" data-ptab="friends" type="button">Friends</button>
         <button class="fb-profile-tab" data-ptab="posts" type="button">Posts</button>
       </nav>
@@ -89,8 +87,6 @@ Pages.profileTab = function(main, user) {
               <li><span class="ico" aria-hidden="true">🌐</span><span class="k">App:</span> ${fbEscape(brand.name)}</li>
             </ul>
           </section>
-
-          <div id="pfPersonal" data-section="info"></div>
 
           <section class="fb-card" data-section="friends" id="pfFriends">
             <div class="fb-card-head"><h3>Friends</h3></div>
@@ -127,7 +123,6 @@ Pages.profileTab = function(main, user) {
   const sectionMap = {
     all: null,
     about: ['about'],
-    info: ['info'],
     friends: ['friends', 'people'],
     posts: ['posts']
   };
@@ -137,9 +132,6 @@ Pages.profileTab = function(main, user) {
       const allowed = sectionMap[tab];
       section.style.display = (!allowed || allowed.includes(section.dataset.section)) ? '' : 'none';
     });
-    // My Information is a full-width form, so it spans both columns
-    const cols = main.querySelector('.fb-profile-cols');
-    if (cols) cols.classList.toggle('fb-cols-single', tab === 'info');
     main.querySelectorAll('.fb-profile-tab').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.ptab === tab);
     });
@@ -149,30 +141,11 @@ Pages.profileTab = function(main, user) {
     btn.addEventListener('click', () => showTab(btn.dataset.ptab));
   });
 
-  main.querySelector('#pfEdit').addEventListener('click', () => {
-    showTab('info');
-    const personal = main.querySelector('#pfPersonal');
-    personal.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    const first = personal.querySelector('input');
-    if (first) setTimeout(() => first.focus({ preventScroll: true }), 350);
-  });
-
   main.querySelector('#pfShare').addEventListener('click', () => {
     fbShareLink(fbProfileLink(user.username), name);
   });
 
   main.querySelector('#pfLogout').addEventListener('click', () => Auth.logout());
-
-  // ---------- Personal information (details + password) ----------
-
-  if (window.PersonalInfo) {
-    PersonalInfo.render(main.querySelector('#pfPersonal'), user, {
-      onSaved: saved => {
-        const heading = main.querySelector('.fb-profile-name');
-        if (heading) heading.textContent = saved.full_name || user.username;
-      }
-    });
-  }
 
   // ---------- Translucent overlay in front of the whole profile ----------
 
