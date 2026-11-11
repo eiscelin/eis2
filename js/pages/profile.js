@@ -110,11 +110,7 @@ Pages.profileTab = function(main, user) {
 
           <section class="fb-card" data-section="posts" id="pfPosts">
             <div class="fb-card-head"><h3>Posts</h3></div>
-            <div class="fb-composer">
-              <span class="fb-avatar fb-avatar-sm">${fbEscape(initial)}</span>
-              <input id="pfComposerInput" type="text" placeholder="What's on your mind?">
-              <button id="pfComposerPost" type="button">Post</button>
-            </div>
+            <div id="pfComposer"></div>
             <div id="pfFeed">
               <div class="loading" style="padding:1rem;">Loading…</div>
             </div>
@@ -622,66 +618,22 @@ Pages.profileTab = function(main, user) {
     }
   };
 
-  // Posts = announcements from the main office
-  const loadFeed = async () => {
-    const feed = main.querySelector('#pfFeed');
-    if (!sb) {
-      feed.innerHTML = '<div class="empty-state" style="padding:1.5rem;">No posts yet.</div>';
-      return;
-    }
-    try {
-      const { data } = await sb.from('announcements').select('*').order('created_at', { ascending: false });
-      const posts = data || [];
-      feed.innerHTML = posts.length
-        ? posts.map(p => `
-          <article class="fb-post">
-            <div class="fb-post-head">
-              <span class="fb-avatar">${fbBrandMark()}</span>
-              <div>
-                <div class="fb-post-name">${fbEscape(brand.name)}</div>
-                <div class="fb-post-time">${fbEscape(fmtDate(p.date || p.created_at))} · 🌐</div>
-              </div>
-              ${window.AdminModerate ? AdminModerate.postButton(p.id) : ''}
-            </div>
-            <div class="fb-post-body">
-              ${p.priority === 'high' ? '<span class="fb-post-tag">IMPORTANT</span>' : ''}
-              <strong>${fbEscape(p.title || 'Post')}</strong>
-              ${fbEscape(p.content || '')}
-            </div>
-          </article>`).join('')
-        : '<div class="empty-state" style="padding:1.5rem;">No posts yet.</div>';
-    } catch {
-      feed.innerHTML = '<div class="empty-state" style="padding:1.5rem;">No posts yet.</div>';
-    }
-    if (window.AdminModerate) AdminModerate.wire(feed, { post: loadFeed });
-  };
+  // Posts = this member's photo, video and text posts
+  const profilePosts = Posts.mount(main.querySelector('#pfFeed'), {
+    viewer: user,
+    authorId: user.id,
+    limit: 20,
+    emptyHtml: '<div class="empty-state" style="padding:1.5rem;">No posts yet — share something above.</div>'
+  });
 
-  const composerPost = main.querySelector('#pfComposerPost');
-  if (composerPost) {
-    composerPost.addEventListener('click', async () => {
-      const input = main.querySelector('#pfComposerInput');
-      const content = input.value.trim();
-      if (!content) return showToast('Write something first', 'error');
-      try {
-        await sb.from('announcements').insert([{
-          title: content.length > 60 ? content.slice(0, 60) + '…' : content,
-          content,
-          priority: 'normal',
-          is_active: true
-        }]);
-        input.value = '';
-        showToast('Posted to the network', 'success');
-        loadFeed();
-      } catch (e) {
-        showToast('Failed to post: ' + e.message, 'error');
-      }
-    });
-  }
+  Posts.composer(main.querySelector('#pfComposer'), {
+    viewer: user,
+    onPosted: () => profilePosts.reload()
+  });
 
   showTab('all');
   paintMediaNote();
   loadPeople();
-  loadFeed();
   if (window.SupportWidget) window.SupportWidget.mount(user);
 };
 

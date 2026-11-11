@@ -20,6 +20,7 @@ Run each file in `migrations/` once in the Supabase dashboard (SQL Editor > New 
 9. `009_add_profile_details.sql` — personal details (age, address, mobile) on the profile tab
 10. `010_admin_delete_content.sql` — admins can remove a member's displayed content
 11. `011_add_friend_requests.sql` — friend requests: "People you may know" → Add Friend → the other member confirms in the notification bell
+12. `012_create_posts.sql` — member posts with photo/video, reactions and comments (comment edit/delete, comment reactions)
 
 After running `008`, open `#/Admin` while signed in. If no admin exists yet, the panel offers
 "Make me the first admin" once; otherwise set the role in SQL:
