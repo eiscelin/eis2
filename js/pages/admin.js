@@ -788,7 +788,19 @@ var Pages = window.Pages || {};
   Pages.admin = async function (el) {
     me = Auth.currentUser;
     if (!me) {
-      location.hash = '#/Login';
+      // Stay on #/Admin so the claim option is discoverable instead of bouncing to Login
+      el.innerHTML = `
+        <div class="admin-page">
+          <div class="admin-wrap">
+            <section class="admin-denied">
+              <span class="admin-shield big" aria-hidden="true">🛡️</span>
+              <h1>Admin access only</h1>
+              <p>Log in first — while no admin exists, the first account can claim the admin role.</p>
+              <a class="admin-approve" href="#/Login">Log in</a>
+              <a class="admin-tool" href="#/App">← Back to app</a>
+            </section>
+          </div>
+        </div>`;
       return;
     }
     if (!sb) {
