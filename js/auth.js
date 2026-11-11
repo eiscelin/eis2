@@ -18,6 +18,8 @@ const Auth = {
       .eq('password', password)
       .single();
     if (error || !data) throw new Error('Invalid username or password');
+    if (data.deleted_at || data.status === 'deleted') throw new Error('This account is no longer available');
+    if (data.status === 'suspended') throw new Error('This account is suspended. Contact an admin.');
     this.currentUser = data;
     localStorage.setItem('chookee_user', JSON.stringify(data));
     return data;

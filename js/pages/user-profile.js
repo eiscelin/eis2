@@ -59,17 +59,24 @@ Pages.userProfile = async function (el, username) {
   // Only the public columns are read — never the password
   let person = null;
   if (sb) {
-    const publicColumns = 'id, username, full_name, role, avatar_url, cover_url';
+    const publicColumns = 'id, username, full_name, role, avatar_url, cover_url, status, deleted_at';
     const overlayColumns = ', overlay_image_url, overlay_video_url, overlay_media, overlay_opacity, overlay_volume';
     let { data, error } = await sb.from('users')
       .select(publicColumns + overlayColumns)
       .eq('username', username)
       .limit(1);
-    // Profiles still load before 006_add_profile_overlay.sql has run
+    // Profiles still load before the optional migrations have run
     if (error) {
-      ({ data } = await sb.from('users').select(publicColumns).eq('username', username).limit(1));
+      ({ data } = await sb.from('users')
+        .select('id, username, full_name, role, avatar_url, cover_url')
+        .eq('username', username)
+        .limit(1));
     }
     person = (data || [])[0] || null;
+  }
+
+  if (person && (person.deleted_at || person.status === 'deleted' || person.status === 'suspended')) {
+    person = null;
   }
 
   if (!person) {

@@ -16,5 +16,13 @@ Run each file in `migrations/` once in the Supabase dashboard (SQL Editor > New 
 5. `005_add_profile_media.sql` — profile picture + cover photo/video (and the `set_profile_media` write function)
 6. `006_add_profile_overlay.sql` — see-through image/video that floats in front of the profile page (and the `set_profile_overlay` write function)
 7. `007_add_overlay_volume.sql` — volume for the overlay video; also safe to run on its own instead of step 6
+8. `008_add_admin_controls.sql` — profile media approval queue, member roles/status, message moderation and the admin panel functions
+
+After running `008`, open `#/Admin` while signed in. If no admin exists yet, the panel offers
+"Make me the first admin" once; otherwise set the role in SQL:
+
+```sql
+UPDATE public.users SET role = 'admin' WHERE username = 'your-username';
+```
 
 The app stays connected but featureless (no login, no posts, no chat) until these tables exist.

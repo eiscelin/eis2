@@ -18,6 +18,19 @@ Pages.profileTab = function(main, user) {
   let coverUrl = user.cover_url || '';
   const isVideo = url => /\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i.test(String(url));
 
+  // Tells the owner that a picture or video is waiting for an admin
+  function paintMediaNote() {
+    const note = main.querySelector('#pfMediaNote');
+    if (!note) return;
+    const lines = [];
+    if (user.avatar_review_status === 'pending') lines.push('⏳ Profile picture waiting for admin approval');
+    else if (user.avatar_review_status === 'rejected') lines.push('⚠️ Profile picture was declined — choose another');
+    if (user.cover_review_status === 'pending') lines.push('⏳ Cover waiting for admin approval');
+    else if (user.cover_review_status === 'rejected') lines.push('⚠️ Cover was declined — choose another');
+    note.innerHTML = lines.map(line => `<span>${fbEscape(line)}</span>`).join('');
+    note.hidden = !lines.length;
+  }
+
   // A profile picture can be a photo or a short video
   function avatarMedia(video) {
     const isVid = video === undefined ? isVideo(avatarUrl) : video;
@@ -48,6 +61,7 @@ Pages.profileTab = function(main, user) {
           <div class="fb-profile-meta">
             ${fbEscape(role)} · @${fbEscape(user.username)} · <span id="pfFriendCount">…</span> friends
           </div>
+          <div class="fb-media-note" id="pfMediaNote" hidden></div>
         </div>
         <div class="fb-profile-actions">
           <button class="fb-btn fb-btn-primary" id="pfEdit" type="button">✏️ Edit profile</button>
@@ -420,32 +434,40 @@ Pages.profileTab = function(main, user) {
             x: crop.x * cropSize.w, y: crop.y * cropSize.h, w: crop.w * cropSize.w, h: crop.h * cropSize.h
           });
 
-      const next = {
-        avatar_url: kind === 'avatar' ? url : avatarUrl,
-        cover_url: kind === 'cover' ? url : coverUrl
-      };
-      const { error } = await sb.rpc('set_profile_media', {
+      // An admin reviews a new picture or video before it appears on the profile
+      const { error } = await sb.rpc('submit_profile_media', {
         p_user_id: user.id,
-        p_avatar_url: next.avatar_url || null,
-        p_cover_url: next.cover_url || null
+        p_kind: kind,
+        p_url: url
       });
       if (error) throw error;
 
-      avatarUrl = next.avatar_url;
-      coverUrl = next.cover_url;
-      Object.assign(user, next);
-      if (Auth.currentUser) {
-        Object.assign(Auth.currentUser, next);
-        localStorage.setItem('chookee_user', JSON.stringify(Auth.currentUser));
+      const { data: fresh } = await sb.from('users')
+        .select('avatar_url, cover_url, avatar_pending_url, cover_pending_url, avatar_review_status, cover_review_status')
+        .eq('id', user.id)
+        .single();
+      if (fresh) {
+        avatarUrl = fresh.avatar_url || '';
+        coverUrl = fresh.cover_url || '';
+        Object.assign(user, fresh);
+        if (Auth.currentUser) {
+          Object.assign(Auth.currentUser, fresh);
+          localStorage.setItem('chookee_user', JSON.stringify(Auth.currentUser));
+        }
       }
-      paintAvatar(kind === 'avatar' ? video : undefined);
-      paintCover(kind === 'cover' ? video : undefined);
-      showToast('Your ' + label + ' is updated', 'success');
+      paintAvatar();
+      paintCover();
+      paintMediaNote();
+
+      const review = fresh ? (kind === 'avatar' ? fresh.avatar_review_status : fresh.cover_review_status) : 'pending';
+      showToast(review === 'approved'
+        ? 'Your ' + label + ' is updated'
+        : 'Your ' + label + ' was sent to an admin for approval', 'success', 5000);
     } catch (e) {
       restore();
       const message = String(e.message || e);
-      showToast(/set_profile_media/.test(message)
-        ? 'Run 005_add_profile_media.sql in Supabase, then try again'
+      showToast(/submit_profile_media|set_profile_media/.test(message)
+        ? 'Run 008_add_admin_controls.sql in Supabase, then try again'
         : 'Could not update your ' + label + ': ' + message, 'error', 6000);
     } finally {
       URL.revokeObjectURL(preview);
@@ -499,7 +521,12 @@ Pages.profileTab = function(main, user) {
     }
     try {
       const { data } = await sb.from('users').select('*').order('username', { ascending: true });
-      const people = (data || []).filter(u => String(u.id) !== String(user.id));
+      const people = (data || []).filter(u =>
+        String(u.id) !== String(user.id) &&
+        !u.deleted_at &&
+        u.status !== 'deleted' &&
+        u.status !== 'suspended'
+      );
       main.querySelector('#pfFriendCount').textContent = people.length;
 
       friendsGrid.innerHTML = people.length
@@ -594,6 +621,7 @@ Pages.profileTab = function(main, user) {
   }
 
   showTab('all');
+  paintMediaNote();
   loadPeople();
   loadFeed();
 };

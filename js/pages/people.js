@@ -46,7 +46,12 @@ function loadPeople(main, user, heading, emptyMsg) {
     if (!sb) { people = []; renderPeople(); return; }
     try {
       const { data } = await sb.from('users').select('*').order('username', { ascending: true });
-      people = (data || []).filter(u => String(u.id) !== String(user.id));
+      people = (data || []).filter(u =>
+        String(u.id) !== String(user.id) &&
+        !u.deleted_at &&
+        u.status !== 'deleted' &&
+        u.status !== 'suspended'
+      );
     } catch {
       people = [];
     }

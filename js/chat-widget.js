@@ -56,7 +56,7 @@ window.ChatWidget = function(container, currentUser) {
   async function loadUsers() {
     try {
       const { data } = await sb.from('users').select('*').neq('id', currentUser.id).order('username', { ascending: true });
-      users = data || [];
+      users = (data || []).filter(u => !u.deleted_at && u.status !== 'deleted' && u.status !== 'suspended');
       renderUserList();
     } catch (e) {
       userListView.innerHTML = '<div class="chat-empty">Failed to load users</div>';
