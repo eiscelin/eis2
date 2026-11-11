@@ -79,6 +79,29 @@ Pages.userProfile = async function (el, username) {
     person = null;
   }
 
+  // An administrator's profile is private — only other admins may open it
+  if (person && person.role === 'admin') {
+    let viewerIsAdmin = false;
+    if (viewer && sb) {
+      try {
+        const { data } = await sb.from('users')
+          .select('role, status, deleted_at')
+          .eq('id', viewer.id)
+          .single();
+        viewerIsAdmin = !!data && data.role === 'admin' && !data.deleted_at && data.status !== 'suspended';
+      } catch { viewerIsAdmin = false; }
+    }
+    if (!viewerIsAdmin) {
+      el.innerHTML = `<div class="fb-public">${bar}
+        <section class="fb-card" style="margin:1rem;padding:2rem;text-align:center;">
+          <h2>This profile is private</h2>
+          <p style="margin-top:0.5rem;color:var(--fb-muted);">Administrator profiles are only visible to other administrators.</p>
+        </section>
+      </div>`;
+      return;
+    }
+  }
+
   if (!person) {
     el.innerHTML = `<div class="fb-public">${bar}
       <section class="fb-card" style="margin:1rem;padding:2rem;text-align:center;">
