@@ -80,6 +80,35 @@ function postMediaHtml(post) {
     : `<img class="fb-post-media-el" src="${fbEscape(post.media_url)}" alt="">`}</div>`;
 }
 
+const POST_AUDIENCES = {
+  public: { icon: '🌐', label: 'Public' },
+  friends: { icon: '👥', label: 'Friends' },
+  only_me: { icon: '🔒', label: 'Only me' }
+};
+
+function postAudience(post) {
+  return POST_AUDIENCES[post && post.audience] || POST_AUDIENCES.public;
+}
+
+// The original post shown inside a shared post
+function postSharedHtml(shared, users) {
+  if (!shared) return '';
+  const member = users ? users.get(String(shared.user_id)) : null;
+  const name = (member && (member.full_name || member.username)) || shared.author_name || 'Member';
+  const username = (member && member.username) || shared.author_username || '';
+  return `<div class="fb-share-embed">
+    <div class="fb-share-embed-head">
+      <a class="fb-share-embed-avatar" href="${postProfileHref(username)}" aria-label="${fbEscape(name)}">${postAvatar(member, name, 'fb-avatar-xs')}</a>
+      <div>
+        <a class="fb-share-embed-name" href="${postProfileHref(username)}">${fbEscape(name)}</a>
+        <div class="fb-share-embed-time">${fbEscape(postTimeAgo(shared.created_at))}</div>
+      </div>
+    </div>
+    ${shared.content ? `<div class="fb-share-embed-text">${fbEscape(shared.content)}</div>` : ''}
+    ${postMediaHtml(shared)}
+  </div>`;
+}
+
 function postCommentHtml(comment, ctx) {
   const viewer = ctx.viewer || {};
   const member = ctx.users ? ctx.users.get(String(comment.user_id)) : null;
@@ -132,16 +161,18 @@ Posts.card = function (post, ctx) {
   const totalReactions = groups.reduce((sum, g) => sum + g.count, 0);
   const shares = Number(post.share_count) || 0;
   const viewerName = viewer.full_name || viewer.username || 'Member';
+  const audience = postAudience(post);
 
   return `<article class="fb-card fb-post-card" data-post="${fbEscape(post.id)}">
     <div class="fb-post-head">
       <a class="fb-post-avatar" href="${postProfileHref(authorUsername)}" aria-label="${fbEscape(authorName)}">${postAvatar(author, authorName)}</a>
       <div class="fb-post-id">
         <a class="fb-post-name" href="${postProfileHref(authorUsername)}">${fbEscape(authorName)}</a>
-        <div class="fb-post-time">${fbEscape(postTimeAgo(post.created_at))} · <span aria-label="Public">🌐</span></div>
+        <div class="fb-post-time">${fbEscape(postTimeAgo(post.created_at))} · <span title="${audience.label}" aria-label="${audience.label}">${audience.icon}</span></div>
       </div>
     </div>
     ${post.content ? `<div class="fb-post-text">${fbEscape(post.content)}</div>` : ''}
+    ${ctx.shared ? postSharedHtml(ctx.shared, ctx.users) : ''}
     ${postMediaHtml(post)}
     ${totalReactions || comments.length || shares
       ? `<div class="fb-post-stats">
@@ -312,6 +343,8 @@ Posts.mount = function (listEl, opts) {
     reactions: new Map(),
     comments: new Map(),
     commentReactions: new Map(),
+    shared: new Map(),
+    friendIds: null,
     query: ''
   };
 
@@ -324,22 +357,37 @@ Posts.mount = function (listEl, opts) {
     return state.posts.find(p => String(p.id) === String(id));
   }
 
+  function sharedFor(post) {
+    if (!post.shared_post_id) return null;
+    return state.shared.get(String(post.shared_post_id))
+      || state.posts.find(p => String(p.id) === String(post.shared_post_id))
+      || null;
+  }
+
   function ctxFor(post) {
     return {
       viewer,
       users: state.users,
       author: state.users.get(String(post.user_id)),
+      shared: sharedFor(post),
       reactions: state.reactions.get(String(post.id)) || [],
       comments: state.comments.get(String(post.id)) || [],
       commentReactions: state.commentReactions
     };
   }
 
+  // "Only me" stays private, "Friends" shows to accepted friends of the author
+  function visibleToViewer(post) {
+    const audience = post.audience || 'public';
+    if (audience === 'public' || String(post.user_id) === String(viewer.id)) return true;
+    if (audience === 'friends') return state.friendIds ? state.friendIds.has(String(post.user_id)) : true;
+    return false;
+  }
+
   function renderAll() {
     const q = state.query.trim().toLowerCase();
-    const shown = q
-      ? state.posts.filter(p => `${p.content || ''} ${p.author_name || ''}`.toLowerCase().includes(q))
-      : state.posts;
+    const shown = state.posts.filter(visibleToViewer).filter(p => !q
+      || `${p.content || ''} ${p.author_name || ''}`.toLowerCase().includes(q));
     listEl.innerHTML = shown.length
       ? shown.map(p => Posts.card(p, ctxFor(p))).join('')
       : (options.emptyHtml || '');
@@ -355,6 +403,8 @@ Posts.mount = function (listEl, opts) {
     state.reactions = new Map();
     state.comments = new Map();
     state.commentReactions = new Map();
+    state.shared = new Map();
+    state.friendIds = await loadFriendIds();
 
     let query = sb.from('posts').select('*').order('created_at', { ascending: false }).limit(options.limit || 30);
     if (options.authorId) query = query.eq('user_id', options.authorId);
@@ -370,13 +420,26 @@ Posts.mount = function (listEl, opts) {
       return;
     }
 
+    // The posts behind a share may sit outside this list, so load them for the preview
+    const loadedIds = new Set(state.posts.map(p => String(p.id)));
+    const sharedIds = Array.from(new Set(
+      state.posts.map(p => p.shared_post_id).filter(Boolean).map(String)
+    )).filter(id => !loadedIds.has(id));
+    if (sharedIds.length) {
+      const { data: originals } = await sb.from('posts').select('*').in('id', sharedIds);
+      (originals || []).forEach(p => state.shared.set(String(p.id), p));
+    }
+
     const postIds = state.posts.map(p => p.id);
     const { data: comments } = await sb.from('post_comments')
       .select('*').in('post_id', postIds).order('created_at', { ascending: true });
     (comments || []).forEach(c => mapPush(state.comments, String(c.post_id), c));
 
     const peopleIds = Array.from(new Set(
-      state.posts.map(p => p.user_id).concat((comments || []).map(c => c.user_id)).filter(Boolean)
+      state.posts.map(p => p.user_id)
+        .concat(Array.from(state.shared.values()).map(p => p.user_id))
+        .concat((comments || []).map(c => c.user_id))
+        .filter(Boolean)
     ));
     if (peopleIds.length) {
       const { data: people } = await sb.from('users')
@@ -515,11 +578,44 @@ Posts.mount = function (listEl, opts) {
     await refreshCard(postId);
   }
 
-  async function sharePost(post) {
-    const link = location.origin + location.pathname + '#/App';
-    await fbShareLink(link, 'Post by ' + (post.author_name || 'a member'));
-    if (sb) await sb.from('posts').update({ share_count: (Number(post.share_count) || 0) + 1 }).eq('id', post.id);
-    await refreshCard(post.id);
+  // Accepted friends of the signed-in member, used for the "Friends" audience
+  async function loadFriendIds() {
+    if (!sb || !viewer.id) return null;
+    const { data, error } = await sb.from('friend_requests')
+      .select('sender_id, receiver_id')
+      .eq('status', 'accepted')
+      .or(`sender_id.eq.${viewer.id},receiver_id.eq.${viewer.id}`);
+    if (error) return null;
+    const ids = new Set();
+    (data || []).forEach(row => {
+      ids.add(String(String(row.sender_id) === String(viewer.id) ? row.receiver_id : row.sender_id));
+    });
+    return ids;
+  }
+
+  function openShare(post) {
+    Posts.share(post, {
+      viewer,
+      async onShare({ audience, message }) {
+        if (!sb) throw new Error('Sharing needs a connected database');
+        const base = {
+          user_id: viewer.id,
+          author_name: viewer.full_name || viewer.username,
+          author_username: viewer.username,
+          content: message || ''
+        };
+        let { error } = await sb.from('posts').insert([{ ...base, audience, shared_post_id: post.id }]);
+        if (error && /column|schema cache/i.test(error.message || '')) {
+          // The share columns are not in the database yet: still post the message
+          ({ error } = await sb.from('posts').insert([base]));
+          if (!error) showToast('Shared — run supabase/migrations/013_add_post_sharing.sql for post previews and audience', 'error', 8000);
+        }
+        if (error) throw new Error(error.message || 'Could not share the post');
+        await sb.from('posts').update({ share_count: (Number(post.share_count) || 0) + 1 }).eq('id', post.id);
+        showToast('Shared', 'success');
+        await load();
+      }
+    });
   }
 
   listEl.addEventListener('click', async e => {
@@ -571,7 +667,7 @@ Posts.mount = function (listEl, opts) {
     if (kind === 'delete-comment' && commentEl) return deleteComment(postId, commentEl.dataset.comment);
     if (kind === 'share') {
       const post = findPost(postId);
-      if (post) await sharePost(post);
+      if (post) openShare(post);
     }
   });
 
