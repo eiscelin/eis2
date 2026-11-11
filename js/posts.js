@@ -14,6 +14,22 @@ const FB_REACTIONS = {
 };
 const REACTION_ORDER = ['like', 'love', 'haha', 'wow', 'sad', 'angry'];
 
+// A member can turn their own photo into a reaction, saved as "face:<image url>"
+function postFaceUrl(type) {
+  const match = /^face:(.+)$/.exec(String(type || ''));
+  return match ? match[1] : '';
+}
+
+function postReactionLabel(type) {
+  if (postFaceUrl(type)) return 'Face';
+  return (FB_REACTIONS[type] || {}).label || 'Like';
+}
+
+function postReactionColor(type) {
+  if (postFaceUrl(type)) return '#1877f2';
+  return (FB_REACTIONS[type] || {}).color || '#1877f2';
+}
+
 function postIsVideo(url) {
   return /\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i.test(String(url || ''));
 }
@@ -57,19 +73,30 @@ function postProfileHref(username) {
 
 function postReactionGroups(rows) {
   const counts = {};
+  const order = [];
   (rows || []).forEach(r => {
-    if (FB_REACTIONS[r.type]) counts[r.type] = (counts[r.type] || 0) + 1;
+    const type = String(r.type || '');
+    if (!postFaceUrl(type) && !FB_REACTIONS[type]) return;
+    if (!counts[type]) order.push(type);
+    counts[type] = (counts[type] || 0) + 1;
   });
-  return REACTION_ORDER.filter(t => counts[t]).map(t => ({
-    type: t, label: FB_REACTIONS[t].label, count: counts[t]
+  const known = REACTION_ORDER.filter(t => counts[t]);
+  const faces = order.filter(t => postFaceUrl(t));
+  return known.concat(faces).map(t => ({
+    type: t, label: postReactionLabel(t), count: counts[t]
   }));
 }
 
-function postReactionPicker() {
+function postReactionPicker(faces) {
+  const own = (faces || []).map(face => {
+    const type = 'face:' + face.image_url;
+    return `<button class="fb-reaction-option" type="button" data-react="${fbEscape(type)}" title="Your face" aria-label="Use your own face reaction">${Posts.reactionIcon(type)}</button>`;
+  }).join('');
   return `<div class="fb-reaction-picker">
     ${REACTION_ORDER.map(t =>
       `<button class="fb-reaction-option" type="button" data-react="${t}" title="${FB_REACTIONS[t].label}" aria-label="${FB_REACTIONS[t].label}">${Posts.reactionIcon(t)}</button>`
-    ).join('')}
+    ).join('')}${own}
+    <button class="fb-reaction-add" type="button" data-act="add-face" title="Upload your own face" aria-label="Upload your own face as a reaction">+</button>
   </div>`;
 }
 
@@ -117,7 +144,6 @@ function postCommentHtml(comment, ctx) {
   const rows = (ctx.commentReactions && ctx.commentReactions.get(String(comment.id))) || [];
   const groups = postReactionGroups(rows);
   const mine = rows.find(r => String(r.user_id) === String(viewer.id));
-  const mineType = mine ? FB_REACTIONS[mine.type] : null;
   const own = String(comment.user_id) === String(viewer.id);
 
   return `<div class="fb-comment" data-comment="${fbEscape(comment.id)}">
@@ -132,9 +158,9 @@ function postCommentHtml(comment, ctx) {
       </div>
       <div class="fb-comment-meta">
         <div class="fb-react-wrap">
-          <button class="fb-comment-act${mineType ? ' active' : ''}" type="button" data-act="react-comment"${mineType ? ` style="color:${mineType.color}"` : ''}>${mineType ? mineType.label : 'Like'}</button>
+          <button class="fb-comment-act${mine ? ' active' : ''}" type="button" data-act="react-comment"${mine ? ` style="color:${postReactionColor(mine.type)}"` : ''}>${mine ? postReactionLabel(mine.type) : 'Like'}</button>
           <button class="fb-react-more" type="button" data-act="react-picker" aria-label="Choose a reaction">▴</button>
-          ${postReactionPicker()}
+          ${postReactionPicker(ctx.faces)}
         </div>
         <span class="fb-comment-time">${fbEscape(postTimeAgo(comment.created_at))}</span>
         ${comment.edited_at ? '<span class="fb-comment-edited">Edited</span>' : ''}
@@ -157,7 +183,6 @@ Posts.card = function (post, ctx) {
   const comments = ctx.comments || [];
   const groups = postReactionGroups(reactions);
   const mine = reactions.find(r => String(r.user_id) === String(viewer.id));
-  const mineType = mine ? FB_REACTIONS[mine.type] : null;
   const totalReactions = groups.reduce((sum, g) => sum + g.count, 0);
   const shares = Number(post.share_count) || 0;
   const viewerName = viewer.full_name || viewer.username || 'Member';
@@ -187,11 +212,11 @@ Posts.card = function (post, ctx) {
       : ''}
     <div class="fb-post-actions">
       <div class="fb-react-wrap">
-        <button class="fb-post-act${mineType ? ' active' : ''}" type="button" data-act="react"${mineType ? ` style="color:${mineType.color}"` : ''}>
-          ${Posts.reactionIcon(mineType ? mine.type : 'like')}<span>${mineType ? mineType.label : 'Like'}</span>
+        <button class="fb-post-act${mine ? ' active' : ''}" type="button" data-act="react"${mine ? ` style="color:${postReactionColor(mine.type)}"` : ''}>
+          ${Posts.reactionIcon(mine ? mine.type : 'like')}<span>${mine ? postReactionLabel(mine.type) : 'Like'}</span>
         </button>
         <button class="fb-react-more" type="button" data-act="react-picker" aria-label="Choose a reaction">▴</button>
-        ${postReactionPicker()}
+        ${postReactionPicker(ctx.faces)}
       </div>
       <button class="fb-post-act" type="button" data-act="focus-comment"><span aria-hidden="true">💬</span><span>Comment</span></button>
       <button class="fb-post-act" type="button" data-act="share"><span aria-hidden="true">↗</span><span>Share</span></button>
@@ -345,6 +370,7 @@ Posts.mount = function (listEl, opts) {
     commentReactions: new Map(),
     shared: new Map(),
     friendIds: null,
+    faces: [],
     query: ''
   };
 
@@ -372,7 +398,8 @@ Posts.mount = function (listEl, opts) {
       shared: sharedFor(post),
       reactions: state.reactions.get(String(post.id)) || [],
       comments: state.comments.get(String(post.id)) || [],
-      commentReactions: state.commentReactions
+      commentReactions: state.commentReactions,
+      faces: state.faces || []
     };
   }
 
@@ -405,6 +432,7 @@ Posts.mount = function (listEl, opts) {
     state.commentReactions = new Map();
     state.shared = new Map();
     state.friendIds = await loadFriendIds();
+    state.faces = loadCustomFaces();
 
     let query = sb.from('posts').select('*').order('created_at', { ascending: false }).limit(options.limit || 30);
     if (options.authorId) query = query.eq('user_id', options.authorId);
@@ -593,6 +621,30 @@ Posts.mount = function (listEl, opts) {
     return ids;
   }
 
+  // Faces this member has uploaded, kept in this browser so they can reuse them
+  function faceStoreKey() {
+    return 'meday.reactionFaces.' + (viewer.id || 'guest');
+  }
+
+  function readFaceStore() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(faceStoreKey()) || '[]');
+      return Array.isArray(raw) ? raw.filter(Boolean) : [];
+    } catch (err) {
+      return [];
+    }
+  }
+
+  function saveFaceStore(urls) {
+    try {
+      localStorage.setItem(faceStoreKey(), JSON.stringify(urls));
+    } catch (err) { /* a full or blocked store only costs the saved list */ }
+  }
+
+  function loadCustomFaces() {
+    return readFaceStore().map(url => ({ image_url: url }));
+  }
+
   function openShare(post) {
     Posts.share(post, {
       viewer,
@@ -618,6 +670,62 @@ Posts.mount = function (listEl, opts) {
     });
   }
 
+  // The picked photo is cropped to a square so it sits cleanly inside a circle
+  async function postFaceSquare(file) {
+    const bitmap = await createImageBitmap(file);
+    const side = Math.min(bitmap.width, bitmap.height);
+    const canvas = document.createElement('canvas');
+    canvas.width = 240;
+    canvas.height = 240;
+    canvas.getContext('2d').drawImage(
+      bitmap,
+      (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side,
+      0, 0, 240, 240
+    );
+    return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+  }
+
+  function pickFaceFile() {
+    return new Promise(resolve => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.style.display = 'none';
+      document.body.appendChild(input);
+      input.addEventListener('change', () => {
+        const file = input.files && input.files[0];
+        input.remove();
+        resolve(file || null);
+      });
+      input.click();
+    });
+  }
+
+  // Uploads a face, remembers it for next time, then reacts with it
+  async function addFaceReaction(postId, commentId) {
+    const file = await pickFaceFile();
+    if (!file) return;
+    if (!sb || !viewer.id) return showToast('Sign in to save your own reaction', 'error');
+    if (!String(file.type || '').startsWith('image/')) return showToast('Choose a photo of your face', 'error');
+    try {
+      showToast('Uploading your face…', '', 6000);
+      const blob = await postFaceSquare(file).catch(() => file);
+      const url = await cloudinaryUpload(blob);
+      if (!url) throw new Error('image hosting is not connected');
+      const faces = readFaceStore();
+      if (!faces.includes(url)) faces.push(url);
+      saveFaceStore(faces);
+      state.faces = faces.map(image_url => ({ image_url }));
+      showToast('Your face reaction is ready', 'success');
+      const type = 'face:' + url;
+      if (commentId) await setCommentReaction(postId, commentId, type);
+      else await setReaction(postId, type);
+    } catch (err) {
+      const message = String((err && err.message) || '');
+      showToast('Could not save your face: ' + message, 'error', 6000);
+    }
+  }
+
   listEl.addEventListener('click', async e => {
     const option = e.target.closest('.fb-reaction-option');
     if (option) {
@@ -639,6 +747,7 @@ Posts.mount = function (listEl, opts) {
     const commentEl = act.closest('[data-comment]');
     const kind = act.dataset.act;
 
+    if (kind === 'add-face') return addFaceReaction(postId, commentEl ? commentEl.dataset.comment : null);
     if (kind === 'react-picker') {
       const wrap = act.closest('.fb-react-wrap');
       if (wrap) wrap.classList.toggle('open');

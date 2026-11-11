@@ -41,7 +41,17 @@ const FB_RX_ART = {
     <path d="M15.6 27.6h8.8" fill="none" stroke="#1c1e21" stroke-width="2.6" stroke-linecap="round"/>`
 };
 
+// A member's own face is stored as "face:<image url>"
+Posts.faceUrl = function (type) {
+  const match = /^face:(.+)$/.exec(String(type || ''));
+  return match ? match[1] : '';
+};
+
 Posts.reactionIcon = function (type) {
+  const face = Posts.faceUrl(type);
+  if (face) {
+    return `<span class="fb-rx fb-rx-face"><img class="fb-rx-img" src="${fbEscape(face)}" alt="" loading="lazy"></span>`;
+  }
   const art = FB_RX_ART[type] || FB_RX_ART.like;
   return `<span class="fb-rx fb-rx-${type}"><svg class="fb-rx-svg" viewBox="0 0 40 40" aria-hidden="true" focusable="false">${art}</svg></span>`;
 };
