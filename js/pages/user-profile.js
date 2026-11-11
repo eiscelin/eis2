@@ -61,12 +61,23 @@ Pages.userProfile = async function (el, username) {
 
   // Only the public columns are read — never the password
   let person = null;
+  let people = [];
+  let posts = [];
   if (sb) {
     const { data } = await sb.from('users')
       .select('id, username, full_name, role, avatar_url, cover_url')
       .eq('username', username)
       .limit(1);
     person = (data || [])[0] || null;
+
+    if (person) {
+      const [peopleRes, postsRes] = await Promise.all([
+        sb.from('users').select('id, username, full_name, role').order('username', { ascending: true }),
+        sb.from('announcements').select('*').order('created_at', { ascending: false })
+      ]);
+      people = (peopleRes.data || []).filter(u => String(u.id) !== String(person.id));
+      posts = postsRes.data || [];
+    }
   }
 
   if (!person) {
@@ -86,6 +97,15 @@ Pages.userProfile = async function (el, username) {
   const avatar = person.avatar_url || '';
   const avatarIsVideo = upIsVideo(avatar);
   const link = fbProfileLink(person.username);
+  const role = fbRoleLabel(person.role);
+  const friendTile = p => {
+    const pname = p.full_name || p.username || 'Member';
+    return `<a class="fb-friend" href="#/u/${encodeURIComponent(p.username)}">
+      <div class="fb-friend-img">${fbEscape((pname.trim()[0] || '?').toUpperCase())}</div>
+      <div class="fb-friend-name">${fbEscape(pname)}</div>
+      <div class="fb-friend-meta">${fbEscape(fbRoleLabel(p.role))}</div>
+    </a>`;
+  };
 
   el.innerHTML = `<div class="fb-public">
     ${bar}
@@ -109,13 +129,59 @@ Pages.userProfile = async function (el, username) {
           : fbEscape(initial)}</div>
         <div class="fb-profile-id">
           <h1 class="fb-profile-name">${fbEscape(name)}</h1>
-          <div class="fb-profile-meta">${fbEscape(fbRoleLabel(person.role))} · @${fbEscape(person.username)}</div>
+          <div class="fb-profile-meta">${fbEscape(role)} · @${fbEscape(person.username)} · ${people.length} friend${people.length === 1 ? '' : 's'}</div>
         </div>
         <div class="fb-profile-actions">
           ${viewer && window.fbChat
             ? '<button class="fb-btn fb-btn-primary" id="upMessage" type="button">Message</button>'
             : ''}
           <button class="fb-btn fb-btn-secondary" id="upCopy" type="button">Copy link</button>
+        </div>
+      </div>
+
+      <div class="fb-profile-cols">
+        <div class="fb-col fb-col-left">
+          <section class="fb-card" id="upAbout">
+            <div class="fb-card-head"><h3>Personal details</h3><span aria-hidden="true">🌐</span></div>
+            <ul class="fb-detail-list">
+              <li><span class="ico" aria-hidden="true">🏷️</span><span class="k">Role:</span> ${fbEscape(role)}</li>
+              <li><span class="ico" aria-hidden="true">👤</span><span class="k">Username:</span> @${fbEscape(person.username)}</li>
+              <li><span class="ico" aria-hidden="true">🔗</span><span class="k">Profile link:</span> <a href="#/u/${encodeURIComponent(person.username)}">#/u/${fbEscape(person.username)}</a></li>
+              <li><span class="ico" aria-hidden="true">🌐</span><span class="k">App:</span> ${fbEscape(brand.name)}</li>
+            </ul>
+          </section>
+
+          <section class="fb-card" id="upFriends">
+            <div class="fb-card-head"><h3>Friends</h3><span style="color:var(--fb-muted);font-size:0.88rem;">${people.length}</span></div>
+            <div class="fb-friends-grid">
+              ${people.length
+                ? people.map(friendTile).join('')
+                : '<div class="empty-state" style="grid-column:1/-1;padding:1rem;">No friends yet.</div>'}
+            </div>
+          </section>
+        </div>
+
+        <div class="fb-col fb-col-right">
+          <section class="fb-card" id="upPosts">
+            <div class="fb-card-head"><h3>Posts</h3></div>
+            ${posts.length
+              ? posts.map(p => `
+                <article class="fb-post">
+                  <div class="fb-post-head">
+                    <span class="fb-avatar">${fbEscape(brand.initial)}</span>
+                    <div>
+                      <div class="fb-post-name">${fbEscape(brand.name)}</div>
+                      <div class="fb-post-time">${fbEscape(fmtDate(p.date || p.created_at))} · 🌐</div>
+                    </div>
+                  </div>
+                  <div class="fb-post-body">
+                    ${p.priority === 'high' ? '<span class="fb-post-tag">IMPORTANT</span>' : ''}
+                    <strong>${fbEscape(p.title || 'Post')}</strong>
+                    ${fbEscape(p.content || '')}
+                  </div>
+                </article>`).join('')
+              : '<div class="empty-state" style="padding:1.5rem;">No posts yet.</div>'}
+          </section>
         </div>
       </div>
     </div>

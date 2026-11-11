@@ -664,7 +664,7 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
 .fb-detail-list li .k { color: var(--fb-muted); }
 
 .fb-friends-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; padding: 0.25rem 0.75rem 0.85rem; }
-.fb-friend { border-radius: 8px; overflow: hidden; background: transparent; text-align: left; padding: 0; border: none; }
+.fb-friend { display: block; border-radius: 8px; overflow: hidden; background: transparent; text-align: left; padding: 0; border: none; text-decoration: none; color: inherit; }
 .fb-friend:hover .fb-friend-img { filter: brightness(1.12); }
 .fb-friend-img {
   aspect-ratio: 1 / 1;
