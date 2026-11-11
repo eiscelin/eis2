@@ -90,6 +90,8 @@ Pages.profileTab = function(main, user) {
             </ul>
           </section>
 
+          <div id="pfPersonal" data-section="about"></div>
+
           <section class="fb-card" data-section="friends" id="pfFriends">
             <div class="fb-card-head"><h3>Friends</h3></div>
             <div class="fb-friends-grid" id="pfFriendsGrid">
@@ -145,11 +147,10 @@ Pages.profileTab = function(main, user) {
 
   main.querySelector('#pfEdit').addEventListener('click', () => {
     showTab('about');
-    const about = main.querySelector('#pfAbout');
-    about.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    about.classList.remove('fb-flash');
-    void about.offsetWidth;
-    about.classList.add('fb-flash');
+    const personal = main.querySelector('#pfPersonal');
+    personal.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const first = personal.querySelector('input');
+    if (first) setTimeout(() => first.focus({ preventScroll: true }), 350);
   });
 
   main.querySelector('#pfShare').addEventListener('click', () => {
@@ -157,6 +158,17 @@ Pages.profileTab = function(main, user) {
   });
 
   main.querySelector('#pfLogout').addEventListener('click', () => Auth.logout());
+
+  // ---------- Personal information (details + password) ----------
+
+  if (window.PersonalInfo) {
+    PersonalInfo.render(main.querySelector('#pfPersonal'), user, {
+      onSaved: saved => {
+        const heading = main.querySelector('.fb-profile-name');
+        if (heading) heading.textContent = saved.full_name || user.username;
+      }
+    });
+  }
 
   // ---------- Translucent overlay in front of the whole profile ----------
 

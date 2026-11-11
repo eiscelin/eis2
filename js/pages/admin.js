@@ -738,7 +738,13 @@ var Pages = window.Pages || {};
           <a class="admin-approve" href="#/App/Profile">Open my profile</a>
           <a class="admin-tool" href="#/App">Back to app</a>
         </div>
-      </section>`;
+      </section>
+      <div id="adminMeInfo" class="admin-me-info"></div>`;
+
+    // The same Personal Information form the member sees on My Profile
+    if (window.PersonalInfo) {
+      PersonalInfo.render(body.querySelector('#adminMeInfo'), me, { onSaved: renderBody });
+    }
   }
 
   // ===================== Export =====================

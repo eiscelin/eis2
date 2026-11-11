@@ -1670,3 +1670,25 @@ a.admin-tool { text-decoration: none; display: inline-flex; align-items: center;
 /* Reply box for Customer Service requests in the admin Messages tab */
 .admin-msg-reply { display: flex; gap: 0.5rem; margin-top: 0.6rem; }
 .admin-msg-reply input { flex: 1; min-width: 0; padding: 0.5rem 0.7rem; border-radius: 999px; border: 1px solid var(--fb-line); background: var(--fb-bg); color: var(--fb-text); font: inherit; font-size: 0.82rem; }
+
+/* ===== My Profile — personal information cards ===== */
+.pi-stack { display: flex; flex-direction: column; gap: 1rem; }
+.pi-card {
+  background: #121826; border-radius: 15px; padding: 1.4rem 1.5rem;
+  display: flex; flex-direction: column; gap: 1rem;
+}
+.pi-title { color: #fff; font-size: 1.05rem; font-weight: 600; margin: 0; }
+.pi-form { display: flex; flex-direction: column; gap: 1rem; }
+.pi-field { display: flex; flex-direction: column; gap: .4rem; color: #fff; font-size: .82rem; font-weight: 400; }
+.pi-field input {
+  width: 100%; padding: .65rem .8rem; border: none; border-radius: 10px;
+  background: #fff; color: #333; font: inherit; font-size: .9rem;
+}
+.pi-field input:focus { outline: 2px solid var(--fb-blue); outline-offset: 1px; }
+.pi-save {
+  align-self: flex-start; padding: .62rem 1.15rem; border: none; border-radius: 10px;
+  background: var(--fb-blue); color: #fff; font: inherit; font-weight: 600; font-size: .88rem; cursor: pointer;
+}
+.pi-save:hover { background: var(--fb-blue-hover); }
+.pi-save:disabled { opacity: .6; cursor: not-allowed; }
+.admin-me-info { margin-top: 1rem; }
