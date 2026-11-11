@@ -2033,9 +2033,9 @@ a.fb-post-name:hover { text-decoration: underline; }
 
 .fb-reaction-picker {
   position: absolute; bottom: calc(100% + 8px); left: -4px;
-  display: flex; align-items: center; gap: 0.15rem; padding: 0.3rem 0.5rem;
+  display: flex; align-items: center; gap: 0.15rem; padding: 0.45rem 0.7rem;
   border-radius: 999px; background: var(--fb-card);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.07);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.07);
   opacity: 0; visibility: hidden; transform: translateY(10px) scale(0.8);
   transform-origin: left bottom;
   transition: opacity 0.14s ease, transform 0.2s cubic-bezier(0.2, 1.5, 0.5, 1), visibility 0.14s;
@@ -2047,15 +2047,16 @@ a.fb-post-name:hover { text-decoration: underline; }
   opacity: 1; visibility: visible; transform: translateY(0) scale(1);
 }
 .fb-reaction-option {
-  width: 40px; height: 40px; padding: 0;
+  width: 64px; height: 64px; padding: 0;
   border: none; background: none; line-height: 0; cursor: pointer;
 }
 .fb-reaction-option .fb-rx {
+  width: 64px; height: 64px;
   transform-origin: center bottom;
   transition: transform 0.18s cubic-bezier(0.2, 1.6, 0.4, 1), filter 0.18s ease;
 }
-.fb-reaction-option:hover .fb-rx { transform: translateY(-12px) scale(1.45); filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.35)); }
-.fb-reaction-option:active .fb-rx { transform: translateY(-4px) scale(1.15); }
+.fb-reaction-option:hover .fb-rx { transform: translateY(-16px) scale(1.35); filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.4)); }
+.fb-reaction-option:active .fb-rx { transform: translateY(-6px) scale(1.1); }
 .fb-react-wrap.open .fb-reaction-option .fb-rx { animation: fb-rx-pop 0.24s ease-out backwards; }
 .fb-react-wrap.open .fb-reaction-option:nth-child(2) .fb-rx { animation-delay: 0.02s; }
 .fb-react-wrap.open .fb-reaction-option:nth-child(3) .fb-rx { animation-delay: 0.04s; }
@@ -2071,6 +2072,11 @@ a.fb-post-name:hover { text-decoration: underline; }
 /* Small reaction icons inside the Like button and the reaction count */
 .fb-post-act .fb-rx, .fb-comment-reactions .fb-rx, .fb-post-summary .fb-rx { width: 20px; height: 20px; }
 .fb-comment-reactions .fb-rx { width: 16px; height: 16px; }
+@media (max-width: 640px) {
+  .fb-reaction-picker { padding: 0.35rem 0.45rem; }
+  .fb-reaction-option, .fb-reaction-option .fb-rx { width: 44px; height: 44px; }
+  .fb-reaction-option:hover .fb-rx { transform: translateY(-10px) scale(1.3); }
+}
 @media (prefers-reduced-motion: reduce) {
   .fb-reaction-option .fb-rx { transition: none; }
   .fb-react-wrap.open .fb-reaction-option .fb-rx { animation: none; }
