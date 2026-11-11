@@ -67,8 +67,9 @@ const usernameField = `
     <label>Username <span class="req">*</span></label>
     <div class="input-wrap">
       <span class="icon" aria-hidden="true">👤</span>
-      <input type="text" name="username" placeholder="Enter your username" required autocomplete="username">
+      <input type="text" name="username" placeholder="Enter your username" required autocomplete="username" aria-describedby="authUserNote">
     </div>
+    <p class="auth-note" id="authUserNote" hidden></p>
   </div>
 `;
 
@@ -117,10 +118,48 @@ Pages.register = function (el) {
     footer: `<div class="auth-footer">Already have an account? <a href="#/Login">Log in</a></div>`
   });
   pwToggleScript();
+
+  // Usernames are one per person: say so as they type so a taken one is never used
+  const unameInput = el.querySelector('input[name=username]');
+  const unameNote = el.querySelector('#authUserNote');
+  let takenName = '';
+  let checkTimer = null;
+
+  function paintUsernameNote(taken) {
+    unameNote.textContent = taken ? 'This username is taken — choose another one.' : 'This username is available.';
+    unameNote.className = 'auth-note ' + (taken ? 'taken' : 'ok');
+    unameNote.hidden = false;
+  }
+
+  async function checkUsername() {
+    const name = unameInput.value.trim();
+    takenName = '';
+    if (!name) { unameNote.hidden = true; return; }
+    try {
+      const { data } = await sb.from('users').select('username').eq('username', name).maybeSingle();
+      if (unameInput.value.trim() !== name) return;
+      const taken = !!(data && data.username);
+      if (taken) takenName = name;
+      paintUsernameNote(taken);
+    } catch {
+      unameNote.hidden = true;
+    }
+  }
+
+  unameInput.addEventListener('input', () => {
+    unameNote.hidden = true;
+    takenName = '';
+    clearTimeout(checkTimer);
+    checkTimer = setTimeout(checkUsername, 400);
+  });
+  unameInput.addEventListener('blur', checkUsername);
+
   bindAuthForm(async (fd) => {
     const username = fd.get('username').trim();
     const password = fd.get('password');
     if (!username) throw new Error('Enter a username');
+    await checkUsername();
+    if (takenName) throw new Error('Username already taken — choose another one');
     if (password.length < 6) throw new Error('Password must be at least 6 characters');
     await Auth.register({ username, password, role: 'member' });
     Router.navigate('/App');

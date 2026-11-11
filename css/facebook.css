@@ -1002,6 +1002,8 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
 .auth-footer a { color: var(--fb-blue-hover); }
 .auth-back { color: var(--fb-blue-hover); }
 .auth-error { background: rgba(239, 68, 68, 0.14); border-color: rgba(239, 68, 68, 0.4); color: #ff8b8b; }
+.auth-note.taken { color: #ff8b8b; }
+.auth-note.ok { color: #4ade80; }
 .btn-auth.production { background: var(--fb-blue); }
 
 /* ===================== Landing (dark account look) ===================== */
