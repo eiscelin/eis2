@@ -1697,3 +1697,21 @@ a.admin-tool { text-decoration: none; display: inline-flex; align-items: center;
 .pi-save:hover { background: var(--fb-blue-hover); }
 .pi-save:disabled { opacity: .6; cursor: not-allowed; }
 .admin-me-info { margin-top: 1rem; }
+
+/* ===== Page transitions — a modern springy bounce between screens ===== */
+@keyframes fbPageBounceIn {
+  0%   { opacity: 0; transform: translateY(22px) scale(0.96); }
+  55%  { opacity: 1; transform: translateY(-7px) scale(1.012); }
+  78%  { transform: translateY(2px) scale(0.998); }
+  100% { opacity: 1; transform: none; }
+}
+
+/* Every top-level route view (the router swaps #app's children) */
+#app > * { animation: fbPageBounceIn 0.5s cubic-bezier(0.22, 1.1, 0.36, 1) both; }
+
+/* Tabs swapped inside the signed-in shell */
+.fb-main.fb-tab-enter { animation: fbPageBounceIn 0.42s cubic-bezier(0.22, 1.1, 0.36, 1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  #app > *, .fb-main.fb-tab-enter { animation: none !important; }
+}
