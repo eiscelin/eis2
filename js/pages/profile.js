@@ -13,7 +13,6 @@ Pages.profileTab = function(main, user) {
   const initial = (name.trim()[0] || '?').toUpperCase();
   const role = fbRoleLabel(user.role);
   const brand = fbBrand();
-  const canChat = !!window.fbChat;
   let avatarUrl = user.avatar_url || '';
   let coverUrl = user.cover_url || '';
   const isVideo = url => /\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i.test(String(url));
@@ -593,21 +592,19 @@ Pages.profileTab = function(main, user) {
       friendsGrid.innerHTML = people.length
         ? people.slice(0, 9).map(p => {
           const pname = p.full_name || p.username || 'Member';
-          return `<button class="fb-friend" type="button" data-uid="${fbEscape(p.id)}">
-            <div class="fb-friend-img">${fbEscape((pname.trim()[0] || '?').toUpperCase())}</div>
+          // A member's picture or video, and the whole tile opens their profile
+          const picture = window.Friends
+            ? Friends.media(p)
+            : fbEscape((pname.trim()[0] || '?').toUpperCase());
+          return `<a class="fb-friend" href="#/u/${encodeURIComponent(p.username || '')}" title="Open ${fbEscape(pname)}'s profile">
+            <div class="fb-friend-img">${picture}</div>
             <div class="fb-friend-name">${fbEscape(pname)}</div>
             <div class="fb-friend-meta">${fbEscape(fbRoleLabel(p.role))}</div>
-          </button>`;
+          </a>`;
         }).join('')
         : '<div class="empty-state" style="grid-column:1/-1;padding:1rem;">No friends yet.</div>';
 
       paintSuggestions();
-
-      if (canChat) {
-        main.querySelectorAll('[data-uid]').forEach(el => {
-          el.addEventListener('click', () => window.fbChat.openWith(el.dataset.uid));
-        });
-      }
     } catch {
       friendsGrid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;padding:1rem;">Could not load friends.</div>';
       peopleList.innerHTML = '<div class="empty-state" style="padding:1rem;">Could not load suggestions.</div>';
