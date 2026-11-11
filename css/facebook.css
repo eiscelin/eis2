@@ -2087,6 +2087,18 @@ a.fb-post-name:hover { text-decoration: underline; }
 .fb-post-summary .fb-rx { width: 40px; height: 40px; }
 .fb-reaction-icons > span { width: 40px; height: 40px; margin-left: -10px; box-shadow: 0 0 0 3px var(--fb-card); }
 .fb-comment-reactions .fb-rx { width: 36px; height: 36px; }
+/* Uploaded face reactions grow and shrink on the post so every one stands out */
+.fb-post-summary .fb-rx-face, .fb-post-act .fb-rx-face {
+  animation: fb-rx-grow 1.1s ease-in-out infinite alternate;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.22), 0 0 10px rgba(36, 134, 228, 0.45);
+}
+.fb-reaction-icons > span:nth-child(2) .fb-rx-face { animation-delay: 0.18s; }
+.fb-reaction-icons > span:nth-child(3) .fb-rx-face { animation-delay: 0.36s; }
+.fb-reaction-icons > span:nth-child(4) .fb-rx-face { animation-delay: 0.54s; }
+@keyframes fb-rx-grow {
+  from { transform: scale(1); }
+  to { transform: scale(1.32); }
+}
 @media (max-width: 640px) {
   .fb-reaction-picker { padding: 0.35rem 0.45rem; }
   .fb-reaction-option, .fb-reaction-option .fb-rx { width: 44px; height: 44px; }
@@ -2100,6 +2112,7 @@ a.fb-post-name:hover { text-decoration: underline; }
 @media (prefers-reduced-motion: reduce) {
   .fb-reaction-option .fb-rx { transition: none; }
   .fb-react-wrap.open .fb-reaction-option .fb-rx { animation: none; }
+  .fb-post-summary .fb-rx-face, .fb-post-act .fb-rx-face { animation: none; }
 }
 
 .fb-comments { padding: 0.6rem 1rem 1rem; }
