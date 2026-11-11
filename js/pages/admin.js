@@ -481,7 +481,7 @@ var Pages = window.Pages || {};
         return `<div class="admin-msg" data-msg="${fbEscape(m.id)}">
           <div class="admin-msg-head">
             <span class="admin-msg-people">
-              <strong>${fbEscape(sender ? nameOf(sender) : (String(m.sender_id || '').startsWith('guest:') ? 'Guest' : 'Unknown'))}</strong>
+              <strong>${fbEscape(sender ? nameOf(sender) : (String(m.sender_id || '').startsWith('guest:') ? '@' + String(m.sender_id).slice(6) : 'Unknown'))}</strong>
               <span aria-hidden="true">→</span>
               <strong>${fbEscape(receiver ? nameOf(receiver) : 'Unknown')}</strong>
             </span>

@@ -1,6 +1,5 @@
 // Customer Service chat — a help button on profile pages and on the log in page
 (function () {
-  const GUEST_ID_KEY = 'chookee_guest_id';
   const GUEST_NAME_KEY = 'chookee_guest_name';
 
   let root = null;
@@ -12,14 +11,14 @@
     return d.innerHTML;
   }
 
-  // Visitors who can't log in still get a stable identity to be answered on
-  function guestId() {
-    let id = localStorage.getItem(GUEST_ID_KEY);
-    if (!id) {
-      id = 'guest:' + Math.random().toString(36).slice(2, 10);
-      localStorage.setItem(GUEST_ID_KEY, id);
-    }
-    return id;
+  // Visitors who cannot log in are known by the username they type, so the same
+  // person picks up the same conversation on any device they chat from.
+  function savedGuestName() {
+    return (localStorage.getItem(GUEST_NAME_KEY) || '').trim();
+  }
+
+  function guestIdFor(name) {
+    return 'guest:' + name.trim().replace(/^@+/, '').toLowerCase();
   }
 
   function unmount() {
@@ -40,8 +39,12 @@
     unmount();
     if (!sb) return;
 
-    const me = user ? String(user.id) : guestId();
     const signedIn = !!user;
+    let guest = signedIn ? '' : savedGuestName();
+    const me = () => (signedIn ? String(user.id) : (guest ? guestIdFor(guest) : null));
+    const emptyText = signedIn
+      ? 'Write your message and our team will answer here.'
+      : 'Type the username you log in with, then write your message.';
     let agent = null;
     let agentChecked = false;
 
@@ -53,12 +56,12 @@
         <header class="fb-support-head">
           <div>
             <strong>Customer Service</strong>
-            <span id="supSub">${signedIn ? 'We usually reply within a few minutes' : 'Locked out? Tell us your problem here'}</span>
+            <span id="supSub">${signedIn ? 'We usually reply within a few minutes' : 'Tell us the username you log in with'}</span>
           </div>
           <button class="fb-support-close" id="supClose" type="button" aria-label="Close">✕</button>
         </header>
-        ${signedIn ? '' : '<label class="fb-support-name">Your name <input id="supName" type="text" maxlength="40" placeholder="So we know who we are helping" value="' + esc(localStorage.getItem(GUEST_NAME_KEY) || '') + '"></label>'}
-        <div class="fb-support-log" id="supLog"><div class="fb-support-empty">Write your message and our team will answer here.</div></div>
+        ${signedIn ? '' : '<label class="fb-support-name">Your username <input id="supName" type="text" maxlength="40" placeholder="The username you use to log in" autocomplete="off" value="' + esc(guest) + '"></label>'}
+        <div class="fb-support-log" id="supLog"><div class="fb-support-empty">${esc(emptyText)}</div></div>
         <form class="fb-support-form" id="supForm">
           <input id="supInput" type="text" placeholder="Write your message…" autocomplete="off" aria-label="Your message">
           <button type="submit">Send</button>
@@ -82,11 +85,12 @@
 
     function paint(rows) {
       if (!rows.length) {
-        log.innerHTML = '<div class="fb-support-empty">Write your message and our team will answer here.</div>';
+        log.innerHTML = `<div class="fb-support-empty">${esc(emptyText)}</div>`;
         return;
       }
+      const id = me();
       log.innerHTML = rows.map(m => {
-        const mine = String(m.sender_id) === me;
+        const mine = String(m.sender_id) === id;
         const time = new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         return `<div class="chat-bubble ${mine ? 'chat-bubble-me' : 'chat-bubble-them'}">
           <div class="chat-bubble-text">${esc(m.message)}</div>
@@ -98,10 +102,15 @@
 
     async function loadMessages() {
       if (!agent) return;
+      const id = me();
+      if (!id) {
+        log.innerHTML = '<div class="fb-support-empty">Type the username you use to log in so we know who we are helping.</div>';
+        return;
+      }
       try {
         const [mine, theirs] = await Promise.all([
-          sb.from('chat_messages').select('*').eq('sender_id', me).eq('receiver_id', agent.id),
-          sb.from('chat_messages').select('*').eq('sender_id', agent.id).eq('receiver_id', me)
+          sb.from('chat_messages').select('*').eq('sender_id', id).eq('receiver_id', agent.id),
+          sb.from('chat_messages').select('*').eq('sender_id', agent.id).eq('receiver_id', id)
         ]);
         const rows = [...(mine.data || []), ...(theirs.data || [])]
           .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
@@ -122,8 +131,9 @@
         log.innerHTML = '<div class="fb-support-empty">Customer Service is offline right now. Please try again later.</div>';
         return;
       }
-      if (String(agent.id) === me) sub.textContent = 'You are the Customer Service account';
+      if (String(agent.id) === me()) sub.textContent = 'You are the Customer Service account';
       await loadMessages();
+      if (!signedIn && !guest && nameInput) nameInput.focus();
       if (timer) clearInterval(timer);
       timer = setInterval(loadMessages, 4000);
     }
@@ -140,19 +150,35 @@
     });
     el.querySelector('#supClose').addEventListener('click', closePanel);
 
+    // The typed username becomes this device's identity for the chat
+    if (nameInput) {
+      nameInput.addEventListener('change', () => {
+        guest = nameInput.value.trim();
+        if (guest) localStorage.setItem(GUEST_NAME_KEY, guest);
+        else localStorage.removeItem(GUEST_NAME_KEY);
+        if (agent) loadMessages();
+      });
+    }
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      if (!agent || String(agent.id) === me) return;
+      if (!agent || String(agent.id) === me()) return;
       let text = input.value.trim();
       if (!text) return;
       if (!signedIn) {
         const name = (nameInput.value || '').trim();
-        if (name) localStorage.setItem(GUEST_NAME_KEY, name);
-        text = '[' + (name || 'Guest') + '] ' + text;
+        if (!name) {
+          sub.textContent = 'Type the username you log in with first';
+          nameInput.focus();
+          return;
+        }
+        guest = name;
+        localStorage.setItem(GUEST_NAME_KEY, name);
+        text = '[' + name + '] ' + text;
       }
       input.value = '';
       try {
-        const { error } = await sb.from('chat_messages').insert([{ sender_id: me, receiver_id: agent.id, message: text }]);
+        const { error } = await sb.from('chat_messages').insert([{ sender_id: me(), receiver_id: agent.id, message: text }]);
         if (error) throw error;
         await loadMessages();
       } catch (err) {
