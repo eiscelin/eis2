@@ -38,7 +38,16 @@ async function fbShareLink(link, title) {
 }
 
 function fbBrand() {
-  return window.BRAND || { name: 'MetMuk', initial: 'M', tagline: '' };
+  return window.BRAND || { name: 'MeDay', initial: 'M', logo: '/img/meday-logo.svg', tagline: '' };
+}
+
+// Brand mark: the logo image, or the initial as a fallback
+function fbBrandMark() {
+  const brand = fbBrand();
+  if (brand.logo) {
+    return `<img class="brand-mark" src="${fbEscape(brand.logo)}" alt="" aria-hidden="true">`;
+  }
+  return fbEscape(brand.initial);
 }
 
 function showToast(msg, type = '', ms = 3000) {

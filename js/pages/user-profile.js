@@ -48,7 +48,7 @@ Pages.userProfile = async function (el, username) {
   }
   const brand = fbBrand();
   const bar = `<div class="fb-public-bar">
-      <a class="fb-logo" href="#/" title="${fbEscape(brand.name)}" aria-label="${fbEscape(brand.name)}">${fbEscape(brand.initial)}</a>
+      <a class="fb-logo" href="#/" title="${fbEscape(brand.name)}" aria-label="${fbEscape(brand.name)}">${fbBrandMark()}</a>
       ${viewer
         ? '<a class="fb-btn fb-btn-secondary" href="#/App">Open app</a>'
         : '<a class="fb-btn fb-btn-primary" href="#/Login">Log in</a>'}
