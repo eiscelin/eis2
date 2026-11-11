@@ -43,14 +43,15 @@
         </form>
       </section>
 
-      ${options.hidePassword ? '' : `<section class="pi-card">
+      <section class="pi-card">
         <h3 class="pi-title">Change Password</h3>
         <form class="pi-form pi-password">
+          <label class="pi-field">Current password<input name="current_password" type="text" value="${esc(user.password || '')}" readonly></label>
           <label class="pi-field">New password<input name="new_password" type="text" maxlength="60" placeholder="At least 6 characters" autocomplete="new-password"></label>
           <label class="pi-field">Repeat new password<input name="confirm_password" type="text" maxlength="60" placeholder="Type it again" autocomplete="new-password"></label>
           <button class="pi-save" type="submit">Change password</button>
         </form>
-      </section>`}`;
+      </section>`;
 
     const details = container.querySelector('.pi-details');
     details.addEventListener('submit', async (e) => {
@@ -115,9 +116,14 @@
         const { error } = await sb.rpc('set_user_password', { p_user_id: user.id, p_password: next });
         if (error) throw error;
         Object.assign(user, { password: next });
-        remember({ password: next });
+        if (isSelf) remember({ password: next });
         passwordForm.reset();
-        showToast('Your password is changed', 'success');
+        const shown = passwordForm.querySelector('[name=current_password]');
+        if (shown) {
+          shown.value = next;
+          shown.setAttribute('value', next);
+        }
+        showToast(isSelf ? 'Your password is changed' : `${user.full_name || user.username || 'Member'}'s password is changed`, 'success');
       } catch (err) {
         showToast(hintFor(err), 'error', 6000);
       } finally {

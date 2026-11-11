@@ -774,7 +774,6 @@ var Pages = window.Pages || {};
     // The same Personal Information form the member sees on My Profile
     if (window.PersonalInfo) {
       PersonalInfo.render(body.querySelector('#adminMeInfo'), picked || me, {
-        hidePassword: !!picked,
         onSaved: picked ? null : renderBody
       });
     }

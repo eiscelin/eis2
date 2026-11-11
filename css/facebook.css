@@ -1774,3 +1774,6 @@ a.admin-tool { text-decoration: none; display: inline-flex; align-items: center;
 }
 .mp-back { padding: 0; border: none; background: transparent; color: var(--fb-blue); font: inherit; font-size: 0.82rem; cursor: pointer; }
 .mp-back:hover { text-decoration: underline; }
+
+/* The saved password is shown for reference, not edited in place */
+.pi-field input[readonly] { background: #e4e6eb; color: #1c1e21; cursor: default; }
