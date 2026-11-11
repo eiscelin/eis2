@@ -73,6 +73,7 @@ Pages.profileTab = function(main, user) {
       <nav class="fb-profile-tabs" aria-label="Profile sections">
         <button class="fb-profile-tab active" data-ptab="all" type="button">All</button>
         <button class="fb-profile-tab" data-ptab="about" type="button">About</button>
+        <button class="fb-profile-tab" data-ptab="info" type="button">My Information</button>
         <button class="fb-profile-tab" data-ptab="friends" type="button">Friends</button>
         <button class="fb-profile-tab" data-ptab="posts" type="button">Posts</button>
       </nav>
@@ -89,7 +90,7 @@ Pages.profileTab = function(main, user) {
             </ul>
           </section>
 
-          <div id="pfPersonal" data-section="about"></div>
+          <div id="pfPersonal" data-section="info"></div>
 
           <section class="fb-card" data-section="friends" id="pfFriends">
             <div class="fb-card-head"><h3>Friends</h3></div>
@@ -126,6 +127,7 @@ Pages.profileTab = function(main, user) {
   const sectionMap = {
     all: null,
     about: ['about'],
+    info: ['info'],
     friends: ['friends', 'people'],
     posts: ['posts']
   };
@@ -135,6 +137,9 @@ Pages.profileTab = function(main, user) {
       const allowed = sectionMap[tab];
       section.style.display = (!allowed || allowed.includes(section.dataset.section)) ? '' : 'none';
     });
+    // My Information is a full-width form, so it spans both columns
+    const cols = main.querySelector('.fb-profile-cols');
+    if (cols) cols.classList.toggle('fb-cols-single', tab === 'info');
     main.querySelectorAll('.fb-profile-tab').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.ptab === tab);
     });
@@ -145,7 +150,7 @@ Pages.profileTab = function(main, user) {
   });
 
   main.querySelector('#pfEdit').addEventListener('click', () => {
-    showTab('about');
+    showTab('info');
     const personal = main.querySelector('#pfPersonal');
     personal.scrollIntoView({ behavior: 'smooth', block: 'center' });
     const first = personal.querySelector('input');
