@@ -149,6 +149,10 @@ function appShell(el, user, navItems, renderContent, startTab) {
     if (menuBtn) menuBtn.classList.toggle('active', overflowItems.some(i => i.id === id));
     main.classList.toggle('fb-main--flush', id === 'profile');
     window.__appSearchHandler = null;
+    // Bouncy transition on every tab swap
+    main.classList.remove('fb-tab-enter');
+    void main.offsetWidth; // restart the animation
+    main.classList.add('fb-tab-enter');
     renderContent(main, id);
     if (window.innerWidth <= 900) window.scrollTo({ top: 0 });
   }

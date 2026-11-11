@@ -1002,6 +1002,8 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
 .auth-footer a { color: var(--fb-blue-hover); }
 .auth-back { color: var(--fb-blue-hover); }
 .auth-error { background: rgba(239, 68, 68, 0.14); border-color: rgba(239, 68, 68, 0.4); color: #ff8b8b; }
+.auth-note.taken { color: #ff8b8b; }
+.auth-note.ok { color: #4ade80; }
 .btn-auth.production { background: var(--fb-blue); }
 
 /* ===================== Landing (dark account look) ===================== */
@@ -1316,3 +1318,463 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
   .overlay-slot { height: 70px; }
   .overlay-preview { height: 130px; }
 }
+
+/* ===================== Profile media review note ===================== */
+.fb-media-note {
+  display: flex; flex-direction: column; gap: 0.15rem;
+  margin-top: 0.35rem;
+  color: #f0b429; font-size: 0.82rem; font-weight: 600;
+}
+
+/* ===================== Admin panel ===================== */
+.admin-page {
+  min-height: 100vh;
+  padding: 1.25rem;
+  color: var(--fb-text);
+  background:
+    radial-gradient(1100px 540px at 8% -12%, rgba(24, 119, 242, 0.22), transparent 62%),
+    radial-gradient(900px 480px at 108% 2%, rgba(20, 184, 166, 0.14), transparent 58%),
+    #101114;
+}
+.admin-wrap { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 1rem; }
+
+.admin-top { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.admin-brand { display: flex; align-items: center; gap: 0.85rem; min-width: 0; }
+.admin-brand h1 { margin: 0; font-size: 1.75rem; font-weight: 800; letter-spacing: -0.02em; }
+.admin-brand p { margin: 0.15rem 0 0; color: var(--fb-muted); font-size: 0.88rem; }
+.admin-shield {
+  width: 54px; height: 54px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 16px;
+  font-size: 1.6rem;
+  background: linear-gradient(145deg, #1877f2, #0a4da3);
+  box-shadow: 0 10px 26px rgba(24, 119, 242, 0.35);
+}
+.admin-shield.big { width: 74px; height: 74px; border-radius: 22px; font-size: 2.2rem; margin: 0 auto; }
+
+.admin-top-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.admin-export {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.55rem 1rem;
+  border-radius: 9px;
+  background: #14b8a6; color: #04201c;
+  font-weight: 800; font-size: 0.88rem;
+}
+.admin-export:hover { background: #2dd4bf; }
+.admin-back { color: var(--fb-muted); font-size: 0.85rem; font-weight: 600; padding: 0.5rem 0.7rem; border-radius: 8px; text-decoration: none; }
+.admin-back:hover { background: var(--fb-elevated); color: var(--fb-text); }
+
+.admin-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.75rem; }
+.admin-stat {
+  display: flex; align-items: center; gap: 0.7rem;
+  padding: 0.85rem 0.9rem;
+  border-radius: 14px;
+  background: rgba(36, 37, 38, 0.92);
+  border: 1px solid var(--fb-line);
+}
+.admin-stat-icon {
+  width: 42px; height: 42px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 12px; font-size: 1.15rem;
+}
+.admin-stat-icon.blue { background: rgba(24, 119, 242, 0.18); }
+.admin-stat-icon.orange { background: rgba(249, 115, 22, 0.18); }
+.admin-stat-icon.teal { background: rgba(20, 184, 166, 0.18); }
+.admin-stat-icon.red { background: rgba(239, 68, 68, 0.18); }
+.admin-stat-count { font-size: 1.35rem; font-weight: 800; line-height: 1.1; }
+.admin-stat-label { color: var(--fb-muted); font-size: 0.76rem; font-weight: 600; }
+
+.admin-nav { display: flex; gap: 0.4rem; overflow-x: auto; padding-bottom: 0.2rem; scrollbar-width: none; }
+.admin-nav::-webkit-scrollbar { display: none; }
+.admin-pill {
+  flex-shrink: 0;
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--fb-line);
+  background: rgba(36, 37, 38, 0.9);
+  color: var(--fb-muted);
+  font-size: 0.83rem; font-weight: 700;
+  white-space: nowrap;
+}
+.admin-pill:hover { background: var(--fb-elevated); color: var(--fb-text); }
+.admin-pill.active { background: #1877f2; border-color: #1877f2; color: #fff; }
+
+.admin-card {
+  border-radius: 16px;
+  background: rgba(36, 37, 38, 0.92);
+  border: 1px solid var(--fb-line);
+  overflow: hidden;
+}
+.admin-toolbar {
+  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+  padding: 0.8rem 0.9rem;
+  border-bottom: 1px solid var(--fb-line-soft);
+}
+.admin-toolbar-title { flex: 1; min-width: 180px; font-size: 0.9rem; font-weight: 800; }
+.admin-search {
+  display: flex; align-items: center; gap: 0.45rem;
+  flex: 1; min-width: 190px; max-width: 380px;
+  height: 38px;
+  padding: 0 0.8rem;
+  border-radius: 999px;
+  border: 1px solid var(--fb-line);
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--fb-muted);
+}
+.admin-search input { flex: 1; min-width: 0; background: transparent; border: none; outline: none; color: var(--fb-text); font-size: 0.9rem; }
+.admin-tool {
+  padding: 0.42rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid var(--fb-line);
+  background: var(--fb-elevated);
+  color: var(--fb-text);
+  font-size: 0.8rem; font-weight: 700;
+}
+.admin-tool:hover { background: var(--fb-hover); }
+a.admin-tool { text-decoration: none; display: inline-flex; align-items: center; }
+.admin-tool.active { background: rgba(24, 119, 242, 0.2); border-color: rgba(24, 119, 242, 0.6); color: var(--fb-blue-hover); }
+.admin-hint { margin: 0; padding: 0.55rem 0.95rem; color: var(--fb-muted); font-size: 0.8rem; }
+.admin-empty { padding: 1.25rem; }
+
+.admin-row {
+  display: grid;
+  grid-template-columns: 30px 44px minmax(150px, 1.5fr) 96px 84px 104px auto;
+  gap: 0.7rem;
+  align-items: center;
+  padding: 0.65rem 0.9rem;
+  border-bottom: 1px solid var(--fb-line-soft);
+}
+.admin-row:last-child { border-bottom: none; }
+.admin-row:hover { background: rgba(255, 255, 255, 0.025); }
+.admin-index {
+  width: 26px; height: 26px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: var(--fb-elevated);
+  color: var(--fb-muted);
+  font-size: 0.72rem; font-weight: 700;
+}
+.admin-avatar {
+  width: 42px; height: 42px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; overflow: hidden;
+  background: linear-gradient(135deg, #1877f2, #0a4da3);
+  color: #fff; font-size: 1rem; font-weight: 800; text-transform: uppercase;
+}
+.admin-avatar img, .admin-avatar video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.admin-avatar-sm { width: 36px; height: 36px; font-size: 0.9rem; }
+.admin-avatar-lg { width: 86px; height: 86px; font-size: 1.8rem; margin: 0 auto; }
+
+.admin-who { min-width: 0; }
+.admin-name { font-size: 0.9rem; font-weight: 700; color: var(--fb-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-handle { font-size: 0.76rem; color: var(--fb-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-role { font-size: 0.78rem; font-weight: 700; color: var(--fb-muted); }
+.admin-role.is-admin { color: #7ab8ff; }
+
+.admin-badge {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.68rem; font-weight: 800;
+  white-space: nowrap;
+}
+.admin-badge-active { background: rgba(69, 189, 98, 0.16); color: #7ee2a0; }
+.admin-badge-suspended { background: rgba(249, 115, 22, 0.16); color: #fbbf77; }
+.admin-badge-deleted { background: rgba(239, 68, 68, 0.16); color: #fca5a5; }
+.admin-badge-pending { background: rgba(240, 180, 41, 0.16); color: #f5cd6b; }
+.admin-badge-rejected { background: rgba(239, 68, 68, 0.16); color: #fca5a5; }
+
+.admin-actions { display: flex; align-items: center; gap: 0.3rem; justify-content: flex-end; }
+.admin-act {
+  width: 30px; height: 30px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 9px;
+  border: none;
+  background: var(--fb-elevated);
+  color: var(--fb-text);
+  font-size: 0.82rem;
+  text-decoration: none;
+}
+.admin-act:hover { background: var(--fb-hover); }
+.admin-act.review, .admin-act.approve { background: rgba(69, 189, 98, 0.18); }
+.admin-act.msg, .admin-act.view { background: rgba(24, 119, 242, 0.18); }
+.admin-act.role { background: rgba(168, 85, 247, 0.18); }
+.admin-act.suspend { background: rgba(249, 115, 22, 0.18); }
+.admin-act.delete { background: rgba(239, 68, 68, 0.18); }
+
+/* Delete buttons an administrator gets on displayed content */
+.fb-mod-del { flex: 0 0 auto; }
+.fb-mod-del-float { position: absolute; top: 10px; right: 10px; z-index: 5; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45); }
+.fb-post-head .fb-mod-del { margin-left: auto; }
+
+/* Approvals */
+.admin-approvals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.85rem; padding: 0.9rem; }
+.admin-approval { border-radius: 12px; border: 1px solid var(--fb-line); background: rgba(0, 0, 0, 0.18); overflow: hidden; }
+.admin-approval-head { display: flex; align-items: center; gap: 0.55rem; padding: 0.7rem 0.75rem; }
+.admin-approval-media {
+  position: relative; height: 210px;
+  background: #000;
+  display: flex; align-items: center; justify-content: center;
+}
+.admin-approval-media img, .admin-approval-media video { width: 100%; height: 100%; object-fit: contain; display: block; }
+.admin-approval-actions { display: flex; gap: 0.5rem; padding: 0.7rem; }
+.admin-approve, .admin-reject {
+  flex: 1;
+  padding: 0.5rem 0.8rem;
+  border-radius: 9px;
+  font-size: 0.82rem; font-weight: 800;
+  text-align: center;
+  text-decoration: none;
+}
+.admin-approve { background: #16a34a; color: #fff; }
+.admin-approve:hover { background: #22c55e; }
+.admin-reject { background: rgba(239, 68, 68, 0.16); color: #fca5a5; }
+.admin-reject:hover { background: rgba(239, 68, 68, 0.28); }
+.admin-approve:disabled, .admin-reject:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* Messages */
+.admin-msg { padding: 0.7rem 0.9rem; border-bottom: 1px solid var(--fb-line-soft); }
+.admin-msg:last-child { border-bottom: none; }
+.admin-msg-head { display: flex; align-items: center; gap: 0.6rem; }
+.admin-msg-people { flex: 1; min-width: 0; display: flex; align-items: center; gap: 0.35rem; font-size: 0.82rem; color: var(--fb-muted); flex-wrap: wrap; }
+.admin-msg-people strong { color: var(--fb-text); }
+.admin-msg-time { color: var(--fb-muted); font-size: 0.72rem; white-space: nowrap; }
+.admin-msg-text {
+  margin-top: 0.3rem;
+  font-size: 0.9rem; color: var(--fb-text);
+  overflow-wrap: anywhere;
+}
+
+/* Announcements */
+.admin-compose { display: flex; flex-direction: column; gap: 0.55rem; padding: 0.9rem; border-bottom: 1px solid var(--fb-line-soft); }
+.admin-compose input, .admin-compose textarea, .admin-compose select, .admin-role-select {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border-radius: 9px;
+  border: 1px solid var(--fb-line);
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--fb-text);
+  font: inherit; font-size: 0.9rem;
+  outline: none;
+}
+.admin-compose input:focus, .admin-compose textarea:focus, .admin-compose select:focus, .admin-role-select:focus { border-color: var(--fb-blue); }
+.admin-compose textarea { resize: vertical; min-height: 70px; }
+.admin-compose-foot { display: flex; gap: 0.5rem; align-items: center; }
+.admin-compose-foot select { max-width: 150px; }
+.admin-compose-foot .admin-approve { flex: 0 0 auto; cursor: pointer; border: none; }
+.admin-ann { display: flex; align-items: flex-start; gap: 0.6rem; padding: 0.8rem 0.9rem; border-bottom: 1px solid var(--fb-line-soft); }
+.admin-ann:last-child { border-bottom: none; }
+.admin-ann-body { flex: 1; min-width: 0; }
+.admin-ann-title { font-size: 0.9rem; font-weight: 800; }
+.admin-ann-text { margin-top: 0.15rem; font-size: 0.85rem; color: var(--fb-muted); overflow-wrap: anywhere; }
+.admin-ann-time { margin-top: 0.25rem; font-size: 0.72rem; color: var(--fb-muted); }
+
+/* Roles + settings + profile */
+.admin-row-role { grid-template-columns: 44px minmax(0, 1fr) 130px; }
+.admin-row-deleted { grid-template-columns: 44px minmax(0, 1fr) auto; }
+.admin-role-select { max-width: 130px; }
+.admin-setting { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.9rem; border-bottom: 1px solid var(--fb-line-soft); }
+.admin-setting:last-child { border-bottom: none; }
+.admin-setting-name { font-size: 0.9rem; font-weight: 700; }
+.admin-setting-desc { margin-top: 0.15rem; color: var(--fb-muted); font-size: 0.8rem; max-width: 60ch; }
+.admin-switch {
+  position: relative; flex-shrink: 0;
+  width: 48px; height: 27px;
+  border-radius: 999px;
+  border: none;
+  background: var(--fb-elevated);
+  padding: 0;
+}
+.admin-switch i {
+  position: absolute; top: 3px; left: 3px;
+  width: 21px; height: 21px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.18s ease;
+}
+.admin-switch.on { background: #16a34a; }
+.admin-switch.on i { transform: translateX(21px); }
+
+.admin-me-card { padding: 1.5rem; text-align: center; }
+.admin-me-card h2 { margin: 0.7rem 0 0.15rem; font-size: 1.4rem; }
+.admin-me-actions { display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; margin-top: 0.9rem; }
+.admin-me-actions .admin-approve { flex: 0 0 auto; }
+.admin-denied {
+  max-width: 520px;
+  margin: 8vh auto 0;
+  padding: 2rem 1.5rem;
+  border-radius: 18px;
+  background: rgba(36, 37, 38, 0.94);
+  border: 1px solid var(--fb-line);
+  text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 0.8rem;
+}
+.admin-denied h1 { margin: 0; font-size: 1.5rem; }
+.admin-denied p { margin: 0; color: var(--fb-muted); font-size: 0.9rem; }
+.admin-denied .admin-approve, .admin-denied .admin-tool { cursor: pointer; border: none; flex: 0 0 auto; }
+
+@media (max-width: 900px) {
+  .admin-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-row { grid-template-columns: 44px minmax(0, 1fr) auto; }
+  .admin-row .admin-index,
+  .admin-row .admin-col { display: none; }
+  .admin-approvals { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 560px) {
+  .admin-page { padding: 0.75rem; }
+  .admin-brand h1 { font-size: 1.4rem; }
+  .admin-shield { width: 46px; height: 46px; font-size: 1.35rem; }
+  .admin-row { grid-template-columns: 40px minmax(0, 1fr); }
+  .admin-actions { grid-column: 1 / -1; justify-content: flex-start; flex-wrap: wrap; }
+  .admin-stat { padding: 0.7rem; }
+  .admin-stat-count { font-size: 1.15rem; }
+  .admin-approval-media { height: 170px; }
+  .admin-setting { align-items: flex-start; }
+}
+
+/* ---------- Customer Service chat ---------- */
+.fb-support-fab {
+  position: fixed; right: 1.5rem; bottom: 1.5rem; z-index: 9997;
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  padding: 0.7rem 1.1rem; border: none; border-radius: 999px;
+  background: var(--fb-blue); color: #fff; font: inherit; font-weight: 600; font-size: 0.9rem;
+  cursor: pointer; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+}
+.fb-support-fab:hover { background: var(--fb-blue-hover); }
+.fb-support.has-chat .fb-support-fab { bottom: 5.6rem; }
+.fb-support-panel {
+  position: fixed; right: 1.5rem; bottom: 5.5rem; z-index: 9998;
+  width: 340px; max-height: min(70vh, 460px);
+  display: flex; flex-direction: column;
+  background: var(--fb-card); border: 1px solid var(--fb-line);
+  border-radius: 16px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55); overflow: hidden;
+}
+.fb-support.has-chat .fb-support-panel { bottom: 9.6rem; }
+.fb-support-panel[hidden] { display: none; }
+.fb-support-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.8rem 1rem; background: var(--fb-blue); color: #fff; }
+.fb-support-head strong { display: block; font-size: 0.95rem; }
+.fb-support-head span { display: block; font-size: 0.72rem; opacity: 0.88; }
+.fb-support-close { background: transparent; border: none; color: #fff; font-size: 1rem; cursor: pointer; }
+.fb-support-name { display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1rem; font-size: 0.78rem; color: var(--fb-muted); border-bottom: 1px solid var(--fb-line); }
+.fb-support-name input { flex: 1; min-width: 0; padding: 0.45rem 0.6rem; border-radius: 8px; border: 1px solid var(--fb-line); background: var(--fb-bg); color: var(--fb-text); font: inherit; font-size: 0.8rem; }
+.fb-support-log { flex: 1; min-height: 160px; overflow-y: auto; padding: 0.9rem; display: flex; flex-direction: column; gap: 0.5rem; }
+.fb-support-empty { margin: auto; color: var(--fb-muted); font-size: 0.82rem; text-align: center; }
+.fb-support-form { display: flex; gap: 0.5rem; padding: 0.7rem; border-top: 1px solid var(--fb-line); }
+.fb-support-form input { flex: 1; min-width: 0; padding: 0.55rem 0.7rem; border-radius: 999px; border: 1px solid var(--fb-line); background: var(--fb-bg); color: var(--fb-text); font: inherit; font-size: 0.85rem; }
+.fb-support-form button { padding: 0.55rem 0.9rem; border: none; border-radius: 999px; background: var(--fb-blue); color: #fff; font: inherit; font-weight: 600; font-size: 0.85rem; cursor: pointer; }
+.fb-support-form button:hover { background: var(--fb-blue-hover); }
+
+@media (max-width: 900px) {
+  .fb-support-fab { right: 1rem; bottom: calc(74px + env(safe-area-inset-bottom)); }
+  .fb-support.has-chat .fb-support-fab { bottom: calc(138px + env(safe-area-inset-bottom)); }
+  .fb-support-panel { left: 1rem; right: 1rem; width: auto; bottom: calc(124px + env(safe-area-inset-bottom)); }
+  .fb-support.has-chat .fb-support-panel { bottom: calc(188px + env(safe-area-inset-bottom)); }
+}
+
+/* Reply box for Customer Service requests in the admin Messages tab */
+.admin-msg-reply { display: flex; gap: 0.5rem; margin-top: 0.6rem; }
+.admin-msg-reply input { flex: 1; min-width: 0; padding: 0.5rem 0.7rem; border-radius: 999px; border: 1px solid var(--fb-line); background: var(--fb-bg); color: var(--fb-text); font: inherit; font-size: 0.82rem; }
+
+/* ===== My Profile — personal information cards ===== */
+.pi-stack { display: flex; flex-direction: column; gap: 1rem; }
+.pi-card {
+  background: #121826; border-radius: 15px; padding: 1.4rem 1.5rem;
+  display: flex; flex-direction: column; gap: 1rem;
+}
+.pi-title { color: #fff; font-size: 1.05rem; font-weight: 600; margin: 0; }
+.pi-form { display: flex; flex-direction: column; gap: 1rem; }
+.pi-field { display: flex; flex-direction: column; gap: .4rem; color: #fff; font-size: .82rem; font-weight: 400; }
+.pi-field input {
+  width: 100%; padding: .65rem .8rem; border: none; border-radius: 10px;
+  background: #fff; color: #333; font: inherit; font-size: .9rem;
+}
+.pi-field input:focus { outline: 2px solid var(--fb-blue); outline-offset: 1px; }
+.pi-save {
+  align-self: flex-start; padding: .62rem 1.15rem; border: none; border-radius: 10px;
+  background: var(--fb-blue); color: #fff; font: inherit; font-weight: 600; font-size: .88rem; cursor: pointer;
+}
+.pi-save:hover { background: var(--fb-blue-hover); }
+.pi-save:disabled { opacity: .6; cursor: not-allowed; }
+.admin-me-info { margin-top: 1rem; }
+
+/* ===== Page transitions — a modern springy bounce between screens ===== */
+/* One continuous motion curve: the spring comes from the easing itself, so
+   there is no velocity jump between steps (that is what looked jerky). */
+@keyframes fbPageBounceIn {
+  from { opacity: 0; transform: translate3d(0, 26px, 0) scale(0.97); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+/* Every top-level route view (the router swaps #app's children) */
+#app > * { animation: fbPageBounceIn 0.55s cubic-bezier(0.34, 1.45, 0.64, 1) both; }
+
+/* Tabs swapped inside the signed-in shell */
+.fb-main.fb-tab-enter { animation: fbPageBounceIn 0.45s cubic-bezier(0.34, 1.45, 0.64, 1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  #app > *, .fb-main.fb-tab-enter { animation: none !important; }
+}
+
+/* ===== Searchable member picker — admin My Profile tab ===== */
+.mp-card { display: flex; flex-direction: column; gap: 0.6rem; }
+.mp-card .pi-title { margin-bottom: 0; }
+.mp-picker { position: relative; }
+
+.mp-trigger {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+  padding: 0.7rem 0.9rem; border: 1px solid #e0e0e0; border-radius: 10px;
+  background: #fff; color: #65676b; font: inherit; font-size: 0.9rem; text-align: left;
+  cursor: pointer; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  transition: border-color 0.15s ease;
+}
+.mp-trigger:hover { border-color: #ccd0d5; }
+.mp-trigger.has-value { color: #1c1e21; font-weight: 600; }
+.mp-chevron { font-size: 0.95rem; line-height: 1; color: #65676b; transition: transform 0.25s cubic-bezier(0.34, 1.45, 0.64, 1); }
+.mp-picker.open .mp-chevron { transform: rotate(180deg); }
+
+.mp-panel {
+  position: absolute; z-index: 60; left: 0; right: 0; top: calc(100% + 0.4rem);
+  display: flex; flex-direction: column; gap: 0.5rem; padding: 0.6rem;
+  background: #fff; border: 1px solid #e0e0e0; border-radius: 10px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+  animation: mpDrop 0.22s cubic-bezier(0.34, 1.45, 0.64, 1) both;
+}
+.mp-panel[hidden] { display: none; }
+@keyframes mpDrop {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+
+.mp-search {
+  display: flex; align-items: center; gap: 0.45rem; padding: 0.45rem 0.6rem;
+  border: 1px solid #e0e0e0; border-radius: 8px; background: #fff;
+}
+.mp-search input {
+  flex: 1; min-width: 0; border: none; outline: none; background: transparent;
+  color: #1c1e21; font: inherit; font-size: 0.86rem;
+}
+.mp-search input::placeholder { color: #a0a0a0; }
+
+.mp-list { max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; }
+.mp-item {
+  display: flex; align-items: baseline; gap: 0.35rem; width: 100%;
+  padding: 0.55rem 0.5rem; border: none; border-bottom: 1px solid #e0e0e0;
+  background: transparent; color: #1c1e21; font: inherit; font-size: 0.88rem;
+  text-align: left; cursor: pointer;
+}
+.mp-item:last-child { border-bottom: none; }
+.mp-item:hover, .mp-item.is-selected { background: #f0f2f5; }
+.mp-handle { color: #65676b; font-size: 0.82rem; }
+.mp-empty { padding: 0.8rem 0.5rem; text-align: center; color: #65676b; font-size: 0.84rem; }
+
+.mp-selected-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
+  flex-wrap: wrap; color: var(--fb-text); font-size: 0.82rem;
+}
+.mp-back { padding: 0; border: none; background: transparent; color: var(--fb-blue); font: inherit; font-size: 0.82rem; cursor: pointer; }
+.mp-back:hover { text-decoration: underline; }
+
+/* The saved password is shown for reference, not edited in place */
+.pi-field input[readonly] { background: #e4e6eb; color: #1c1e21; cursor: default; }
+.pi-private { margin: 0; color: var(--fb-muted); font-size: .82rem; line-height: 1.5; }

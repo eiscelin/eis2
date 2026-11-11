@@ -177,6 +177,10 @@ input { font-family: inherit; }
   display: none;
 }
 .auth-error.show { display: block; }
+.auth-note { font-size: .78rem; margin-top: .35rem; }
+.auth-note[hidden] { display: none; }
+.auth-note.taken { color: var(--red); }
+.auth-note.ok { color: #16a34a; }
 
 /* ===== Dashboard Layout ===== */
 .dashboard { display: flex; min-height: 100vh; background: #FAFAFA; }

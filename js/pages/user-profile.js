@@ -59,17 +59,47 @@ Pages.userProfile = async function (el, username) {
   // Only the public columns are read — never the password
   let person = null;
   if (sb) {
-    const publicColumns = 'id, username, full_name, role, avatar_url, cover_url';
+    const publicColumns = 'id, username, full_name, role, avatar_url, cover_url, status, deleted_at';
     const overlayColumns = ', overlay_image_url, overlay_video_url, overlay_media, overlay_opacity, overlay_volume';
     let { data, error } = await sb.from('users')
       .select(publicColumns + overlayColumns)
       .eq('username', username)
       .limit(1);
-    // Profiles still load before 006_add_profile_overlay.sql has run
+    // Profiles still load before the optional migrations have run
     if (error) {
-      ({ data } = await sb.from('users').select(publicColumns).eq('username', username).limit(1));
+      ({ data } = await sb.from('users')
+        .select('id, username, full_name, role, avatar_url, cover_url')
+        .eq('username', username)
+        .limit(1));
     }
     person = (data || [])[0] || null;
+  }
+
+  if (person && (person.deleted_at || person.status === 'deleted' || person.status === 'suspended')) {
+    person = null;
+  }
+
+  // An administrator's profile is private — only other admins may open it
+  if (person && person.role === 'admin') {
+    let viewerIsAdmin = false;
+    if (viewer && sb) {
+      try {
+        const { data } = await sb.from('users')
+          .select('role, status, deleted_at')
+          .eq('id', viewer.id)
+          .single();
+        viewerIsAdmin = !!data && data.role === 'admin' && !data.deleted_at && data.status !== 'suspended';
+      } catch { viewerIsAdmin = false; }
+    }
+    if (!viewerIsAdmin) {
+      el.innerHTML = `<div class="fb-public">${bar}
+        <section class="fb-card" style="margin:1rem;padding:2rem;text-align:center;">
+          <h2>This profile is private</h2>
+          <p style="margin-top:0.5rem;color:var(--fb-muted);">Administrator profiles are only visible to other administrators.</p>
+        </section>
+      </div>`;
+      return;
+    }
   }
 
   if (!person) {
@@ -102,6 +132,7 @@ Pages.userProfile = async function (el, username) {
         ${coverIsVideo
           ? '<button class="fb-cover-expand" id="upExpand" type="button" aria-label="Play the whole video with sound" title="Play the whole video with sound">⤢</button>'
           : ''}
+        ${cover && window.AdminModerate ? AdminModerate.mediaButton('cover', person.id) : ''}
       </div>
 
       <div class="fb-profile-head">
@@ -109,7 +140,7 @@ Pages.userProfile = async function (el, username) {
           ? avatarIsVideo
             ? `<video class="fb-avatar-img" src="${fbEscape(avatar)}" autoplay muted loop playsinline></video>`
             : `<img class="fb-avatar-img" src="${fbEscape(avatar)}" alt="${fbEscape(name)}">`
-          : fbEscape(initial)}</div>
+          : fbEscape(initial)}${avatar && window.AdminModerate ? AdminModerate.mediaButton('avatar', person.id) : ''}</div>
         <div class="fb-profile-id">
           <h1 class="fb-profile-name">${fbEscape(name)}</h1>
           <div class="fb-profile-meta">${fbEscape(fbRoleLabel(person.role))} · @${fbEscape(person.username)}</div>
@@ -125,6 +156,7 @@ Pages.userProfile = async function (el, username) {
   </div>`;
 
   el.querySelector('#upCopy').addEventListener('click', () => fbShareLink(link, name));
+  if (window.AdminModerate) AdminModerate.wire(el, { media: () => Pages.userProfile(el, username) });
   const message = el.querySelector('#upMessage');
   if (message) message.addEventListener('click', () => window.fbChat.openWith(person.id));
   const expand = el.querySelector('#upExpand');
