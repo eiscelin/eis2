@@ -10,6 +10,7 @@ var Pages = window.Pages || {};
     settings: {},
     search: '',
     showDeleted: false,
+    profileMemberId: null,
     messageFilter: null
   };
   let me = null;
@@ -728,6 +729,7 @@ var Pages = window.Pages || {};
   // ===================== My profile =====================
 
   function renderMyProfile(body) {
+    const picked = state.users.find(u => String(u.id) === String(state.profileMemberId)) || null;
     body.innerHTML = `
       <section class="admin-card admin-me-card">
         ${avatarHtml(me, 'admin-avatar-lg')}
@@ -739,11 +741,42 @@ var Pages = window.Pages || {};
           <a class="admin-tool" href="#/App">Back to app</a>
         </div>
       </section>
+
+      <section class="admin-card mp-card">
+        <h3 class="pi-title">Search a member</h3>
+        <p class="admin-hint">Find any member by name or username to open their details.</p>
+        <div id="adminMemberPicker"></div>
+        ${picked ? `<div class="mp-selected-head">
+          <span>Showing details for <strong>${fbEscape(nameOf(picked))}</strong> (@${fbEscape(picked.username || '')})</span>
+          <button class="mp-back" id="mpBack" type="button">Back to my details</button>
+        </div>` : ''}
+      </section>
+
       <div id="adminMeInfo" class="admin-me-info"></div>`;
+
+    if (window.AdminMemberPicker) {
+      AdminMemberPicker.render(body.querySelector('#adminMemberPicker'), {
+        users: state.users.filter(u => statusOf(u) !== 'deleted'),
+        selectedId: picked ? picked.id : '',
+        onSelect: (user) => {
+          state.profileMemberId = user.id;
+          renderBody();
+        }
+      });
+    }
+
+    const back = body.querySelector('#mpBack');
+    if (back) back.addEventListener('click', () => {
+      state.profileMemberId = null;
+      renderBody();
+    });
 
     // The same Personal Information form the member sees on My Profile
     if (window.PersonalInfo) {
-      PersonalInfo.render(body.querySelector('#adminMeInfo'), me, { onSaved: renderBody });
+      PersonalInfo.render(body.querySelector('#adminMeInfo'), picked || me, {
+        hidePassword: !!picked,
+        onSaved: picked ? null : renderBody
+      });
     }
   }
 

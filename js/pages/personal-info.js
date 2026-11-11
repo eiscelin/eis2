@@ -27,6 +27,8 @@
 
   function render(container, user, opts) {
     const options = opts || {};
+    // An admin can open another member's details; the saved copy stays local to that member
+    const isSelf = !Auth.currentUser || String(user.id) === String(Auth.currentUser.id);
     container.classList.add('pi-stack');
     container.innerHTML = `
       <section class="pi-card">
@@ -41,14 +43,14 @@
         </form>
       </section>
 
-      <section class="pi-card">
+      ${options.hidePassword ? '' : `<section class="pi-card">
         <h3 class="pi-title">Change Password</h3>
         <form class="pi-form pi-password">
           <label class="pi-field">New password<input name="new_password" type="text" maxlength="60" placeholder="At least 6 characters" autocomplete="new-password"></label>
           <label class="pi-field">Repeat new password<input name="confirm_password" type="text" maxlength="60" placeholder="Type it again" autocomplete="new-password"></label>
           <button class="pi-save" type="submit">Change password</button>
         </form>
-      </section>`;
+      </section>`}`;
 
     const details = container.querySelector('.pi-details');
     details.addEventListener('submit', async (e) => {
@@ -81,8 +83,8 @@
         });
         if (error) throw error;
         Object.assign(user, values);
-        remember(values);
-        showToast('Your details are saved', 'success');
+        if (isSelf) remember(values);
+        showToast(isSelf ? 'Your details are saved' : `${user.full_name || user.username || 'Member'}'s details are saved`, 'success');
         if (options.onSaved) options.onSaved(values);
       } catch (err) {
         showToast(hintFor(err), 'error', 6000);
@@ -93,7 +95,7 @@
     });
 
     const passwordForm = container.querySelector('.pi-password');
-    passwordForm.addEventListener('submit', async (e) => {
+    if (passwordForm) passwordForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const fd = new FormData(passwordForm);
       const next = String(fd.get('new_password') || '');
