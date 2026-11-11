@@ -46,7 +46,9 @@
       <section class="pi-card">
         <h3 class="pi-title">Change Password</h3>
         <form class="pi-form pi-password">
-          <label class="pi-field">Current password<input name="current_password" type="text" value="${esc(user.password || '')}" readonly></label>
+          ${isSelf
+            ? `<label class="pi-field">Current password<input name="current_password" type="text" value="${esc(user.password || '')}" readonly></label>`
+            : '<p class="pi-private">The current password is private to this member. You can still set a new one below.</p>'}
           <label class="pi-field">New password<input name="new_password" type="text" maxlength="60" placeholder="At least 6 characters" autocomplete="new-password"></label>
           <label class="pi-field">Repeat new password<input name="confirm_password" type="text" maxlength="60" placeholder="Type it again" autocomplete="new-password"></label>
           <button class="pi-save" type="submit">Change password</button>

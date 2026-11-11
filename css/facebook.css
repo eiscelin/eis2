@@ -1777,3 +1777,4 @@ a.admin-tool { text-decoration: none; display: inline-flex; align-items: center;
 
 /* The saved password is shown for reference, not edited in place */
 .pi-field input[readonly] { background: #e4e6eb; color: #1c1e21; cursor: default; }
+.pi-private { margin: 0; color: var(--fb-muted); font-size: .82rem; line-height: 1.5; }
