@@ -5,12 +5,12 @@ const POST_VIDEO_MAX = 100 * 1024 * 1024;
 const POST_IMAGE_MAX = 20 * 1024 * 1024;
 
 const FB_REACTIONS = {
-  like: { emoji: '👍', label: 'Like', color: '#2d88ff' },
-  love: { emoji: '❤️', label: 'Love', color: '#f5533d' },
-  haha: { emoji: '😆', label: 'Haha', color: '#f7b125' },
-  wow: { emoji: '😮', label: 'Wow', color: '#f7b125' },
-  sad: { emoji: '😢', label: 'Sad', color: '#f7b125' },
-  angry: { emoji: '😡', label: 'Angry', color: '#e9710f' }
+  like: { label: 'Like', color: '#1877f2' },
+  love: { label: 'Love', color: '#f02849' },
+  haha: { label: 'Haha', color: '#f7b125' },
+  wow: { label: 'Wow', color: '#f7b125' },
+  sad: { label: 'Sad', color: '#f7b125' },
+  angry: { label: 'Angry', color: '#e9710f' }
 };
 const REACTION_ORDER = ['like', 'love', 'haha', 'wow', 'sad', 'angry'];
 
@@ -61,14 +61,14 @@ function postReactionGroups(rows) {
     if (FB_REACTIONS[r.type]) counts[r.type] = (counts[r.type] || 0) + 1;
   });
   return REACTION_ORDER.filter(t => counts[t]).map(t => ({
-    type: t, emoji: FB_REACTIONS[t].emoji, label: FB_REACTIONS[t].label, count: counts[t]
+    type: t, label: FB_REACTIONS[t].label, count: counts[t]
   }));
 }
 
 function postReactionPicker() {
   return `<div class="fb-reaction-picker">
     ${REACTION_ORDER.map(t =>
-      `<button class="fb-reaction-option" type="button" data-react="${t}" title="${FB_REACTIONS[t].label}" aria-label="${FB_REACTIONS[t].label}">${FB_REACTIONS[t].emoji}</button>`
+      `<button class="fb-reaction-option" type="button" data-react="${t}" title="${FB_REACTIONS[t].label}" aria-label="${FB_REACTIONS[t].label}">${Posts.reactionIcon(t)}</button>`
     ).join('')}
   </div>`;
 }
@@ -127,7 +127,7 @@ function postCommentHtml(comment, ctx) {
         <a class="fb-comment-name" href="${postProfileHref(username)}">${fbEscape(name)}</a>
         <div class="fb-comment-body">${fbEscape(comment.body)}</div>
         ${groups.length
-          ? `<span class="fb-comment-reactions">${groups.map(g => `${g.emoji}<b>${postCount(g.count)}</b>`).join('')}</span>`
+          ? `<span class="fb-comment-reactions">${groups.map(g => `${Posts.reactionIcon(g.type)}<b>${postCount(g.count)}</b>`).join('')}</span>`
           : ''}
       </div>
       <div class="fb-comment-meta">
@@ -177,7 +177,7 @@ Posts.card = function (post, ctx) {
     ${totalReactions || comments.length || shares
       ? `<div class="fb-post-stats">
           <span class="fb-post-summary">${totalReactions
-            ? `<span class="fb-reaction-icons">${groups.map(g => `<span title="${g.label}">${g.emoji}</span>`).join('')}</span>${postCount(totalReactions)}`
+            ? `<span class="fb-reaction-icons">${groups.map(g => `<span title="${g.label}">${Posts.reactionIcon(g.type)}</span>`).join('')}</span>${postCount(totalReactions)}`
             : ''}</span>
           <span class="fb-post-counts">
             ${comments.length ? `<button type="button" data-act="focus-comment">${postCount(comments.length)} comment${comments.length === 1 ? '' : 's'}</button>` : ''}
@@ -188,7 +188,7 @@ Posts.card = function (post, ctx) {
     <div class="fb-post-actions">
       <div class="fb-react-wrap">
         <button class="fb-post-act${mineType ? ' active' : ''}" type="button" data-act="react"${mineType ? ` style="color:${mineType.color}"` : ''}>
-          <span aria-hidden="true">${mineType ? mineType.emoji : '👍'}</span><span>${mineType ? mineType.label : 'Like'}</span>
+          ${Posts.reactionIcon(mineType ? mine.type : 'like')}<span>${mineType ? mineType.label : 'Like'}</span>
         </button>
         <button class="fb-react-more" type="button" data-act="react-picker" aria-label="Choose a reaction">▴</button>
         ${postReactionPicker()}
