@@ -72,7 +72,7 @@ Pages.userProfile = async function (el, username) {
 
     if (person) {
       const [peopleRes, postsRes] = await Promise.all([
-        sb.from('users').select('id, username, full_name, role').order('username', { ascending: true }),
+        sb.from('users').select('id, username, full_name, role, avatar_url').order('username', { ascending: true }),
         sb.from('announcements').select('*').order('created_at', { ascending: false })
       ]);
       people = (peopleRes.data || []).filter(u => String(u.id) !== String(person.id));
@@ -101,7 +101,7 @@ Pages.userProfile = async function (el, username) {
   const friendTile = p => {
     const pname = p.full_name || p.username || 'Member';
     return `<a class="fb-friend" href="#/u/${encodeURIComponent(p.username)}">
-      <div class="fb-friend-img">${fbEscape((pname.trim()[0] || '?').toUpperCase())}</div>
+      <div class="fb-friend-img">${fbPersonMedia(p.avatar_url, pname)}</div>
       <div class="fb-friend-name">${fbEscape(pname)}</div>
       <div class="fb-friend-meta">${fbEscape(fbRoleLabel(p.role))}</div>
     </a>`;

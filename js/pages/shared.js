@@ -12,6 +12,18 @@ function fbAvatar(name, cls) {
   return `<span class="fb-avatar ${cls || ''}">${initial}</span>`;
 }
 
+function fbIsVideo(url) {
+  return /\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i.test(String(url));
+}
+
+// A member's picture — photo or short video — or their initial when they have none
+function fbPersonMedia(url, name) {
+  if (!url) return fbEscape(((name || '?').trim()[0] || '?').toUpperCase());
+  return fbIsVideo(url)
+    ? `<video src="${fbEscape(url)}" autoplay muted loop playsinline></video>`
+    : `<img src="${fbEscape(url)}" alt="">`;
+}
+
 // Shareable link to a member's profile page
 function fbProfileLink(username) {
   return location.origin + location.pathname + '#/u/' + encodeURIComponent(username || '');
@@ -108,6 +120,7 @@ function appShell(el, user, navItems, renderContent, startTab) {
         <nav class="fb-topbar-center" id="fbTopNav" aria-label="Sections"></nav>
         <div class="fb-topbar-right">
           ${Theme.toggleButtonHTML()}
+          <button class="fb-icon-btn" id="fbFriendNotice" type="button" title="Friend requests" aria-label="Friend requests" hidden>👥<span class="fb-badge" id="fbFriendNoticeCount"></span></button>
           <button class="fb-icon-btn" id="fbMessages" type="button" title="Messages" aria-label="Messages">💬</button>
           <button class="fb-user-btn" id="fbUserBtn" type="button" title="My profile" aria-label="My profile">${fbAvatar(displayName, 'fb-avatar-sm')}</button>
           <button class="fb-icon-btn fb-burger" id="fbBurger" type="button" title="Menu" aria-label="Menu">
@@ -230,6 +243,17 @@ function appShell(el, user, navItems, renderContent, startTab) {
     if (window.openAppMenu) window.openAppMenu({ user, onSelect: select });
   });
   el.querySelector('#railLogout').addEventListener('click', () => Auth.logout());
+
+  // A waiting friend request notifies the member here and opens their profile
+  const notice = el.querySelector('#fbFriendNotice');
+  if (notice && window.FriendRequests) {
+    FriendRequests.incoming(user.id).then(res => {
+      if (!res || res.missing || !res.requests.length) return;
+      el.querySelector('#fbFriendNoticeCount').textContent = res.requests.length;
+      notice.hidden = false;
+      notice.addEventListener('click', () => select('profile'));
+    });
+  }
 
   select(navItems.some(i => i.id === startTab) ? startTab : navItems[0].id);
 

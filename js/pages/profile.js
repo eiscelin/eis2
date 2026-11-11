@@ -84,6 +84,11 @@ Pages.profileTab = function(main, user) {
         </div>
 
         <div class="fb-col fb-col-right">
+          <section class="fb-card" id="pfRequests" hidden>
+            <div class="fb-card-head"><h3>Friend requests</h3><span id="pfRequestsCount" style="color:var(--fb-muted);font-size:0.88rem;"></span></div>
+            <div id="pfRequestsList"></div>
+          </section>
+
           <section class="fb-card" data-section="people" id="pfPeople">
             <div class="fb-card-head"><h3>People you may know</h3></div>
             <div class="fb-people-scroll" id="pfPeopleList">
@@ -451,6 +456,78 @@ Pages.profileTab = function(main, user) {
   if (framedRect(coverUrl)) paintCover();
 
   // People / friends (team directory)
+  let requestStates = {};
+
+  // Add friend / request sent / friends, per member
+  const friendAction = (person) => {
+    const entry = requestStates[String(person.id)] || {};
+    if (entry.status === 'friends') return '<button class="fb-person-btn" type="button" disabled>Friends</button>';
+    if (entry.status === 'sent') return '<button class="fb-person-btn" type="button" disabled>Request sent</button>';
+    if (entry.status === 'incoming') {
+      return `<button class="fb-person-btn" type="button" data-accept-request="${fbEscape(entry.id)}">Accept request</button>`;
+    }
+    return `<button class="fb-person-btn" type="button" data-add-friend="${fbEscape(person.id)}">Add friend</button>`;
+  };
+
+  async function addFriend(personId, button) {
+    button.disabled = true;
+    const res = await FriendRequests.send(user.id, personId);
+    if (res.ok) {
+      button.textContent = 'Request sent';
+      showToast('Friend request sent', 'success');
+      return;
+    }
+    button.disabled = false;
+    showToast(res.missing ? FriendRequests.missingHint : 'Could not send the friend request', 'error', 6000);
+  }
+
+  async function answerRequest(requestId, accept, button) {
+    if (button) button.disabled = true;
+    const res = await FriendRequests.respond(requestId, accept);
+    if (!res.ok) {
+      if (button) button.disabled = false;
+      showToast(res.missing ? FriendRequests.missingHint : 'Could not update the friend request', 'error', 6000);
+      return;
+    }
+    showToast(accept ? 'Friend request accepted' : 'Friend request deleted', 'success');
+    loadRequests();
+    loadPeople();
+  }
+
+  // Requests waiting for my answer
+  async function loadRequests() {
+    const card = main.querySelector('#pfRequests');
+    const list = main.querySelector('#pfRequestsList');
+    if (!card || !sb || !window.FriendRequests) return;
+    const res = await FriendRequests.incoming(user.id);
+    if (res.missing || !res.requests.length) {
+      card.hidden = true;
+      list.innerHTML = '';
+      return;
+    }
+    card.hidden = false;
+    main.querySelector('#pfRequestsCount').textContent = res.requests.length;
+    list.innerHTML = res.requests.map(r => {
+      const p = r.person || {};
+      const pname = p.full_name || p.username || 'Member';
+      return `<div class="fb-person-row">
+        <span class="fb-avatar">${fbPersonMedia(p.avatar_url, pname)}</span>
+        <div class="fb-person-info">
+          <div class="name">${fbEscape(pname)}</div>
+          <div class="meta">@${fbEscape(p.username || '')}</div>
+        </div>
+        <div class="fb-request-actions">
+          <button class="fb-btn fb-btn-primary" type="button" data-confirm-request="${fbEscape(r.id)}">Confirm</button>
+          <button class="fb-btn fb-btn-secondary" type="button" data-decline-request="${fbEscape(r.id)}">Delete</button>
+        </div>
+      </div>`;
+    }).join('');
+    list.querySelectorAll('[data-confirm-request]').forEach(b =>
+      b.addEventListener('click', () => answerRequest(b.dataset.confirmRequest, true, b)));
+    list.querySelectorAll('[data-decline-request]').forEach(b =>
+      b.addEventListener('click', () => answerRequest(b.dataset.declineRequest, false, b)));
+  }
+
   const loadPeople = async () => {
     const friendsGrid = main.querySelector('#pfFriendsGrid');
     const peopleList = main.querySelector('#pfPeopleList');
@@ -461,7 +538,11 @@ Pages.profileTab = function(main, user) {
       return;
     }
     try {
-      const { data } = await sb.from('users').select('*').order('username', { ascending: true });
+      const [{ data }, requests] = await Promise.all([
+        sb.from('users').select('id, username, full_name, role, avatar_url').order('username', { ascending: true }),
+        window.FriendRequests ? FriendRequests.states(user.id) : Promise.resolve({ state: {} })
+      ]);
+      requestStates = requests.state || {};
       const people = (data || []).filter(u => String(u.id) !== String(user.id));
       main.querySelector('#pfFriendCount').textContent = people.length;
 
@@ -469,7 +550,7 @@ Pages.profileTab = function(main, user) {
         ? people.slice(0, 9).map(p => {
           const pname = p.full_name || p.username || 'Member';
           return `<button class="fb-friend" type="button" data-uid="${fbEscape(p.id)}">
-            <div class="fb-friend-img">${fbEscape((pname.trim()[0] || '?').toUpperCase())}</div>
+            <div class="fb-friend-img">${fbPersonMedia(p.avatar_url, pname)}</div>
             <div class="fb-friend-name">${fbEscape(pname)}</div>
             <div class="fb-friend-meta">${fbEscape(fbRoleLabel(p.role))}</div>
           </button>`;
@@ -480,21 +561,25 @@ Pages.profileTab = function(main, user) {
         ? people.slice(0, 10).map(p => {
           const pname = p.full_name || p.username || 'Member';
           return `<div class="fb-person">
-            <div class="fb-person-img">${fbEscape((pname.trim()[0] || '?').toUpperCase())}</div>
+            <div class="fb-person-img">${fbPersonMedia(p.avatar_url, pname)}</div>
             <div class="fb-person-body">
               <div class="fb-person-name">${fbEscape(pname)}</div>
               <div class="fb-person-meta">${fbEscape(fbRoleLabel(p.role))}</div>
-              ${canChat ? `<button class="fb-person-btn" type="button" data-uid="${fbEscape(p.id)}">Message</button>` : ''}
+              ${friendAction(p)}
             </div>
           </div>`;
         }).join('')
         : '<div class="empty-state" style="padding:1rem;">No suggestions right now.</div>';
 
       if (canChat) {
-        main.querySelectorAll('[data-uid]').forEach(el => {
+        friendsGrid.querySelectorAll('[data-uid]').forEach(el => {
           el.addEventListener('click', () => window.fbChat.openWith(el.dataset.uid));
         });
       }
+      peopleList.querySelectorAll('[data-add-friend]').forEach(btn =>
+        btn.addEventListener('click', () => addFriend(btn.dataset.addFriend, btn)));
+      peopleList.querySelectorAll('[data-accept-request]').forEach(btn =>
+        btn.addEventListener('click', () => answerRequest(btn.dataset.acceptRequest, true, btn)));
     } catch {
       friendsGrid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;padding:1rem;">Could not load friends.</div>';
       peopleList.innerHTML = '<div class="empty-state" style="padding:1rem;">Could not load suggestions.</div>';
@@ -558,6 +643,7 @@ Pages.profileTab = function(main, user) {
 
   showTab('all');
   loadPeople();
+  loadRequests();
   loadFeed();
 };
 
