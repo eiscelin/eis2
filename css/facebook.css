@@ -1215,3 +1215,104 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
   .fb-friend-name { font-size: 0.72rem; }
   .fb-profile-actions .fb-btn { font-size: 0.82rem; padding: 0.45rem 0.7rem; }
 }
+
+/* ===================== Profile media overlay ===================== */
+/* A see-through image or video floats in front of the whole profile page.
+   It never takes clicks, so the profile underneath stays usable. */
+.fb-overlay-media {
+  position: fixed; inset: 0;
+  z-index: 150;
+  overflow: hidden;
+  pointer-events: none;
+}
+.fb-overlay-media .fb-overlay-asset {
+  display: block;
+  width: 100%; height: 100%;
+  object-fit: cover;
+}
+
+.overlay-editor-hint { margin-top: 0.35rem; color: var(--fb-muted); font-size: 0.82rem; }
+.overlay-editor-slots {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+.overlay-slot-wrap { position: relative; }
+.overlay-slot {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.2rem;
+  width: 100%; height: 86px;
+  border-radius: 10px;
+  border: 1px dashed rgba(255, 255, 255, 0.28);
+  background: var(--fb-elevated);
+  color: var(--fb-muted);
+  font-size: 0.8rem; font-weight: 600;
+  overflow: hidden;
+}
+.overlay-slot:hover { background: var(--fb-hover); }
+.overlay-slot.has-media { border-style: solid; border-color: rgba(255, 255, 255, 0.18); }
+.overlay-slot-media {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  opacity: 0.55;
+}
+.overlay-slot-add { position: relative; font-size: 1.15rem; line-height: 1; }
+.overlay-slot-label { position: relative; z-index: 1; }
+.overlay-slot-clear {
+  position: absolute; top: 5px; right: 5px; z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.68);
+  color: #fff;
+  font-size: 0.68rem; line-height: 1;
+}
+.overlay-slot-clear:hover { background: rgba(0, 0, 0, 0.85); }
+.overlay-slot-clear[hidden] { display: none; }
+
+.overlay-preview {
+  position: relative;
+  height: 152px;
+  margin-top: 0.7rem;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--fb-elevated);
+}
+.overlay-preview-mock {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; gap: 0.42rem;
+  padding: 0.9rem;
+}
+.overlay-preview-cover {
+  display: block; height: 46px;
+  border-radius: 8px;
+  background: linear-gradient(115deg, #0a2e6e 0%, #1877f2 55%, #0b3f92 100%);
+}
+.overlay-preview-name { color: var(--fb-text); font-size: 0.95rem; font-weight: 800; }
+.overlay-preview-line { display: block; height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.14); }
+.overlay-preview-line.short { width: 55%; }
+.overlay-preview-layer { position: absolute; inset: 0; pointer-events: none; }
+.overlay-preview-layer img,
+.overlay-preview-layer video { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+.overlay-show {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem;
+  margin-top: 0.8rem;
+  color: var(--fb-muted); font-size: 0.85rem; font-weight: 700;
+}
+.overlay-show-btn {
+  padding: 0.3rem 0.72rem;
+  border-radius: 999px;
+  background: var(--fb-elevated); color: var(--fb-text);
+  font-size: 0.8rem; font-weight: 600;
+}
+.overlay-show-btn:hover { background: var(--fb-hover); }
+.overlay-show-btn.active { background: var(--fb-blue); color: #fff; }
+.overlay-show-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.overlay-volume[hidden] { display: none; }
+
+@media (max-width: 520px) {
+  .overlay-editor-slots { grid-template-columns: 1fr; }
+  .overlay-slot { height: 70px; }
+  .overlay-preview { height: 130px; }
+}

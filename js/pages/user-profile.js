@@ -59,10 +59,16 @@ Pages.userProfile = async function (el, username) {
   // Only the public columns are read — never the password
   let person = null;
   if (sb) {
-    const { data } = await sb.from('users')
-      .select('id, username, full_name, role, avatar_url, cover_url')
+    const publicColumns = 'id, username, full_name, role, avatar_url, cover_url';
+    const overlayColumns = ', overlay_image_url, overlay_video_url, overlay_media, overlay_opacity, overlay_volume';
+    let { data, error } = await sb.from('users')
+      .select(publicColumns + overlayColumns)
       .eq('username', username)
       .limit(1);
+    // Profiles still load before 006_add_profile_overlay.sql has run
+    if (error) {
+      ({ data } = await sb.from('users').select(publicColumns).eq('username', username).limit(1));
+    }
     person = (data || [])[0] || null;
   }
 
@@ -124,4 +130,5 @@ Pages.userProfile = async function (el, username) {
   const expand = el.querySelector('#upExpand');
   if (expand) expand.addEventListener('click', () => fbPlayFullVideo(cover));
   if (cover && upIsVideo(cover)) upApplyFraming(el.querySelector('#upCover'));
+  ProfileOverlay.paint(el.querySelector('.fb-profile'), person);
 };

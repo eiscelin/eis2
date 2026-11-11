@@ -51,6 +51,7 @@ Pages.profileTab = function(main, user) {
         </div>
         <div class="fb-profile-actions">
           <button class="fb-btn fb-btn-primary" id="pfEdit" type="button">✏️ Edit profile</button>
+          <button class="fb-btn fb-btn-secondary" id="pfOverlay" type="button">✨ Overlay</button>
           <button class="fb-btn fb-btn-secondary" id="pfShare" type="button">↗ Share profile</button>
           <button class="fb-btn fb-btn-secondary" id="pfLogout" type="button">⎋ Log out</button>
         </div>
@@ -142,6 +143,42 @@ Pages.profileTab = function(main, user) {
   });
 
   main.querySelector('#pfLogout').addEventListener('click', () => Auth.logout());
+
+  // ---------- Translucent overlay in front of the whole profile ----------
+
+  ProfileOverlay.paint(main.querySelector('.fb-profile'), user);
+
+  main.querySelector('#pfOverlay').addEventListener('click', () => {
+    ProfileOverlay.open(user, async values => {
+      if (!sb) throw new Error('the database is not connected');
+      const { error } = await sb.rpc('set_profile_overlay', {
+        p_user_id: user.id,
+        p_overlay_image_url: values.image || null,
+        p_overlay_video_url: values.video || null,
+        p_overlay_media: values.media,
+        p_overlay_opacity: values.opacity,
+        p_overlay_volume: values.volume
+      });
+      if (error) throw new Error(/set_profile_overlay/.test(error.message)
+        ? 'Run 007_add_overlay_volume.sql in Supabase, then try again'
+        : error.message);
+
+      const saved = {
+        overlay_image_url: values.image || null,
+        overlay_video_url: values.video || null,
+        overlay_media: values.media,
+        overlay_opacity: values.opacity,
+        overlay_volume: values.volume
+      };
+      Object.assign(user, saved);
+      if (Auth.currentUser) {
+        Object.assign(Auth.currentUser, saved);
+        localStorage.setItem('chookee_user', JSON.stringify(Auth.currentUser));
+      }
+      ProfileOverlay.paint(main.querySelector('.fb-profile'), user);
+      showToast(values.media === 'off' ? 'Profile overlay is off' : 'Profile overlay saved', 'success');
+    });
+  });
 
   // ---------- Profile picture + cover (image or video) ----------
 
