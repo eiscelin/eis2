@@ -47,10 +47,12 @@ Posts.faceUrl = function (type) {
   return match ? match[1] : '';
 };
 
-Posts.reactionIcon = function (type) {
+Posts.reactionIcon = function (type, slot) {
   const face = Posts.faceUrl(type);
   if (face) {
-    return `<span class="fb-rx fb-rx-face"><img class="fb-rx-img" src="${fbEscape(face)}" alt="" loading="lazy"></span>`;
+    // Each face on a post takes its own turn in the shake loop (one second apart).
+    const delay = slot ? ` style="animation-delay:${slot % 6}s"` : '';
+    return `<span class="fb-rx fb-rx-face"${delay}><img class="fb-rx-img" src="${fbEscape(face)}" alt="" loading="lazy"></span>`;
   }
   const art = FB_RX_ART[type] || FB_RX_ART.like;
   return `<span class="fb-rx fb-rx-${type}"><svg class="fb-rx-svg" viewBox="0 0 40 40" aria-hidden="true" focusable="false">${art}</svg></span>`;

@@ -2087,17 +2087,22 @@ a.fb-post-name:hover { text-decoration: underline; }
 .fb-post-summary .fb-rx { width: 40px; height: 40px; }
 .fb-reaction-icons > span { width: 40px; height: 40px; margin-left: -10px; box-shadow: 0 0 0 3px var(--fb-card); }
 .fb-comment-reactions .fb-rx { width: 36px; height: 36px; }
-/* Uploaded face reactions grow and shrink on the post so every one stands out */
+/* Uploaded face reactions shake while growing and shrinking, one face after another */
 .fb-post-summary .fb-rx-face, .fb-post-act .fb-rx-face {
-  animation: fb-rx-grow 1.1s ease-in-out infinite alternate;
+  animation: fb-rx-shake 6s ease-in-out infinite;
+  transform-origin: center;
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.22), 0 0 10px rgba(36, 134, 228, 0.45);
 }
-.fb-reaction-icons > span:nth-child(2) .fb-rx-face { animation-delay: 0.18s; }
-.fb-reaction-icons > span:nth-child(3) .fb-rx-face { animation-delay: 0.36s; }
-.fb-reaction-icons > span:nth-child(4) .fb-rx-face { animation-delay: 0.54s; }
-@keyframes fb-rx-grow {
-  from { transform: scale(1); }
-  to { transform: scale(1.32); }
+@keyframes fb-rx-shake {
+  0% { transform: scale(1) rotate(0deg); }
+  2% { transform: scale(1.2) rotate(-10deg); }
+  4% { transform: scale(1.25) rotate(10deg); }
+  6% { transform: scale(1.2) rotate(-8deg); }
+  8% { transform: scale(1.14) rotate(8deg); }
+  10% { transform: scale(1.08) rotate(-5deg); }
+  12% { transform: scale(1.04) rotate(4deg); }
+  15% { transform: scale(1) rotate(0deg); }
+  100% { transform: scale(1) rotate(0deg); }
 }
 @media (max-width: 640px) {
   .fb-reaction-picker { padding: 0.35rem 0.45rem; }

@@ -87,6 +87,15 @@ function postReactionGroups(rows) {
   }));
 }
 
+// Each face reaction shakes in its own turn instead of all of them at once
+function postFaceSlots(groups) {
+  let slot = 0;
+  return groups.map(g => {
+    const face = !!postFaceUrl(g.type);
+    return `<span title="${g.label}">${Posts.reactionIcon(g.type, face ? slot++ : 0)}</span>`;
+  }).join('');
+}
+
 function postReactionPicker(faces) {
   const own = (faces || []).map(face => {
     const type = 'face:' + face.image_url;
@@ -202,7 +211,7 @@ Posts.card = function (post, ctx) {
     ${totalReactions || comments.length || shares
       ? `<div class="fb-post-stats">
           <span class="fb-post-summary">${totalReactions
-            ? `<span class="fb-reaction-icons">${groups.map(g => `<span title="${g.label}">${Posts.reactionIcon(g.type)}</span>`).join('')}</span>${postCount(totalReactions)}`
+            ? `<span class="fb-reaction-icons">${postFaceSlots(groups)}</span>${postCount(totalReactions)}`
             : ''}</span>
           <span class="fb-post-counts">
             ${comments.length ? `<button type="button" data-act="focus-comment">${postCount(comments.length)} comment${comments.length === 1 ? '' : 's'}</button>` : ''}
