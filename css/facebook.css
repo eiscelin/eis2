@@ -2070,12 +2070,18 @@ a.fb-post-name:hover { text-decoration: underline; }
 }
 
 /* Small reaction icons inside the Like button and the reaction count */
-.fb-post-act .fb-rx, .fb-comment-reactions .fb-rx, .fb-post-summary .fb-rx { width: 20px; height: 20px; }
-.fb-comment-reactions .fb-rx { width: 16px; height: 16px; }
+.fb-post-act .fb-rx { width: 48px; height: 48px; }
+.fb-post-summary .fb-rx { width: 40px; height: 40px; }
+.fb-reaction-icons > span { width: 40px; height: 40px; margin-left: -10px; box-shadow: 0 0 0 3px var(--fb-card); }
+.fb-comment-reactions .fb-rx { width: 36px; height: 36px; }
 @media (max-width: 640px) {
   .fb-reaction-picker { padding: 0.35rem 0.45rem; }
   .fb-reaction-option, .fb-reaction-option .fb-rx { width: 44px; height: 44px; }
   .fb-reaction-option:hover .fb-rx { transform: translateY(-10px) scale(1.3); }
+  .fb-post-act .fb-rx { width: 36px; height: 36px; }
+  .fb-post-summary .fb-rx { width: 30px; height: 30px; }
+  .fb-reaction-icons > span { width: 30px; height: 30px; margin-left: -8px; }
+  .fb-comment-reactions .fb-rx { width: 28px; height: 28px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .fb-reaction-option .fb-rx { transition: none; }
