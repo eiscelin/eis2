@@ -2,6 +2,6 @@
 window.BRAND = {
   name: 'MeDay',
   initial: 'M',
-  logo: '/img/meday-logo.svg',
+  logo: '/img/meday-logo.png',
   tagline: 'Connect with friends, share what you love, and chat instantly.'
 };

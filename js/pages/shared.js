@@ -38,7 +38,7 @@ async function fbShareLink(link, title) {
 }
 
 function fbBrand() {
-  return window.BRAND || { name: 'MeDay', initial: 'M', logo: '/img/meday-logo.svg', tagline: '' };
+  return window.BRAND || { name: 'MeDay', initial: 'M', logo: '/img/meday-logo.png', tagline: '' };
 }
 
 // Brand mark: the logo image, or the initial as a fallback
