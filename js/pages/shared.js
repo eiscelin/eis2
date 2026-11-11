@@ -100,10 +100,10 @@ function appShell(el, user, navItems, renderContent, startTab) {
       <header class="fb-topbar">
         <div class="fb-topbar-left">
           <button class="fb-logo" id="fbLogo" type="button" title="${brand.name}" aria-label="${brand.name}">${brand.initial}</button>
-          <label class="fb-search">
+          <button class="fb-search" id="fbSearch" type="button" title="Search" aria-label="Search ${brand.name}">
             <span aria-hidden="true">🔍</span>
-            <input id="fbSearch" type="search" placeholder="Search ${brand.name}" aria-label="Search ${brand.name}">
-          </label>
+            <span class="fb-search-hint">Search ${brand.name}</span>
+          </button>
         </div>
         <nav class="fb-topbar-center" id="fbTopNav" aria-label="Sections"></nav>
         <div class="fb-topbar-right">
@@ -217,12 +217,8 @@ function appShell(el, user, navItems, renderContent, startTab) {
     if (!sheet.contains(e.target) && !menu.contains(e.target)) sheet.classList.remove('open');
   });
 
-  const search = el.querySelector('#fbSearch');
-  if (search) {
-    search.addEventListener('input', () => {
-      if (window.__appSearchHandler) window.__appSearchHandler(search.value.trim().toLowerCase());
-    });
-  }
+  // The top bar search opens the Facebook-style search panel
+  if (window.AppSearch) window.AppSearch.mount(el.querySelector('.fb-shell'), user);
 
   el.querySelector('#fbLogo').addEventListener('click', () => select(navItems[0].id));
   el.querySelector('#fbUserBtn').addEventListener('click', () => select('profile'));
