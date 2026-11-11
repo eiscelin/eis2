@@ -1,6 +1,7 @@
 // Customer Service chat — a help button on profile pages and on the log in page
 (function () {
   const GUEST_NAME_KEY = 'chookee_guest_name';
+  const GUEST_PHONE_KEY = 'chookee_guest_phone';
 
   let root = null;
   let timer = null;
@@ -15,6 +16,10 @@
   // person picks up the same conversation on any device they chat from.
   function savedGuestName() {
     return (localStorage.getItem(GUEST_NAME_KEY) || '').trim();
+  }
+
+  function savedGuestPhone() {
+    return (localStorage.getItem(GUEST_PHONE_KEY) || '').trim();
   }
 
   function guestIdFor(name) {
@@ -41,10 +46,11 @@
 
     const signedIn = !!user;
     let guest = signedIn ? '' : savedGuestName();
+    let phone = signedIn ? '' : savedGuestPhone();
     const me = () => (signedIn ? String(user.id) : (guest ? guestIdFor(guest) : null));
     const emptyText = signedIn
       ? 'Write your message and our team will answer here.'
-      : 'Type the username you log in with, then write your message.';
+      : 'Type the username you log in with and your active mobile number, then write your message.';
     let agent = null;
     let agentChecked = false;
 
@@ -56,11 +62,12 @@
         <header class="fb-support-head">
           <div>
             <strong>Customer Service</strong>
-            <span id="supSub">${signedIn ? 'We usually reply within a few minutes' : 'Tell us the username you log in with'}</span>
+            <span id="supSub">${signedIn ? 'We usually reply within a few minutes' : 'Tell us your username and mobile number'}</span>
           </div>
           <button class="fb-support-close" id="supClose" type="button" aria-label="Close">✕</button>
         </header>
-        ${signedIn ? '' : '<label class="fb-support-name">Your username <input id="supName" type="text" maxlength="40" placeholder="The username you use to log in" autocomplete="off" value="' + esc(guest) + '"></label>'}
+        ${signedIn ? '' : '<label class="fb-support-name">Your username <input id="supName" type="text" maxlength="40" placeholder="The username you use to log in" autocomplete="off" value="' + esc(guest) + '"></label>'
+          + '<label class="fb-support-name">Mobile number <input id="supPhone" type="tel" maxlength="20" placeholder="Active number for a call" autocomplete="tel" value="' + esc(phone) + '"></label>'}
         <div class="fb-support-log" id="supLog"><div class="fb-support-empty">${esc(emptyText)}</div></div>
         <form class="fb-support-form" id="supForm">
           <input id="supInput" type="text" placeholder="Write your message…" autocomplete="off" aria-label="Your message">
@@ -81,6 +88,7 @@
     const form = el.querySelector('#supForm');
     const input = el.querySelector('#supInput');
     const nameInput = el.querySelector('#supName');
+    const phoneInput = el.querySelector('#supPhone');
     const sub = el.querySelector('#supSub');
 
     function paint(rows) {
@@ -133,7 +141,10 @@
       }
       if (String(agent.id) === me()) sub.textContent = 'You are the Customer Service account';
       await loadMessages();
-      if (!signedIn && !guest && nameInput) nameInput.focus();
+      if (!signedIn) {
+        if (!guest && nameInput) nameInput.focus();
+        else if (!phone && phoneInput) phoneInput.focus();
+      }
       if (timer) clearInterval(timer);
       timer = setInterval(loadMessages, 4000);
     }
@@ -160,6 +171,15 @@
       });
     }
 
+    // The mobile number rides along with each request so we can call back
+    if (phoneInput) {
+      phoneInput.addEventListener('change', () => {
+        phone = phoneInput.value.trim();
+        if (phone) localStorage.setItem(GUEST_PHONE_KEY, phone);
+        else localStorage.removeItem(GUEST_PHONE_KEY);
+      });
+    }
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       if (!agent || String(agent.id) === me()) return;
@@ -167,14 +187,22 @@
       if (!text) return;
       if (!signedIn) {
         const name = (nameInput.value || '').trim();
+        const mobile = (phoneInput.value || '').trim();
         if (!name) {
           sub.textContent = 'Type the username you log in with first';
           nameInput.focus();
           return;
         }
+        if (!mobile) {
+          sub.textContent = 'Type your active mobile number first';
+          phoneInput.focus();
+          return;
+        }
         guest = name;
+        phone = mobile;
         localStorage.setItem(GUEST_NAME_KEY, name);
-        text = '[' + name + '] ' + text;
+        localStorage.setItem(GUEST_PHONE_KEY, mobile);
+        text = '[' + name + ' · ' + mobile + '] ' + text;
       }
       input.value = '';
       try {
