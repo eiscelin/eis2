@@ -112,6 +112,13 @@ Pages.userProfile = async function (el, username) {
     return;
   }
 
+  // Friend requests: the button follows the state between the two members
+  let friendState = 'none';
+  if (viewer && window.Friends) {
+    try { await Friends.load(viewer); } catch { /* friend requests are optional */ }
+    friendState = Friends.statusWith(person.id);
+  }
+
   const name = person.full_name || person.username || 'Member';
   const initial = (name.trim()[0] || '?').toUpperCase();
   const cover = person.cover_url || '';
@@ -146,8 +153,11 @@ Pages.userProfile = async function (el, username) {
           <div class="fb-profile-meta">${fbEscape(fbRoleLabel(person.role))} · @${fbEscape(person.username)}</div>
         </div>
         <div class="fb-profile-actions">
+          ${viewer && window.Friends
+            ? `<button class="fb-btn fb-btn-primary" id="upFriend" type="button"${Friends.isLocked(friendState) ? ' disabled' : ''}>${fbEscape(Friends.label(friendState))}</button>`
+            : ''}
           ${viewer && window.fbChat
-            ? '<button class="fb-btn fb-btn-primary" id="upMessage" type="button">Message</button>'
+            ? '<button class="fb-btn fb-btn-secondary" id="upMessage" type="button">Message</button>'
             : ''}
           <button class="fb-btn fb-btn-secondary" id="upCopy" type="button">Copy link</button>
         </div>
@@ -156,6 +166,23 @@ Pages.userProfile = async function (el, username) {
   </div>`;
 
   el.querySelector('#upCopy').addEventListener('click', () => fbShareLink(link, name));
+  const friendBtn = el.querySelector('#upFriend');
+  if (friendBtn) {
+    friendBtn.addEventListener('click', async () => {
+      friendBtn.disabled = true;
+      try {
+        const result = await Friends.act(person.id);
+        if (result === 'sent') showToast('Friend request sent to ' + name, 'success');
+        if (result === 'accepted') showToast('You are now friends with ' + name, 'success');
+        const state = Friends.statusWith(person.id);
+        friendBtn.textContent = Friends.label(state);
+        friendBtn.disabled = Friends.isLocked(state);
+      } catch (err) {
+        friendBtn.disabled = false;
+        showToast(err.message, 'error', 6000);
+      }
+    });
+  }
   if (window.AdminModerate) AdminModerate.wire(el, { media: () => Pages.userProfile(el, username) });
   const message = el.querySelector('#upMessage');
   if (message) message.addEventListener('click', () => window.fbChat.openWith(person.id));

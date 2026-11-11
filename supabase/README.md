@@ -17,6 +17,9 @@ Run each file in `migrations/` once in the Supabase dashboard (SQL Editor > New 
 6. `006_add_profile_overlay.sql` — see-through image/video that floats in front of the profile page (and the `set_profile_overlay` write function)
 7. `007_add_overlay_volume.sql` — volume for the overlay video; also safe to run on its own instead of step 6
 8. `008_add_admin_controls.sql` — profile media approval queue, member roles/status, message moderation and the admin panel functions
+9. `009_add_profile_details.sql` — personal details (age, address, mobile) on the profile tab
+10. `010_admin_delete_content.sql` — admins can remove a member's displayed content
+11. `011_add_friend_requests.sql` — friend requests: "People you may know" → Add Friend → the other member confirms in the notification bell
 
 After running `008`, open `#/Admin` while signed in. If no admin exists yet, the panel offers
 "Make me the first admin" once; otherwise set the role in SQL:

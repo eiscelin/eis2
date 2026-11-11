@@ -531,9 +531,58 @@ Pages.profileTab = function(main, user) {
       main.querySelector('#pfFriendCount').textContent = '0';
       return;
     }
+
+    let people = [];
+
+    // "People you may know": their picture or video, and Add Friend underneath
+    function paintSuggestions() {
+      const suggestions = people.filter(p => !window.Friends || Friends.statusWith(p.id) !== 'friends');
+      peopleList.innerHTML = suggestions.length
+        ? suggestions.slice(0, 10).map(p => {
+          const pname = p.full_name || p.username || 'Member';
+          const state = window.Friends ? Friends.statusWith(p.id) : 'none';
+          return `<div class="fb-person">
+            <a class="fb-person-img" href="#/u/${encodeURIComponent(p.username || '')}" title="Open ${fbEscape(pname)}'s profile">
+              ${window.Friends ? Friends.media(p) : fbEscape((pname.trim()[0] || '?').toUpperCase())}
+            </a>
+            <div class="fb-person-body">
+              <div class="fb-person-name">${fbEscape(pname)}</div>
+              <div class="fb-person-meta">${fbEscape(fbRoleLabel(p.role))}</div>
+              <button class="fb-person-btn" type="button" data-friend="${fbEscape(p.id)}"${window.Friends && Friends.isLocked(state) ? ' disabled' : ''}>${window.Friends ? fbEscape(Friends.label(state)) : 'Add Friend'}</button>
+            </div>
+          </div>`;
+        }).join('')
+        : '<div class="empty-state" style="padding:1rem;">No suggestions right now.</div>';
+    }
+
+    // Add Friend sends a request; Confirm accepts the one they sent you
+    peopleList.addEventListener('click', async e => {
+      const btn = e.target.closest('[data-friend]');
+      if (!btn || btn.disabled || !window.Friends) return;
+      const person = people.find(p => String(p.id) === String(btn.dataset.friend));
+      const pname = person ? (person.full_name || person.username || 'Member') : 'Member';
+      btn.disabled = true;
+      try {
+        const result = await Friends.act(btn.dataset.friend);
+        if (result === 'sent') showToast('Friend request sent to ' + pname, 'success');
+        if (result === 'accepted') showToast('You are now friends with ' + pname, 'success');
+      } catch (err) {
+        showToast(err.message, 'error', 6000);
+      }
+      paintSuggestions();
+    });
+
+    // A request answered in the notification bell updates this rail too
+    document.addEventListener('friends:changed', () => {
+      if (peopleList.isConnected) paintSuggestions();
+    });
+
     try {
-      const { data } = await sb.from('users').select('*').order('username', { ascending: true });
-      const people = (data || []).filter(u =>
+      const [{ data }] = await Promise.all([
+        sb.from('users').select('*').order('username', { ascending: true }),
+        window.Friends ? Friends.load(user) : Promise.resolve()
+      ]);
+      people = (data || []).filter(u =>
         String(u.id) !== String(user.id) &&
         !u.deleted_at &&
         u.status !== 'deleted' &&
@@ -552,19 +601,7 @@ Pages.profileTab = function(main, user) {
         }).join('')
         : '<div class="empty-state" style="grid-column:1/-1;padding:1rem;">No friends yet.</div>';
 
-      peopleList.innerHTML = people.length
-        ? people.slice(0, 10).map(p => {
-          const pname = p.full_name || p.username || 'Member';
-          return `<div class="fb-person">
-            <div class="fb-person-img">${fbEscape((pname.trim()[0] || '?').toUpperCase())}</div>
-            <div class="fb-person-body">
-              <div class="fb-person-name">${fbEscape(pname)}</div>
-              <div class="fb-person-meta">${fbEscape(fbRoleLabel(p.role))}</div>
-              ${canChat ? `<button class="fb-person-btn" type="button" data-uid="${fbEscape(p.id)}">Message</button>` : ''}
-            </div>
-          </div>`;
-        }).join('')
-        : '<div class="empty-state" style="padding:1rem;">No suggestions right now.</div>';
+      paintSuggestions();
 
       if (canChat) {
         main.querySelectorAll('[data-uid]').forEach(el => {

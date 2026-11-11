@@ -107,6 +107,7 @@ function appShell(el, user, navItems, renderContent, startTab) {
         </div>
         <nav class="fb-topbar-center" id="fbTopNav" aria-label="Sections"></nav>
         <div class="fb-topbar-right">
+          <button class="fb-icon-btn fb-notif-btn" id="fbFriendsBtn" type="button" title="Friend requests" aria-label="Friend requests" aria-expanded="false">🔔<span class="fb-notif-badge" id="fbFriendsBadge" hidden>0</span></button>
           <button class="fb-icon-btn" id="fbMessages" type="button" title="Messages" aria-label="Messages">💬</button>
           <button class="fb-user-btn" id="fbUserBtn" type="button" title="My profile" aria-label="My profile">${fbAvatar(displayName, 'fb-avatar-sm')}</button>
           <button class="fb-icon-btn fb-burger" id="fbBurger" type="button" title="Menu" aria-label="Menu">
@@ -246,6 +247,9 @@ function appShell(el, user, navItems, renderContent, startTab) {
       if (window.ChatWidget.openWith) window.fbChat = window.ChatWidget;
     }
   }
+
+  // Friend requests arrive in the bell of the top bar
+  if (window.Friends) window.Friends.mountBell(el.querySelector('.fb-shell'), user);
 }
 
 window.Pages = Pages;
