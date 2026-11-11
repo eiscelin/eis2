@@ -624,6 +624,7 @@ Pages.profileTab = function(main, user) {
   paintMediaNote();
   loadPeople();
   loadFeed();
+  if (window.SupportWidget) window.SupportWidget.mount(user);
 };
 
 window.Pages = Pages;

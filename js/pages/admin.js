@@ -481,7 +481,7 @@ var Pages = window.Pages || {};
         return `<div class="admin-msg" data-msg="${fbEscape(m.id)}">
           <div class="admin-msg-head">
             <span class="admin-msg-people">
-              <strong>${fbEscape(sender ? nameOf(sender) : 'Unknown')}</strong>
+              <strong>${fbEscape(sender ? nameOf(sender) : (String(m.sender_id || '').startsWith('guest:') ? 'Guest' : 'Unknown'))}</strong>
               <span aria-hidden="true">→</span>
               <strong>${fbEscape(receiver ? nameOf(receiver) : 'Unknown')}</strong>
             </span>
@@ -489,8 +489,32 @@ var Pages = window.Pages || {};
             <button class="admin-act delete" type="button" data-del-msg="${fbEscape(m.id)}" title="Delete message">🗑️</button>
           </div>
           <div class="admin-msg-text">${fbEscape(m.message || '')}</div>
+          ${String(m.sender_id || '').startsWith('guest:')
+            ? `<div class="admin-msg-reply">
+                 <input type="text" data-reply-input="${fbEscape(m.sender_id)}" placeholder="Reply to this Customer Service request…" aria-label="Reply to Customer Service request">
+                 <button class="admin-tool" type="button" data-reply-to="${fbEscape(m.sender_id)}">Send</button>
+               </div>`
+            : ''}
         </div>`;
       }).join('');
+
+      list.querySelectorAll('[data-reply-to]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const field = btn.parentElement.querySelector('[data-reply-input]');
+          const text = (field.value || '').trim();
+          if (!text) return;
+          try {
+            const { error } = await sb.from('chat_messages').insert([{
+              sender_id: me.id, receiver_id: btn.dataset.replyTo, message: text
+            }]);
+            if (error) throw error;
+            showToast('Reply sent to Customer Service request', 'success');
+            await refresh();
+          } catch (e) {
+            toastError(e);
+          }
+        });
+      });
 
       list.querySelectorAll('[data-del-msg]').forEach(btn => {
         btn.addEventListener('click', async () => {
