@@ -133,9 +133,14 @@ Pages.profileTab = function(main, user) {
   };
 
   function showTab(tab) {
+    const allowed = sectionMap[tab];
     main.querySelectorAll('[data-section]').forEach(section => {
-      const allowed = sectionMap[tab];
-      section.style.display = (!allowed || allowed.includes(section.dataset.section)) ? '' : 'none';
+      // Personal details / password live only in the My Information tab, never in All
+      const isInfo = section.dataset.section === 'info';
+      const show = tab === 'all'
+        ? !isInfo
+        : (!allowed || allowed.includes(section.dataset.section));
+      section.style.display = show ? '' : 'none';
     });
     // My Information is a full-width form, so it spans both columns
     const cols = main.querySelector('.fb-profile-cols');
