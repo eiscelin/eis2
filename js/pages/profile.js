@@ -597,6 +597,7 @@ Pages.profileTab = function(main, user) {
                 <div class="fb-post-name">${fbEscape(brand.name)}</div>
                 <div class="fb-post-time">${fbEscape(fmtDate(p.date || p.created_at))} · 🌐</div>
               </div>
+              ${window.AdminModerate ? AdminModerate.postButton(p.id) : ''}
             </div>
             <div class="fb-post-body">
               ${p.priority === 'high' ? '<span class="fb-post-tag">IMPORTANT</span>' : ''}
@@ -608,6 +609,7 @@ Pages.profileTab = function(main, user) {
     } catch {
       feed.innerHTML = '<div class="empty-state" style="padding:1.5rem;">No posts yet.</div>';
     }
+    if (window.AdminModerate) AdminModerate.wire(feed, { post: loadFeed });
   };
 
   const composerPost = main.querySelector('#pfComposerPost');

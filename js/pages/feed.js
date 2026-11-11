@@ -143,6 +143,7 @@ Pages.feedTab = function (main, user) {
             <div class="fb-story-head-name" id="storyHeadName"></div>
             <div class="fb-story-head-time" id="storyHeadTime"></div>
           </div>
+          <span id="storyDel"></span>
           <button class="fb-story-close" type="button" aria-label="Close story">✕</button>
         </div>
         <img class="fb-story-full" id="storyFull" alt="">
@@ -181,6 +182,11 @@ Pages.feedTab = function (main, user) {
       headName.textContent = item.group.name;
       headTime.textContent = storyAge(item.story.created_at);
       full.src = item.story.image;
+      const storyDel = el.querySelector('#storyDel');
+      if (storyDel && window.AdminModerate) {
+        storyDel.innerHTML = AdminModerate.storyButton(item.story.id);
+        AdminModerate.wire(storyDel, { story: () => { closeStoryViewer(); loadStories(); } });
+      }
       const fill = bars.querySelector('.fb-story-bar.active i');
       if (fill) {
         // the progress bar is the clock: when it finishes, the next story plays
@@ -249,6 +255,7 @@ Pages.feedTab = function (main, user) {
               <div class="fb-post-name">${fbEscape(brand.name)}</div>
               <div class="fb-post-time">${fbEscape(fmtDate(p.date || p.created_at))} · 🌐</div>
             </div>
+            ${window.AdminModerate ? AdminModerate.postButton(p.id) : ''}
           </div>
           <div class="fb-post-body">
             ${p.priority === 'high' ? '<span class="fb-post-tag">IMPORTANT</span>' : ''}
@@ -257,6 +264,7 @@ Pages.feedTab = function (main, user) {
           </div>
         </article>`).join('')
       : `<div class="fb-card">${emptyState('📝', q ? 'No posts match your search.' : 'No posts yet. Share something first!')}</div>`;
+    if (window.AdminModerate) AdminModerate.wire(list, { post: loadPosts });
   }
 
   async function loadPosts() {

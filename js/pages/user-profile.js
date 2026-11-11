@@ -132,6 +132,7 @@ Pages.userProfile = async function (el, username) {
         ${coverIsVideo
           ? '<button class="fb-cover-expand" id="upExpand" type="button" aria-label="Play the whole video with sound" title="Play the whole video with sound">⤢</button>'
           : ''}
+        ${cover && window.AdminModerate ? AdminModerate.mediaButton('cover', person.id) : ''}
       </div>
 
       <div class="fb-profile-head">
@@ -139,7 +140,7 @@ Pages.userProfile = async function (el, username) {
           ? avatarIsVideo
             ? `<video class="fb-avatar-img" src="${fbEscape(avatar)}" autoplay muted loop playsinline></video>`
             : `<img class="fb-avatar-img" src="${fbEscape(avatar)}" alt="${fbEscape(name)}">`
-          : fbEscape(initial)}</div>
+          : fbEscape(initial)}${avatar && window.AdminModerate ? AdminModerate.mediaButton('avatar', person.id) : ''}</div>
         <div class="fb-profile-id">
           <h1 class="fb-profile-name">${fbEscape(name)}</h1>
           <div class="fb-profile-meta">${fbEscape(fbRoleLabel(person.role))} · @${fbEscape(person.username)}</div>
@@ -155,6 +156,7 @@ Pages.userProfile = async function (el, username) {
   </div>`;
 
   el.querySelector('#upCopy').addEventListener('click', () => fbShareLink(link, name));
+  if (window.AdminModerate) AdminModerate.wire(el, { media: () => Pages.userProfile(el, username) });
   const message = el.querySelector('#upMessage');
   if (message) message.addEventListener('click', () => window.fbChat.openWith(person.id));
   const expand = el.querySelector('#upExpand');

@@ -1502,6 +1502,11 @@ a.admin-tool { text-decoration: none; display: inline-flex; align-items: center;
 .admin-act.suspend { background: rgba(249, 115, 22, 0.18); }
 .admin-act.delete { background: rgba(239, 68, 68, 0.18); }
 
+/* Delete buttons an administrator gets on displayed content */
+.fb-mod-del { flex: 0 0 auto; }
+.fb-mod-del-float { position: absolute; top: 10px; right: 10px; z-index: 5; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45); }
+.fb-post-head .fb-mod-del { margin-left: auto; }
+
 /* Approvals */
 .admin-approvals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.85rem; padding: 0.9rem; }
 .admin-approval { border-radius: 12px; border: 1px solid var(--fb-line); background: rgba(0, 0, 0, 0.18); overflow: hidden; }
