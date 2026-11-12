@@ -86,40 +86,44 @@
     });
   }
 
-  // Where the button lives: the empty stretch of the top bar next to the section
-  // icons on wide screens, the top center of the profile cover on phones
+  // Where the button lives: the vacant stretch of the top bar, or the top center
+  // of the profile cover on pages without one
   function syncDock() {
     if (!root) return;
-    if (window.innerWidth > 900) {
-      const bar = document.querySelector('.fb-topbar');
-      const rect = bar ? bar.getBoundingClientRect() : null;
-      if (rect && rect.height) {
-        const fabHeight = root.querySelector('.fb-support-fab').offsetHeight || 35;
-        // Sit in the vacant space right after the section icons, before the
-        // profile buttons at the end of the bar
-        const rightGroup = bar.querySelector('.fb-topbar-right');
-        const groupRect = rightGroup ? rightGroup.getBoundingClientRect() : null;
-        const edge = groupRect ? groupRect.left : rect.right - 16;
-        root.style.setProperty('--sup-top', Math.round(rect.top + (rect.height - fabHeight) / 2) + 'px');
-        root.style.setProperty('--sup-right', Math.round(document.documentElement.clientWidth - edge + 10) + 'px');
-        root.classList.add('dock-bar');
-        root.classList.remove('dock-cover');
-        root.style.removeProperty('--sup-left');
-        return;
-      }
+    const fab = root.querySelector('.fb-support-fab');
+    const bar = document.querySelector('.fb-topbar');
+    const rect = bar ? bar.getBoundingClientRect() : null;
+    if (rect && rect.height) {
+      const narrow = window.innerWidth <= 900;
+      root.classList.add('dock-bar');
+      root.classList.remove('dock-cover');
+      // Phones: a round icon centred in the empty space between the search
+      // button and the icons on the right
+      root.classList.toggle('dock-compact', narrow);
+      root.style.removeProperty('--sup-left');
+      const leftGroup = bar.querySelector('.fb-topbar-left');
+      const rightGroup = bar.querySelector('.fb-topbar-right');
+      const gapStart = leftGroup ? leftGroup.getBoundingClientRect().right : rect.left;
+      const gapEnd = rightGroup ? rightGroup.getBoundingClientRect().left : rect.right;
+      const fabWidth = fab.offsetWidth || 38;
+      // Wide screens sit just before the profile buttons; phones centre in the gap
+      const anchor = narrow ? (gapStart + gapEnd) / 2 + fabWidth / 2 : gapEnd - 10;
+      root.style.setProperty('--sup-top', Math.round(rect.top + (rect.height - fab.offsetHeight) / 2) + 'px');
+      root.style.setProperty('--sup-right', Math.round(document.documentElement.clientWidth - anchor) + 'px');
+      return;
     }
-    root.classList.remove('dock-bar');
+    root.classList.remove('dock-bar', 'dock-compact');
     const cover = document.querySelector('.fb-cover');
-    const rect = cover ? cover.getBoundingClientRect() : null;
-    if (!rect || !rect.height) {
+    const coverRect = cover ? cover.getBoundingClientRect() : null;
+    if (!coverRect || !coverRect.height) {
       root.classList.remove('dock-cover');
       root.style.removeProperty('--sup-top');
       root.style.removeProperty('--sup-left');
       return;
     }
-    const centerX = rect.left + window.scrollX + rect.width / 2;
+    const centerX = coverRect.left + window.scrollX + coverRect.width / 2;
     root.style.setProperty('--sup-left', Math.round(centerX) + 'px');
-    root.style.setProperty('--sup-top', Math.round(rect.top + window.scrollY + 10) + 'px');
+    root.style.setProperty('--sup-top', Math.round(coverRect.top + window.scrollY + 10) + 'px');
     root.classList.add('dock-cover');
   }
 
@@ -166,7 +170,7 @@
     el.dataset.identity = identity;
     el.innerHTML = `
       <button class="fb-support-fab" id="supFab" type="button" aria-expanded="false" aria-label="Customer Service">
-        <span aria-hidden="true">🎧</span> Customer Service
+        <span aria-hidden="true">🎧</span> <span class="fb-support-label">Customer Service</span>
         <span class="fb-support-badge" id="supBadge" hidden>0</span>
       </button>
       <section class="fb-support-panel" id="supPanel" hidden aria-label="Customer Service chat">
