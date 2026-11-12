@@ -56,6 +56,11 @@ async function cloudinaryUploadViaServer(blob) {
 }
 
 async function cloudinaryUpload(blob) {
+  // Cloudflare R2 wins when the server can sign for it; otherwise Cloudinary as before.
+  if (typeof r2Upload === 'function') {
+    const r2Url = await r2Upload(blob);
+    if (r2Url) return r2Url;
+  }
   const settings = cloudinarySettings();
   if (settings) {
     try {
