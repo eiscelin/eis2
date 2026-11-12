@@ -120,6 +120,7 @@ window.AppSearch = (function () {
         .limit(20);
       results = (data || []).filter(u =>
         asId(u.id) !== asId(me && me.id) &&
+        u.role !== 'admin' &&
         !u.deleted_at &&
         u.status !== 'deleted' &&
         u.status !== 'suspended'

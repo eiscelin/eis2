@@ -590,6 +590,7 @@ Pages.profileTab = function(main, user) {
       ]);
       people = (data || []).filter(u =>
         String(u.id) !== String(user.id) &&
+        u.role !== 'admin' &&
         !u.deleted_at &&
         u.status !== 'deleted' &&
         u.status !== 'suspended'
