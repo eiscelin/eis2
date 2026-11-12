@@ -13,7 +13,6 @@ Pages.profileTab = function(main, user) {
   const initial = (name.trim()[0] || '?').toUpperCase();
   const role = fbRoleLabel(user.role);
   const brand = fbBrand();
-  const canChat = !!window.fbChat;
   let avatarUrl = user.avatar_url || '';
   let coverUrl = user.cover_url || '';
   const isVideo = url => /\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i.test(String(url));
@@ -74,6 +73,7 @@ Pages.profileTab = function(main, user) {
       <nav class="fb-profile-tabs" aria-label="Profile sections">
         <button class="fb-profile-tab active" data-ptab="all" type="button">All</button>
         <button class="fb-profile-tab" data-ptab="about" type="button">About</button>
+        <button class="fb-profile-tab" data-ptab="info" type="button">My Information</button>
         <button class="fb-profile-tab" data-ptab="friends" type="button">Friends</button>
         <button class="fb-profile-tab" data-ptab="posts" type="button">Posts</button>
       </nav>
@@ -90,7 +90,7 @@ Pages.profileTab = function(main, user) {
             </ul>
           </section>
 
-          <div id="pfPersonal" data-section="about"></div>
+          <div id="pfPersonal" data-section="info"></div>
 
           <section class="fb-card" data-section="friends" id="pfFriends">
             <div class="fb-card-head"><h3>Friends</h3></div>
@@ -110,11 +110,7 @@ Pages.profileTab = function(main, user) {
 
           <section class="fb-card" data-section="posts" id="pfPosts">
             <div class="fb-card-head"><h3>Posts</h3></div>
-            <div class="fb-composer">
-              <span class="fb-avatar fb-avatar-sm">${fbEscape(initial)}</span>
-              <input id="pfComposerInput" type="text" placeholder="What's on your mind?">
-              <button id="pfComposerPost" type="button">Post</button>
-            </div>
+            <div id="pfComposer"></div>
             <div id="pfFeed">
               <div class="loading" style="padding:1rem;">Loading…</div>
             </div>
@@ -127,15 +123,24 @@ Pages.profileTab = function(main, user) {
   const sectionMap = {
     all: null,
     about: ['about'],
+    info: ['info'],
     friends: ['friends', 'people'],
     posts: ['posts']
   };
 
   function showTab(tab) {
+    const allowed = sectionMap[tab];
     main.querySelectorAll('[data-section]').forEach(section => {
-      const allowed = sectionMap[tab];
-      section.style.display = (!allowed || allowed.includes(section.dataset.section)) ? '' : 'none';
+      // Personal details / password live only in the My Information tab, never in All
+      const isInfo = section.dataset.section === 'info';
+      const show = tab === 'all'
+        ? !isInfo
+        : (!allowed || allowed.includes(section.dataset.section));
+      section.style.display = show ? '' : 'none';
     });
+    // My Information is a full-width form, so it spans both columns
+    const cols = main.querySelector('.fb-profile-cols');
+    if (cols) cols.classList.toggle('fb-cols-single', tab === 'info');
     main.querySelectorAll('.fb-profile-tab').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.ptab === tab);
     });
@@ -146,7 +151,7 @@ Pages.profileTab = function(main, user) {
   });
 
   main.querySelector('#pfEdit').addEventListener('click', () => {
-    showTab('about');
+    showTab('info');
     const personal = main.querySelector('#pfPersonal');
     personal.scrollIntoView({ behavior: 'smooth', block: 'center' });
     const first = personal.querySelector('input');
@@ -531,9 +536,58 @@ Pages.profileTab = function(main, user) {
       main.querySelector('#pfFriendCount').textContent = '0';
       return;
     }
+
+    let people = [];
+
+    // "People you may know": their picture or video, and Add Friend underneath
+    function paintSuggestions() {
+      const suggestions = people.filter(p => !window.Friends || Friends.statusWith(p.id) !== 'friends');
+      peopleList.innerHTML = suggestions.length
+        ? suggestions.slice(0, 10).map(p => {
+          const pname = p.full_name || p.username || 'Member';
+          const state = window.Friends ? Friends.statusWith(p.id) : 'none';
+          return `<div class="fb-person">
+            <a class="fb-person-img" href="#/u/${encodeURIComponent(p.username || '')}" title="Open ${fbEscape(pname)}'s profile">
+              ${window.Friends ? Friends.media(p) : fbEscape((pname.trim()[0] || '?').toUpperCase())}
+            </a>
+            <div class="fb-person-body">
+              <div class="fb-person-name">${fbEscape(pname)}</div>
+              <div class="fb-person-meta">${fbEscape(fbRoleLabel(p.role))}</div>
+              <button class="fb-person-btn" type="button" data-friend="${fbEscape(p.id)}"${window.Friends && Friends.isLocked(state) ? ' disabled' : ''}>${window.Friends ? fbEscape(Friends.label(state)) : 'Add Friend'}</button>
+            </div>
+          </div>`;
+        }).join('')
+        : '<div class="empty-state" style="padding:1rem;">No suggestions right now.</div>';
+    }
+
+    // Add Friend sends a request; Confirm accepts the one they sent you
+    peopleList.addEventListener('click', async e => {
+      const btn = e.target.closest('[data-friend]');
+      if (!btn || btn.disabled || !window.Friends) return;
+      const person = people.find(p => String(p.id) === String(btn.dataset.friend));
+      const pname = person ? (person.full_name || person.username || 'Member') : 'Member';
+      btn.disabled = true;
+      try {
+        const result = await Friends.act(btn.dataset.friend);
+        if (result === 'sent') showToast('Friend request sent to ' + pname, 'success');
+        if (result === 'accepted') showToast('You are now friends with ' + pname, 'success');
+      } catch (err) {
+        showToast(err.message, 'error', 6000);
+      }
+      paintSuggestions();
+    });
+
+    // A request answered in the notification bell updates this rail too
+    document.addEventListener('friends:changed', () => {
+      if (peopleList.isConnected) paintSuggestions();
+    });
+
     try {
-      const { data } = await sb.from('users').select('*').order('username', { ascending: true });
-      const people = (data || []).filter(u =>
+      const [{ data }] = await Promise.all([
+        sb.from('users').select('*').order('username', { ascending: true }),
+        window.Friends ? Friends.load(user) : Promise.resolve()
+      ]);
+      people = (data || []).filter(u =>
         String(u.id) !== String(user.id) &&
         !u.deleted_at &&
         u.status !== 'deleted' &&
@@ -544,33 +598,19 @@ Pages.profileTab = function(main, user) {
       friendsGrid.innerHTML = people.length
         ? people.slice(0, 9).map(p => {
           const pname = p.full_name || p.username || 'Member';
-          return `<button class="fb-friend" type="button" data-uid="${fbEscape(p.id)}">
-            <div class="fb-friend-img">${fbEscape((pname.trim()[0] || '?').toUpperCase())}</div>
+          // A member's picture or video, and the whole tile opens their profile
+          const picture = window.Friends
+            ? Friends.media(p)
+            : fbEscape((pname.trim()[0] || '?').toUpperCase());
+          return `<a class="fb-friend" href="#/u/${encodeURIComponent(p.username || '')}" title="Open ${fbEscape(pname)}'s profile">
+            <div class="fb-friend-img">${picture}</div>
             <div class="fb-friend-name">${fbEscape(pname)}</div>
             <div class="fb-friend-meta">${fbEscape(fbRoleLabel(p.role))}</div>
-          </button>`;
+          </a>`;
         }).join('')
         : '<div class="empty-state" style="grid-column:1/-1;padding:1rem;">No friends yet.</div>';
 
-      peopleList.innerHTML = people.length
-        ? people.slice(0, 10).map(p => {
-          const pname = p.full_name || p.username || 'Member';
-          return `<div class="fb-person">
-            <div class="fb-person-img">${fbEscape((pname.trim()[0] || '?').toUpperCase())}</div>
-            <div class="fb-person-body">
-              <div class="fb-person-name">${fbEscape(pname)}</div>
-              <div class="fb-person-meta">${fbEscape(fbRoleLabel(p.role))}</div>
-              ${canChat ? `<button class="fb-person-btn" type="button" data-uid="${fbEscape(p.id)}">Message</button>` : ''}
-            </div>
-          </div>`;
-        }).join('')
-        : '<div class="empty-state" style="padding:1rem;">No suggestions right now.</div>';
-
-      if (canChat) {
-        main.querySelectorAll('[data-uid]').forEach(el => {
-          el.addEventListener('click', () => window.fbChat.openWith(el.dataset.uid));
-        });
-      }
+      paintSuggestions();
     } catch {
       friendsGrid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;padding:1rem;">Could not load friends.</div>';
       peopleList.innerHTML = '<div class="empty-state" style="padding:1rem;">Could not load suggestions.</div>';
@@ -578,66 +618,22 @@ Pages.profileTab = function(main, user) {
     }
   };
 
-  // Posts = announcements from the main office
-  const loadFeed = async () => {
-    const feed = main.querySelector('#pfFeed');
-    if (!sb) {
-      feed.innerHTML = '<div class="empty-state" style="padding:1.5rem;">No posts yet.</div>';
-      return;
-    }
-    try {
-      const { data } = await sb.from('announcements').select('*').order('created_at', { ascending: false });
-      const posts = data || [];
-      feed.innerHTML = posts.length
-        ? posts.map(p => `
-          <article class="fb-post">
-            <div class="fb-post-head">
-              <span class="fb-avatar">${fbEscape(brand.initial)}</span>
-              <div>
-                <div class="fb-post-name">${fbEscape(brand.name)}</div>
-                <div class="fb-post-time">${fbEscape(fmtDate(p.date || p.created_at))} · 🌐</div>
-              </div>
-              ${window.AdminModerate ? AdminModerate.postButton(p.id) : ''}
-            </div>
-            <div class="fb-post-body">
-              ${p.priority === 'high' ? '<span class="fb-post-tag">IMPORTANT</span>' : ''}
-              <strong>${fbEscape(p.title || 'Post')}</strong>
-              ${fbEscape(p.content || '')}
-            </div>
-          </article>`).join('')
-        : '<div class="empty-state" style="padding:1.5rem;">No posts yet.</div>';
-    } catch {
-      feed.innerHTML = '<div class="empty-state" style="padding:1.5rem;">No posts yet.</div>';
-    }
-    if (window.AdminModerate) AdminModerate.wire(feed, { post: loadFeed });
-  };
+  // Posts = this member's photo, video and text posts
+  const profilePosts = Posts.mount(main.querySelector('#pfFeed'), {
+    viewer: user,
+    authorId: user.id,
+    limit: 20,
+    emptyHtml: '<div class="empty-state" style="padding:1.5rem;">No posts yet — share something above.</div>'
+  });
 
-  const composerPost = main.querySelector('#pfComposerPost');
-  if (composerPost) {
-    composerPost.addEventListener('click', async () => {
-      const input = main.querySelector('#pfComposerInput');
-      const content = input.value.trim();
-      if (!content) return showToast('Write something first', 'error');
-      try {
-        await sb.from('announcements').insert([{
-          title: content.length > 60 ? content.slice(0, 60) + '…' : content,
-          content,
-          priority: 'normal',
-          is_active: true
-        }]);
-        input.value = '';
-        showToast('Posted to the network', 'success');
-        loadFeed();
-      } catch (e) {
-        showToast('Failed to post: ' + e.message, 'error');
-      }
-    });
-  }
+  Posts.composer(main.querySelector('#pfComposer'), {
+    viewer: user,
+    onPosted: () => profilePosts.reload()
+  });
 
   showTab('all');
   paintMediaNote();
   loadPeople();
-  loadFeed();
   if (window.SupportWidget) window.SupportWidget.mount(user);
 };
 

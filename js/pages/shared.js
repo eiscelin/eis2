@@ -38,7 +38,16 @@ async function fbShareLink(link, title) {
 }
 
 function fbBrand() {
-  return window.BRAND || { name: 'MetMuk', initial: 'M', tagline: '' };
+  return window.BRAND || { name: 'MeDay', initial: 'M', logo: '/img/meday-logo.png', tagline: '' };
+}
+
+// Brand mark: the logo image, or the initial as a fallback
+function fbBrandMark() {
+  const brand = fbBrand();
+  if (brand.logo) {
+    return `<img class="brand-mark" src="${fbEscape(brand.logo)}" alt="" aria-hidden="true">`;
+  }
+  return fbEscape(brand.initial);
 }
 
 function showToast(msg, type = '', ms = 3000) {
@@ -100,13 +109,14 @@ function appShell(el, user, navItems, renderContent, startTab) {
       <header class="fb-topbar">
         <div class="fb-topbar-left">
           <button class="fb-logo" id="fbLogo" type="button" title="${brand.name}" aria-label="${brand.name}">${brand.initial}</button>
-          <label class="fb-search">
+          <button class="fb-search" id="fbSearch" type="button" title="Search" aria-label="Search ${brand.name}">
             <span aria-hidden="true">🔍</span>
-            <input id="fbSearch" type="search" placeholder="Search ${brand.name}" aria-label="Search ${brand.name}">
-          </label>
+            <span class="fb-search-hint">Search ${brand.name}</span>
+          </button>
         </div>
         <nav class="fb-topbar-center" id="fbTopNav" aria-label="Sections"></nav>
         <div class="fb-topbar-right">
+          <button class="fb-icon-btn fb-notif-btn" id="fbFriendsBtn" type="button" title="Friend requests" aria-label="Friend requests" aria-expanded="false">🔔<span class="fb-notif-badge" id="fbFriendsBadge" hidden>0</span></button>
           <button class="fb-icon-btn" id="fbMessages" type="button" title="Messages" aria-label="Messages">💬</button>
           <button class="fb-user-btn" id="fbUserBtn" type="button" title="My profile" aria-label="My profile">${fbAvatar(displayName, 'fb-avatar-sm')}</button>
           <button class="fb-icon-btn fb-burger" id="fbBurger" type="button" title="Menu" aria-label="Menu">
@@ -216,12 +226,8 @@ function appShell(el, user, navItems, renderContent, startTab) {
     if (!sheet.contains(e.target) && !menu.contains(e.target)) sheet.classList.remove('open');
   });
 
-  const search = el.querySelector('#fbSearch');
-  if (search) {
-    search.addEventListener('input', () => {
-      if (window.__appSearchHandler) window.__appSearchHandler(search.value.trim().toLowerCase());
-    });
-  }
+  // The top bar search opens the Facebook-style search panel
+  if (window.AppSearch) window.AppSearch.mount(el.querySelector('.fb-shell'), user);
 
   el.querySelector('#fbLogo').addEventListener('click', () => select(navItems[0].id));
   el.querySelector('#fbUserBtn').addEventListener('click', () => select('profile'));
@@ -246,6 +252,9 @@ function appShell(el, user, navItems, renderContent, startTab) {
       if (window.ChatWidget.openWith) window.fbChat = window.ChatWidget;
     }
   }
+
+  // Friend requests arrive in the bell of the top bar
+  if (window.Friends) window.Friends.mountBell(el.querySelector('.fb-shell'), user);
 }
 
 window.Pages = Pages;

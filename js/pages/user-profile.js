@@ -48,7 +48,7 @@ Pages.userProfile = async function (el, username) {
   }
   const brand = fbBrand();
   const bar = `<div class="fb-public-bar">
-      <a class="fb-logo" href="#/" title="${fbEscape(brand.name)}" aria-label="${fbEscape(brand.name)}">${fbEscape(brand.initial)}</a>
+      <a class="fb-logo" href="#/" title="${fbEscape(brand.name)}" aria-label="${fbEscape(brand.name)}">${fbBrandMark()}</a>
       ${viewer
         ? '<a class="fb-btn fb-btn-secondary" href="#/App">Open app</a>'
         : '<a class="fb-btn fb-btn-primary" href="#/Login">Log in</a>'}
@@ -79,29 +79,6 @@ Pages.userProfile = async function (el, username) {
     person = null;
   }
 
-  // An administrator's profile is private — only other admins may open it
-  if (person && person.role === 'admin') {
-    let viewerIsAdmin = false;
-    if (viewer && sb) {
-      try {
-        const { data } = await sb.from('users')
-          .select('role, status, deleted_at')
-          .eq('id', viewer.id)
-          .single();
-        viewerIsAdmin = !!data && data.role === 'admin' && !data.deleted_at && data.status !== 'suspended';
-      } catch { viewerIsAdmin = false; }
-    }
-    if (!viewerIsAdmin) {
-      el.innerHTML = `<div class="fb-public">${bar}
-        <section class="fb-card" style="margin:1rem;padding:2rem;text-align:center;">
-          <h2>This profile is private</h2>
-          <p style="margin-top:0.5rem;color:var(--fb-muted);">Administrator profiles are only visible to other administrators.</p>
-        </section>
-      </div>`;
-      return;
-    }
-  }
-
   if (!person) {
     el.innerHTML = `<div class="fb-public">${bar}
       <section class="fb-card" style="margin:1rem;padding:2rem;text-align:center;">
@@ -110,6 +87,13 @@ Pages.userProfile = async function (el, username) {
       </section>
     </div>`;
     return;
+  }
+
+  // Friend requests: the button follows the state between the two members
+  let friendState = 'none';
+  if (viewer && window.Friends) {
+    try { await Friends.load(viewer); } catch { /* friend requests are optional */ }
+    friendState = Friends.statusWith(person.id);
   }
 
   const name = person.full_name || person.username || 'Member';
@@ -146,8 +130,11 @@ Pages.userProfile = async function (el, username) {
           <div class="fb-profile-meta">${fbEscape(fbRoleLabel(person.role))} · @${fbEscape(person.username)}</div>
         </div>
         <div class="fb-profile-actions">
+          ${viewer && window.Friends
+            ? `<button class="fb-btn fb-btn-primary" id="upFriend" type="button"${Friends.isLocked(friendState) ? ' disabled' : ''}>${fbEscape(Friends.label(friendState))}</button>`
+            : ''}
           ${viewer && window.fbChat
-            ? '<button class="fb-btn fb-btn-primary" id="upMessage" type="button">Message</button>'
+            ? '<button class="fb-btn fb-btn-secondary" id="upMessage" type="button">Message</button>'
             : ''}
           <button class="fb-btn fb-btn-secondary" id="upCopy" type="button">Copy link</button>
         </div>
@@ -156,6 +143,23 @@ Pages.userProfile = async function (el, username) {
   </div>`;
 
   el.querySelector('#upCopy').addEventListener('click', () => fbShareLink(link, name));
+  const friendBtn = el.querySelector('#upFriend');
+  if (friendBtn) {
+    friendBtn.addEventListener('click', async () => {
+      friendBtn.disabled = true;
+      try {
+        const result = await Friends.act(person.id);
+        if (result === 'sent') showToast('Friend request sent to ' + name, 'success');
+        if (result === 'accepted') showToast('You are now friends with ' + name, 'success');
+        const state = Friends.statusWith(person.id);
+        friendBtn.textContent = Friends.label(state);
+        friendBtn.disabled = Friends.isLocked(state);
+      } catch (err) {
+        friendBtn.disabled = false;
+        showToast(err.message, 'error', 6000);
+      }
+    });
+  }
   if (window.AdminModerate) AdminModerate.wire(el, { media: () => Pages.userProfile(el, username) });
   const message = el.querySelector('#upMessage');
   if (message) message.addEventListener('click', () => window.fbChat.openWith(person.id));

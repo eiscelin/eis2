@@ -8,24 +8,19 @@ Pages.feedTab = function (main, user) {
 
   main.innerHTML = `
     <div class="fb-feed">
-      <section class="fb-card fb-composer-card">
-        <div class="fb-composer">
-          ${fbAvatar(name, 'fb-avatar-sm')}
-          <input id="feedInput" type="text" placeholder="What's on your mind, ${fbEscape(firstName)}?" aria-label="Write a post">
-        </div>
-        <div class="fb-composer-foot">
-          <button class="fb-btn fb-btn-primary" id="feedPostBtn" type="button">Post</button>
-        </div>
+      <section class="fb-card fb-composer-card" id="feedComposer">
+        ${Posts.composerMarkup(user, `What's on your mind, ${firstName}?`)}
       </section>
       <section class="fb-card fb-stories-card" aria-label="Stories">
         <div class="fb-stories" id="storyRow"></div>
       </section>
       <div id="feedList"></div>
+      <div id="feedAnnouncements"></div>
     </div>
   `;
 
   const list = main.querySelector('#feedList');
-  const input = main.querySelector('#feedInput');
+  const announcementsList = main.querySelector('#feedAnnouncements');
   const storyRow = main.querySelector('#storyRow');
   const storyFile = document.createElement('input');
   storyFile.type = 'file';
@@ -33,7 +28,6 @@ Pages.feedTab = function (main, user) {
   storyFile.hidden = true;
   main.appendChild(storyFile);
 
-  let posts = [];
   let storyGroups = [];
   let storyViewer = null;
 
@@ -243,68 +237,49 @@ Pages.feedTab = function (main, user) {
 
   // ---------- Posts ----------
 
-  function renderPosts(query) {
-    const q = query || '';
-    const shown = posts.filter(p => !q || `${p.title || ''} ${p.content || ''}`.toLowerCase().includes(q));
-    list.innerHTML = shown.length
-      ? shown.map(p => `
-        <article class="fb-card fb-post">
+  const postsFeed = Posts.mount(list, { viewer: user });
+
+  Posts.composer(main.querySelector('#feedComposer'), {
+    viewer: user,
+    onPosted: () => postsFeed.reload()
+  });
+
+  // Announcements from the office stay at the end of the feed
+  async function loadAnnouncements(query) {
+    if (!sb) { announcementsList.innerHTML = ''; return; }
+    const q = (query || '').toLowerCase();
+    try {
+      const { data } = await sb.from('announcements').select('*').order('created_at', { ascending: false });
+      const shown = (data || []).filter(p => !q || `${p.title || ''} ${p.content || ''}`.toLowerCase().includes(q));
+      announcementsList.innerHTML = shown.map(p => `
+        <article class="fb-card fb-post-card">
           <div class="fb-post-head">
-            <span class="fb-avatar">${fbEscape(brand.initial)}</span>
-            <div>
+            <span class="fb-post-avatar"><span class="fb-avatar">${fbBrandMark()}</span></span>
+            <div class="fb-post-id">
               <div class="fb-post-name">${fbEscape(brand.name)}</div>
               <div class="fb-post-time">${fbEscape(fmtDate(p.date || p.created_at))} · 🌐</div>
             </div>
             ${window.AdminModerate ? AdminModerate.postButton(p.id) : ''}
           </div>
-          <div class="fb-post-body">
+          <div class="fb-post-text">
             ${p.priority === 'high' ? '<span class="fb-post-tag">IMPORTANT</span>' : ''}
             <strong>${fbEscape(p.title || 'Post')}</strong>
             ${fbEscape(p.content || '')}
           </div>
-        </article>`).join('')
-      : `<div class="fb-card">${emptyState('📝', q ? 'No posts match your search.' : 'No posts yet. Share something first!')}</div>`;
-    if (window.AdminModerate) AdminModerate.wire(list, { post: loadPosts });
-  }
-
-  async function loadPosts() {
-    if (!sb) { posts = []; renderPosts(); return; }
-    list.innerHTML = '<div class="fb-card"><div class="loading">Loading…</div></div>';
-    try {
-      const { data } = await sb.from('announcements').select('*').order('created_at', { ascending: false });
-      posts = data || [];
+        </article>`).join('');
+      if (window.AdminModerate) AdminModerate.wire(announcementsList, { post: () => loadAnnouncements(query) });
     } catch {
-      posts = [];
-    }
-    renderPosts();
-  }
-
-  async function submitPost() {
-    const content = input.value.trim();
-    if (!content) return showToast('Write something first', 'error');
-    if (!sb) return showToast('Posting needs a connected database', 'error');
-    try {
-      await sb.from('announcements').insert([{
-        title: content.length > 60 ? content.slice(0, 60) + '…' : content,
-        content,
-        priority: 'normal',
-        is_active: true
-      }]);
-      input.value = '';
-      showToast('Posted', 'success');
-      loadPosts();
-    } catch (e) {
-      showToast('Failed to post: ' + e.message, 'error');
+      announcementsList.innerHTML = '';
     }
   }
 
-  main.querySelector('#feedPostBtn').addEventListener('click', submitPost);
-  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitPost(); });
-
-  window.__appSearchHandler = (q) => renderPosts(q);
+  window.__appSearchHandler = (q) => {
+    postsFeed.setQuery(q);
+    loadAnnouncements(q);
+  };
   renderStories([]);
   loadStories();
-  loadPosts();
+  loadAnnouncements('');
 };
 
 window.Pages = Pages;

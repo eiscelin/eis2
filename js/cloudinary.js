@@ -1,11 +1,15 @@
 // Photos and videos go straight to Cloudinary with the app's unsigned upload preset
 // (stored publicly — anyone with the link can open them).
-// If the browser cannot reach Cloudinary, the app's own server does the upload instead.
-function cloudinarySettings() {
+// A backup account is used automatically when the primary account stops working,
+// and the app's own server uploads as the last resort.
+function cloudinaryAccounts() {
   const cfg = window.APP_CONFIG || {};
-  return cfg.CLOUDINARY_CLOUD_NAME && cfg.CLOUDINARY_UPLOAD_PRESET
-    ? { cloud: cfg.CLOUDINARY_CLOUD_NAME, preset: cfg.CLOUDINARY_UPLOAD_PRESET }
-    : null;
+  return [
+    [cfg.CLOUDINARY_CLOUD_NAME, cfg.CLOUDINARY_UPLOAD_PRESET],
+    [cfg.CLOUDINARY_CLOUD_NAME_BACKUP, cfg.CLOUDINARY_UPLOAD_PRESET_BACKUP]
+  ]
+    .filter((pair) => pair[0] && pair[1])
+    .map((pair) => ({ cloud: pair[0], preset: pair[1] }));
 }
 
 function uploadFileName(blob) {
@@ -56,15 +60,21 @@ async function cloudinaryUploadViaServer(blob) {
 }
 
 async function cloudinaryUpload(blob) {
-  const settings = cloudinarySettings();
-  if (settings) {
+  // Cloudflare R2 wins when the server can sign for it; otherwise Cloudinary as before.
+  if (typeof r2Upload === 'function') {
+    const r2Url = await r2Upload(blob);
+    if (r2Url) return r2Url;
+  }
+  let lastError = null;
+  for (const account of cloudinaryAccounts()) {
     try {
-      return await cloudinaryUploadDirect(blob, settings);
+      return await cloudinaryUploadDirect(blob, account);
     } catch (e) {
-      // A real answer from Cloudinary (file too large, wrong format) is shown as is;
-      // only an unreachable Cloudinary falls back to the app server.
-      if (!(e instanceof TypeError)) throw e;
+      // Account unreachable or refusing uploads (disabled, quota, bad preset): try the next one.
+      lastError = e;
     }
   }
-  return cloudinaryUploadViaServer(blob);
+  const viaServer = await cloudinaryUploadViaServer(blob);
+  if (viaServer) return viaServer;
+  throw lastError || new Error('Cloudinary is not connected');
 }

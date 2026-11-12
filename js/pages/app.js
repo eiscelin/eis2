@@ -15,7 +15,7 @@ function fbApprovalLock(el, user) {
   el.innerHTML = `
     <div class="fb-public">
       <div class="fb-public-bar">
-        <span class="fb-logo" aria-label="${fbEscape(brand.name)}">${fbEscape(brand.initial)}</span>
+        <span class="fb-logo" aria-label="${fbEscape(brand.name)}">${fbBrandMark()}</span>
         <button class="fb-btn fb-btn-secondary" id="lockLogout" type="button">Log out</button>
       </div>
       <section class="fb-card" style="margin:1rem;padding:2rem;text-align:center;">
