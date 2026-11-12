@@ -80,24 +80,24 @@ const FB_FACE_TURNS = 6;
   document.head.appendChild(style);
 })();
 
-// Only the faces in a post's reaction stack animate; the copy inside the Like
-// button stays still so one face never grows and wiggles twice at once.
-Posts.reactionIcon = function (type, slot, faceCount) {
+// Only the member's own uploads in a post's reaction stack animate; the copy
+// inside the Like button stays still so one reaction never grows and wiggles
+// twice at once. A video takes its own turn in the same loop as the faces.
+Posts.reactionIcon = function (type, slot, ownCount) {
   const video = Posts.videoUrl(type);
-  if (video) {
-    // A video reaction is animated by its own playback (js/posts.js), not by
-    // the face keyframes: it grows once, holds still while it plays, then
-    // shrinks back once the video is done.
-    return `<span class="fb-rx fb-rx-face fb-rx-video"><video class="fb-rx-img fb-rx-vid" src="${fbEscape(video)}" muted playsinline preload="auto"></video></span>`;
-  }
   const face = Posts.faceUrl(type);
+  let anim = '';
+  if ((video || face) && ownCount) {
+    const count = Math.min(Math.max(ownCount, 1), FB_FACE_TURNS);
+    const turn = slot ? `; animation-delay:${slot * 2}s` : '';
+    anim = ` style="animation-name:fb-rx-turn-${count}; animation-duration:${count * 2}s${turn}"`;
+  }
+  if (video) {
+    // The video plays once (js/posts.js) while the loop gives it its growing
+    // and wiggling turn, then it holds its last frame
+    return `<span class="fb-rx fb-rx-face fb-rx-video"${anim}><video class="fb-rx-img fb-rx-vid" src="${fbEscape(video)}" muted playsinline preload="auto"></video></span>`;
+  }
   if (face) {
-    let anim = '';
-    if (faceCount) {
-      const count = Math.min(Math.max(faceCount, 1), FB_FACE_TURNS);
-      const turn = slot ? `; animation-delay:${slot * 2}s` : '';
-      anim = ` style="animation-name:fb-rx-turn-${count}; animation-duration:${count * 2}s${turn}"`;
-    }
     return `<span class="fb-rx fb-rx-face"${anim}><img class="fb-rx-img" src="${fbEscape(face)}" alt="" loading="lazy"></span>`;
   }
   const art = FB_RX_ART[type] || FB_RX_ART.like;

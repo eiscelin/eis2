@@ -2120,17 +2120,10 @@ a.fb-post-name:hover { text-decoration: underline; }
 }
 .fb-post-card { overflow: visible; }
 .fb-reaction-icons > span.fb-rx-face-slot { box-shadow: none; }
-/* A member's video reaction: it grows once and then holds still — no wiggling —
-   for as long as the video plays, and shrinks back when the video is done.
-   js/posts.js starts the video and toggles .fb-rx-video-on. */
+/* A member's video reaction takes its own turn in the same one-by-one loop as
+   the faces: it grows and wiggles while it plays (js/posts.js starts it once). */
 .fb-rx-video { border-radius: 50%; background: #000; overflow: hidden; }
 .fb-rx-vid { object-fit: cover; }
-.fb-post-summary .fb-rx-face.fb-rx-video {
-  animation: none !important;
-  transition: transform 0.3s ease;
-  transform-origin: center;
-}
-.fb-post-summary .fb-rx-face.fb-rx-video.fb-rx-video-on { transform: scale(5); z-index: 30; }
 /* Switch beside a post's reactions that stops the growing and wiggling */
 .fb-face-anim-switch { display: inline-flex; align-items: center; margin-left: 0.35rem; cursor: pointer; }
 .fb-face-anim-switch input { position: absolute; width: 1px; height: 1px; opacity: 0; }

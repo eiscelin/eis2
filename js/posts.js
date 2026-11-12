@@ -128,15 +128,14 @@ function postFaceAnimSwitch(postId, off) {
   </label>`;
 }
 
-// Each face reaction shakes in its own turn instead of all of them at once
+// Each uploaded reaction — a face or a video — shakes in its own turn instead
+// of all of them growing at once
 function postFaceSlots(groups) {
-  const faceCount = groups.filter(g => postFaceUrl(g.type)).length;
+  const ownCount = groups.filter(g => postOwnReaction(g.type)).length;
   let slot = 0;
   return groups.map(g => {
-    // A video reaction keeps its own timing, so it never takes a face turn
-    const face = !!postFaceUrl(g.type);
-    const own = face || !!postVidUrl(g.type);
-    const icon = Posts.reactionIcon(g.type, face ? slot++ : 0, faceCount);
+    const own = postOwnReaction(g.type);
+    const icon = Posts.reactionIcon(g.type, own ? slot++ : 0, ownCount);
     return `<span${own ? ' class="fb-rx-face-slot"' : ''} title="${g.label}">${icon}</span>`;
   }).join('');
 }
@@ -509,18 +508,13 @@ Posts.mount = function (listEl, opts) {
     startVideoReactions();
   }
 
-  // A video reaction grows once and holds still while it plays — no growing or
-  // wiggling for the length of the video — then shrinks back when it finishes
+  // The video reaction plays once; its growing and wiggling comes from its own
+  // turn in the same one-by-one loop the face reactions use
   function startVideoReactions() {
     listEl.querySelectorAll('.fb-post-summary .fb-rx-video').forEach(holder => {
       const video = holder.querySelector('video');
       if (!video || holder.dataset.played) return;
       holder.dataset.played = '1';
-      const card = holder.closest('[data-post]');
-      const growing = !(card && faceAnimOff(card.dataset.post));
-      if (growing) holder.classList.add('fb-rx-video-on');
-      const stop = () => holder.classList.remove('fb-rx-video-on');
-      video.addEventListener('ended', stop, { once: true });
       // The reaction plays with its own sound; a browser that blocks sound
       // still shows the video, played muted
       video.muted = false;
@@ -529,10 +523,9 @@ Posts.mount = function (listEl, opts) {
       if (attempt && attempt.catch) {
         attempt.catch(() => {
           video.muted = true;
-          video.play().catch(stop);
+          video.play().catch(() => {});
         });
       }
-      setTimeout(stop, (REACTION_VIDEO_MAX + 2) * 1000);
     });
   }
 
