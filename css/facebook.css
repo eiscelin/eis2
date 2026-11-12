@@ -1875,7 +1875,9 @@ a.admin-tool { text-decoration: none; display: inline-flex; align-items: center;
   background: var(--fb-card); border: 1px solid var(--fb-line);
   border-radius: 16px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55); overflow: hidden;
 }
-.fb-support.has-chat .fb-support-panel { bottom: 9.6rem; }
+/* Only the floating corner panel dodges the messenger bubble — a docked panel
+   hangs from its button and would collapse if it also carried a bottom offset */
+.fb-support.has-chat:not(.dock-bar):not(.dock-cover) .fb-support-panel { bottom: 9.6rem; }
 .fb-support-panel[hidden] { display: none; }
 .fb-support-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.8rem 1rem; background: #16a34a; color: #fff; }
 .fb-support-head strong { display: block; font-size: 0.95rem; }
@@ -1909,7 +1911,7 @@ a.admin-tool { text-decoration: none; display: inline-flex; align-items: center;
   .fb-support-fab { right: 1rem; bottom: calc(74px + env(safe-area-inset-bottom)); }
   .fb-support.has-chat .fb-support-fab { bottom: calc(138px + env(safe-area-inset-bottom)); }
   .fb-support-panel { left: 1rem; right: 1rem; width: auto; bottom: calc(124px + env(safe-area-inset-bottom)); }
-  .fb-support.has-chat .fb-support-panel { bottom: calc(188px + env(safe-area-inset-bottom)); }
+  .fb-support.has-chat:not(.dock-bar):not(.dock-cover) .fb-support-panel { bottom: calc(188px + env(safe-area-inset-bottom)); }
   .fb-support.dock-cover { left: var(--sup-left, 50%); right: auto; }
   .fb-support.dock-cover .fb-support-fab { bottom: auto; }
   .fb-support.dock-cover .fb-support-panel {
