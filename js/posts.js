@@ -521,7 +521,11 @@ Posts.mount = function (listEl, opts) {
   function visibleToViewer(post) {
     const audience = post.audience || 'public';
     if (audience === 'public' || String(post.user_id) === String(viewer.id)) return true;
-    if (audience === 'friends') return state.friendIds ? state.friendIds.has(String(post.user_id)) : true;
+    if (audience === 'friends') {
+      // A visitor who is not signed in only sees public posts
+      if (!viewer.id) return false;
+      return state.friendIds ? state.friendIds.has(String(post.user_id)) : true;
+    }
     return false;
   }
 
@@ -736,6 +740,7 @@ Posts.mount = function (listEl, opts) {
   async function addComment(postId, input) {
     const body = input.value.trim();
     if (!body) return;
+    if (!viewer.id) return showToast('Log in to comment', '', 4000);
     const { error } = await sb.from('post_comments').insert([{
       post_id: postId,
       user_id: viewer.id,
@@ -1052,6 +1057,12 @@ Posts.mount = function (listEl, opts) {
   });
 
   listEl.addEventListener('click', async e => {
+    // Visitors who are not signed in can read posts and their reactions, not add to them
+    if (!viewer.id && e.target.closest('[data-act], .fb-reaction-option')) {
+      e.preventDefault();
+      showToast('Log in to react and comment', '', 4000);
+      return;
+    }
     const option = e.target.closest('.fb-reaction-option');
     if (option) {
       e.preventDefault();
