@@ -1057,8 +1057,10 @@ Posts.mount = function (listEl, opts) {
   });
 
   listEl.addEventListener('click', async e => {
-    // Visitors who are not signed in can read posts and their reactions, not add to them
-    if (!viewer.id && e.target.closest('[data-act], .fb-reaction-option')) {
+    // Visitors who are not signed in can read posts and their reactions, not add to them.
+    // The grow/sound switches are local display settings, so they keep working.
+    const guarded = e.target.closest('[data-act], .fb-reaction-option');
+    if (!viewer.id && guarded && !/^toggle-/.test(guarded.dataset.act || '')) {
       e.preventDefault();
       showToast('Log in to react and comment', '', 4000);
       return;

@@ -2156,24 +2156,32 @@ a.fb-post-name:hover { text-decoration: underline; }
    the faces: it grows and wiggles while it plays (js/posts.js starts it once). */
 .fb-rx-video { border-radius: 50%; background: #000; overflow: hidden; }
 .fb-rx-vid { object-fit: cover; }
-/* Switch beside a post's reactions that stops the growing and wiggling */
-.fb-face-anim-switch { display: inline-flex; align-items: center; margin-left: 0.35rem; cursor: pointer; }
+/* Switch beside a post's reactions that stops the growing and wiggling.
+   It sits on its own card-coloured chip above the growing faces (which reach
+   z-index 20 while they grow), so it stays visible and clickable. */
+.fb-face-anim-switch {
+  position: relative; z-index: 21;
+  display: inline-flex; align-items: center;
+  margin-left: 0.45rem; padding: 0.15rem 0.35rem;
+  border-radius: 999px; background: var(--fb-card);
+  cursor: pointer;
+}
 .fb-face-anim-switch input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .fb-face-anim-track {
-  position: relative; display: block; width: 26px; height: 14px;
+  position: relative; display: block; width: 40px; height: 22px;
   border-radius: 999px; background: rgba(255, 255, 255, 0.22);
   transition: background 0.15s ease;
 }
 .fb-face-anim-track::after {
-  content: ''; position: absolute; top: 2px; left: 2px;
-  width: 10px; height: 10px; border-radius: 50%; background: #fff;
+  content: ''; position: absolute; top: 3px; left: 3px;
+  width: 16px; height: 16px; border-radius: 50%; background: #fff;
   transition: transform 0.15s ease;
 }
 .fb-face-anim-switch input:checked + .fb-face-anim-track { background: var(--fb-blue); }
-.fb-face-anim-switch input:checked + .fb-face-anim-track::after { transform: translateX(12px); }
+.fb-face-anim-switch input:checked + .fb-face-anim-track::after { transform: translateX(18px); }
 .fb-face-anim-switch input:focus-visible + .fb-face-anim-track { box-shadow: 0 0 0 2px var(--fb-blue); }
 /* Sound switch beside it, which silences the video reactions on that post */
-.fb-rx-sound-icon { font-size: 13px; line-height: 1; }
+.fb-rx-sound-icon { font-size: 20px; line-height: 1; }
 .fb-face-anim-off .fb-rx-face { animation-name: none !important; }
 @media (max-width: 640px) {
   .fb-reaction-picker { padding: 0.35rem 0.45rem; }
