@@ -543,6 +543,9 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
     radial-gradient(circle at 12% 88%, rgba(0, 0, 0, 0.4), transparent 55%),
     linear-gradient(115deg, #0a2e6e 0%, #1877f2 55%, #0b3f92 100%);
 }
+/* Empty cover: plain white until the owner picks a photo or video */
+.fb-cover--empty { background: #fff; }
+.fb-cover--empty::before { display: none; }
 .fb-cover::before {
   content: 'f';
   position: absolute; right: 6%; top: 42%;

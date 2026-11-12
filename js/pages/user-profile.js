@@ -97,7 +97,7 @@ Pages.userProfile = async function (el, username) {
   }
 
   const name = person.full_name || person.username || 'Member';
-  const initial = (name.trim()[0] || '?').toUpperCase();
+
   const cover = person.cover_url || '';
   const coverIsVideo = upIsVideo(cover);
   const avatar = person.avatar_url || '';
@@ -107,7 +107,7 @@ Pages.userProfile = async function (el, username) {
   el.innerHTML = `<div class="fb-public">
     ${bar}
     <div class="fb-profile">
-      <div class="fb-cover${cover ? ' fb-cover--media' : ''}" id="upCover">
+      <div class="fb-cover${cover ? ' fb-cover--media' : ' fb-cover--empty'}" id="upCover">
         ${cover
           ? coverIsVideo
             ? `<video class="fb-cover-media" src="${fbEscape(cover)}" autoplay muted loop playsinline></video>`
@@ -124,7 +124,7 @@ Pages.userProfile = async function (el, username) {
           ? avatarIsVideo
             ? `<video class="fb-avatar-img" src="${fbEscape(avatar)}" autoplay muted loop playsinline></video>`
             : `<img class="fb-avatar-img" src="${fbEscape(avatar)}" alt="${fbEscape(name)}">`
-          : fbEscape(initial)}${avatar && window.AdminModerate ? AdminModerate.mediaButton('avatar', person.id) : ''}</div>
+          : fbBrandMark()}${avatar && window.AdminModerate ? AdminModerate.mediaButton('avatar', person.id) : ''}</div>
         <div class="fb-profile-id">
           <h1 class="fb-profile-name">${fbEscape(name)}</h1>
           <div class="fb-profile-meta">${fbEscape(fbRoleLabel(person.role))} · @${fbEscape(person.username)}</div>
