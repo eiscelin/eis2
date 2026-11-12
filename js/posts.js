@@ -166,7 +166,7 @@ function postCommentHtml(comment, ctx) {
           : ''}
       </div>
       <div class="fb-comment-meta">
-        <div class="fb-react-wrap">
+        <div class="fb-react-wrap${ctx.openPicker === ctx.postId + ':' + comment.id ? ' open' : ''}">
           <button class="fb-comment-act${mine ? ' active' : ''}" type="button" data-act="react-comment"${mine ? ` style="color:${postReactionColor(mine.type)}"` : ''}>${mine ? postReactionLabel(mine.type) : 'Like'}</button>
           <button class="fb-react-more" type="button" data-act="react-picker" aria-label="Choose a reaction">▴</button>
           ${postReactionPicker(ctx.faces)}
@@ -220,7 +220,7 @@ Posts.card = function (post, ctx) {
         </div>`
       : ''}
     <div class="fb-post-actions">
-      <div class="fb-react-wrap">
+      <div class="fb-react-wrap${ctx.openPicker === String(post.id) ? ' open' : ''}">
         <button class="fb-post-act${mine ? ' active' : ''}" type="button" data-act="react"${mine ? ` style="color:${postReactionColor(mine.type)}"` : ''}>
           ${Posts.reactionIcon(mine ? mine.type : 'like')}<span>${mine ? postReactionLabel(mine.type) : 'Like'}</span>
         </button>
@@ -380,6 +380,8 @@ Posts.mount = function (listEl, opts) {
     shared: new Map(),
     friendIds: null,
     faces: [],
+    // Which reaction picker stays open until a reaction is clicked
+    openPicker: null,
     query: ''
   };
 
@@ -390,6 +392,14 @@ Posts.mount = function (listEl, opts) {
 
   function findPost(id) {
     return state.posts.find(p => String(p.id) === String(id));
+  }
+
+  // Identifies one reaction picker so it can survive a card re-render
+  function pickerKeyFor(wrap) {
+    const postEl = wrap && wrap.closest('[data-post]');
+    if (!postEl) return null;
+    const commentEl = wrap.closest('[data-comment]');
+    return String(postEl.dataset.post) + (commentEl ? ':' + commentEl.dataset.comment : '');
   }
 
   function sharedFor(post) {
@@ -408,7 +418,9 @@ Posts.mount = function (listEl, opts) {
       reactions: state.reactions.get(String(post.id)) || [],
       comments: state.comments.get(String(post.id)) || [],
       commentReactions: state.commentReactions,
-      faces: state.faces || []
+      faces: state.faces || [],
+      openPicker: state.openPicker,
+      postId: String(post.id)
     };
   }
 
@@ -739,9 +751,9 @@ Posts.mount = function (listEl, opts) {
   listEl.addEventListener('mouseover', e => {
     const wrap = e.target.closest('.fb-react-wrap');
     if (!wrap || wrap.classList.contains('open')) return;
-    const card = wrap.closest('[data-post]');
-    if (card) card.querySelectorAll('.fb-react-wrap.open').forEach(w => w.classList.remove('open'));
+    listEl.querySelectorAll('.fb-react-wrap.open').forEach(w => w.classList.remove('open'));
     wrap.classList.add('open');
+    state.openPicker = pickerKeyFor(wrap);
   });
 
   listEl.addEventListener('click', async e => {
@@ -751,7 +763,8 @@ Posts.mount = function (listEl, opts) {
       const postEl = option.closest('[data-post]');
       if (!postEl) return;
       const commentEl = option.closest('[data-comment]');
-      postEl.querySelectorAll('.fb-react-wrap.open').forEach(w => w.classList.remove('open'));
+      listEl.querySelectorAll('.fb-react-wrap.open').forEach(w => w.classList.remove('open'));
+      state.openPicker = null;
       if (commentEl) await setCommentReaction(postEl.dataset.post, commentEl.dataset.comment, option.dataset.react);
       else await setReaction(postEl.dataset.post, option.dataset.react);
       return;
@@ -768,7 +781,12 @@ Posts.mount = function (listEl, opts) {
     if (kind === 'add-face') return addFaceReaction(postId, commentEl ? commentEl.dataset.comment : null);
     if (kind === 'react-picker') {
       const wrap = act.closest('.fb-react-wrap');
-      if (wrap) wrap.classList.toggle('open');
+      if (wrap) {
+        const willOpen = !wrap.classList.contains('open');
+        listEl.querySelectorAll('.fb-react-wrap.open').forEach(w => w.classList.remove('open'));
+        wrap.classList.toggle('open', willOpen);
+        state.openPicker = willOpen ? pickerKeyFor(wrap) : null;
+      }
       return;
     }
     if (kind === 'react') {
