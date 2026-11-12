@@ -98,8 +98,16 @@
       root.style.removeProperty('--sup-right');
       return;
     }
+    // Wide screens put the profile buttons right under the cover, so the pill
+    // sits at the far right of the tab bar instead of crowding them
+    const tabs = window.innerWidth > 900 ? document.querySelector('.fb-profile-tabs') : null;
+    const band = tabs ? tabs.getBoundingClientRect() : null;
+    const fabHeight = root.querySelector('.fb-support-fab').offsetHeight || 35;
+    const top = band && band.height
+      ? band.top + window.scrollY + Math.max(0, Math.round((band.height - fabHeight) / 2))
+      : rect.bottom + window.scrollY + 6;
     root.style.setProperty('--sup-right', Math.max(8, Math.round(document.documentElement.clientWidth - rect.right)) + 'px');
-    root.style.setProperty('--sup-top', Math.round(rect.bottom + window.scrollY + 6) + 'px');
+    root.style.setProperty('--sup-top', Math.round(top) + 'px');
     root.classList.add('dock-cover');
   }
 
