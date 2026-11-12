@@ -2,7 +2,11 @@
 Auth.init();
 // Every page starts from the signed-in member's own background picture; an
 // account page then swaps in the picture of the account it shows.
-Router.afterRender = () => fbPaintPageBackground(Auth.currentUser && Auth.currentUser.background_url);
+// The Customer Service button floats on top of every page.
+Router.afterRender = () => {
+  fbPaintPageBackground(Auth.currentUser && Auth.currentUser.background_url);
+  if (window.SupportWidget) window.SupportWidget.mount(Auth.currentUser);
+};
 Router.register('/', Pages.landing);
 Router.register('/Login', Pages.login);
 Router.register('/Register', Pages.register);

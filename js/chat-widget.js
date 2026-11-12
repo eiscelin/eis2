@@ -8,7 +8,7 @@ window.ChatWidget = function(container, currentUser) {
   let messages = [];
 
   container.innerHTML = `
-    <div class="chat-fab" id="chatFab">💬</div>
+    <div class="chat-fab" id="chatFab"><img class="chat-fab-icon" src="/img/chat-bubble-logo.png" alt=""></div>
     <div class="chat-panel" id="chatPanel" style="display:none">
       <div class="chat-header">
         <div class="chat-header-title" id="chatHeaderTitle">Messages</div>
@@ -55,17 +55,33 @@ window.ChatWidget = function(container, currentUser) {
 
   async function loadUsers() {
     try {
-      const { data } = await sb.from('users').select('*').neq('id', currentUser.id).order('username', { ascending: true });
-      users = (data || []).filter(u => !u.deleted_at && u.status !== 'deleted' && u.status !== 'suspended');
+      // Only people this user already has a conversation with — no strangers — and never admins
+      const { data: msgs } = await sb.from('chat_messages')
+        .select('sender_id,receiver_id,created_at')
+        .or(`sender_id.eq.${currentUser.id},receiver_id.eq.${currentUser.id}`);
+      const lastSeen = new Map();
+      (msgs || []).forEach(m => {
+        const mine = String(m.sender_id) === String(currentUser.id);
+        const other = String(mine ? m.receiver_id : m.sender_id);
+        if (!other || other === String(currentUser.id)) return;
+        const at = new Date(m.created_at || 0).getTime();
+        if (!lastSeen.has(other) || at > lastSeen.get(other)) lastSeen.set(other, at);
+      });
+      const ids = [...lastSeen.keys()];
+      if (!ids.length) { users = []; renderUserList(); return; }
+      const { data } = await sb.from('users').select('*').in('id', ids);
+      users = (data || [])
+        .filter(u => u.role !== 'admin' && !u.deleted_at && u.status !== 'deleted' && u.status !== 'suspended')
+        .sort((a, b) => (lastSeen.get(String(b.id)) || 0) - (lastSeen.get(String(a.id)) || 0));
       renderUserList();
     } catch (e) {
-      userListView.innerHTML = '<div class="chat-empty">Failed to load users</div>';
+      userListView.innerHTML = '<div class="chat-empty">Failed to load conversations</div>';
     }
   }
 
   function renderUserList() {
     if (users.length === 0) {
-      userListView.innerHTML = '<div class="chat-empty">No other users to chat with</div>';
+      userListView.innerHTML = '<div class="chat-empty">No conversations yet</div>';
       return;
     }
     userListView.innerHTML = users.map(u => {
@@ -152,7 +168,12 @@ window.ChatWidget = function(container, currentUser) {
     if (!uid) return;
     panel.style.display = 'flex';
     await loadUsers();
-    const target = users.find(u => String(u.id) === String(uid));
+    let target = users.find(u => String(u.id) === String(uid));
+    // A person picked from a profile or the people list has no thread yet
+    if (!target) {
+      const { data } = await sb.from('users').select('*').eq('id', uid).maybeSingle();
+      if (data && data.role !== 'admin' && !data.deleted_at) target = data;
+    }
     if (target) openConversation(target);
   };
 

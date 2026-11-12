@@ -304,9 +304,16 @@ tr:last-child td { border-bottom: none; }
 }
 
 /* ===== Chat Widget ===== */
-.chat-fab { position:fixed; bottom:1.5rem; right:1.5rem; width:56px; height:56px; border-radius:50%; background:var(--gradient); color:#fff; font-size:1.5rem; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 4px 16px rgba(242,101,34,.4); z-index:9999; transition:transform .2s ease, box-shadow .2s ease; }
-.chat-fab:hover { transform:scale(1.08); box-shadow:0 6px 20px rgba(242,101,34,.5); }
-.chat-panel { position:fixed; bottom:5rem; right:1.5rem; width:360px; height:480px; background:#fff; border-radius:16px; box-shadow:0 8px 32px rgba(0,0,0,.15); flex-direction:column; overflow:hidden; z-index:9998; border:1px solid #e5e7eb; }
+.chat-fab { position:fixed; bottom:1.5rem; right:1.5rem; width:64px; height:64px; border-radius:22px; background:var(--gradient); color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 10px 26px rgba(242,101,34,.42), inset 0 -3px 0 rgba(0,0,0,.18); z-index:9999; transition:transform .2s ease, box-shadow .2s ease; }
+.chat-fab:hover { transform:scale(1.08); box-shadow:0 12px 30px rgba(242,101,34,.52), inset 0 -3px 0 rgba(0,0,0,.18); }
+.chat-fab-icon { display:block; width:66%; height:auto; border-radius:8px; }
+/* Messenger-style tail so the button reads as a chat bubble */
+.chat-fab::after {
+  content:''; position:absolute; bottom:-7px; left:12px; width:14px; height:14px;
+  background:inherit; clip-path:polygon(0 0, 100% 0, 6% 100%);
+  pointer-events:none;
+}
+.chat-panel { position:fixed; bottom:5.75rem; right:1.5rem; width:360px; height:480px; background:#fff; border-radius:16px; box-shadow:0 8px 32px rgba(0,0,0,.15); flex-direction:column; overflow:hidden; z-index:9998; border:1px solid #e5e7eb; }
 .chat-header { background:var(--gradient); color:#fff; padding:1rem 1.25rem; display:flex; align-items:center; justify-content:space-between; }
 .chat-header-title { font-weight:700; font-size:1rem; }
 .chat-close { background:rgba(255,255,255,.2); border:none; color:#fff; width:28px; height:28px; border-radius:50%; cursor:pointer; font-size:.85rem; display:flex; align-items:center; justify-content:center; transition:background .15s; }
