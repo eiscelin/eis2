@@ -56,16 +56,17 @@ const FB_FACE_TURNS = 6;
   for (let count = 1; count <= FB_FACE_TURNS; count += 1) {
     const window = 100 / count;
     const at = fraction => `${(window * fraction).toFixed(3)}%`;
+    // The growing face also lifts above the other reaction icons on the post
     css += `@keyframes fb-rx-turn-${count}{`
-      + '0%{transform:scale(1) rotate(0deg)}'
-      + `${at(0.18)}{transform:scale(4) rotate(-8deg)}`
-      + `${at(0.36)}{transform:scale(8) rotate(8deg)}`
-      + `${at(0.5)}{transform:scale(10) rotate(-6deg)}`
-      + `${at(0.625)}{transform:scale(10) rotate(6deg)}`
-      + `${at(0.75)}{transform:scale(10) rotate(-5deg)}`
-      + `${at(0.875)}{transform:scale(10) rotate(4deg)}`
-      + `${at(1)}{transform:scale(1) rotate(0deg)}`
-      + '100%{transform:scale(1) rotate(0deg)}}';
+      + '0%{transform:scale(1) rotate(0deg);z-index:20}'
+      + `${at(0.18)}{transform:scale(2) rotate(-8deg);z-index:20}`
+      + `${at(0.36)}{transform:scale(4) rotate(8deg);z-index:20}`
+      + `${at(0.5)}{transform:scale(5) rotate(-6deg);z-index:20}`
+      + `${at(0.625)}{transform:scale(5) rotate(6deg);z-index:20}`
+      + `${at(0.75)}{transform:scale(5) rotate(-5deg);z-index:20}`
+      + `${at(0.875)}{transform:scale(5) rotate(4deg);z-index:20}`
+      + `${at(1)}{transform:scale(1) rotate(0deg);z-index:4}`
+      + '100%{transform:scale(1) rotate(0deg);z-index:4}}';
   }
   const style = document.createElement('style');
   style.id = 'fb-face-turns';

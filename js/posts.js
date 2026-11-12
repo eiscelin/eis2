@@ -87,6 +87,33 @@ function postReactionGroups(rows) {
   }));
 }
 
+// A member can stop the face growing/wiggling on one post; kept in this browser
+function faceAnimOffKey(postId) {
+  return 'meday.faceAnimOff.' + postId;
+}
+
+function faceAnimOff(postId) {
+  try {
+    return localStorage.getItem(faceAnimOffKey(postId)) === '1';
+  } catch (err) {
+    return false;
+  }
+}
+
+function setFaceAnimOff(postId, off) {
+  try {
+    if (off) localStorage.setItem(faceAnimOffKey(postId), '1');
+    else localStorage.removeItem(faceAnimOffKey(postId));
+  } catch (err) { /* a blocked store only loses the preference */ }
+}
+
+function postFaceAnimSwitch(postId, off) {
+  return `<label class="fb-face-anim-switch" title="Grow face reactions">
+    <input type="checkbox" data-act="toggle-face-anim"${off ? '' : ' checked'} aria-label="Grow face reactions">
+    <span class="fb-face-anim-track" aria-hidden="true"></span>
+  </label>`;
+}
+
 // Each face reaction shakes in its own turn instead of all of them at once
 function postFaceSlots(groups) {
   const faceCount = groups.filter(g => postFaceUrl(g.type)).length;
@@ -198,6 +225,8 @@ Posts.card = function (post, ctx) {
   const shares = Number(post.share_count) || 0;
   const viewerName = viewer.full_name || viewer.username || 'Member';
   const audience = postAudience(post);
+  const hasFaces = groups.some(g => postFaceUrl(g.type));
+  const faceOff = hasFaces && faceAnimOff(post.id);
 
   return `<article class="fb-card fb-post-card" data-post="${fbEscape(post.id)}">
     <div class="fb-post-head">
@@ -213,7 +242,7 @@ Posts.card = function (post, ctx) {
     ${totalReactions || comments.length || shares
       ? `<div class="fb-post-stats">
           <span class="fb-post-summary">${totalReactions
-            ? `<span class="fb-reaction-icons">${postFaceSlots(groups)}</span>${postCount(totalReactions)}`
+            ? `<span class="fb-reaction-icons${faceOff ? ' fb-face-anim-off' : ''}">${postFaceSlots(groups)}</span>${postCount(totalReactions)}${hasFaces ? postFaceAnimSwitch(post.id, faceOff) : ''}`
             : ''}</span>
           <span class="fb-post-counts">
             ${comments.length ? `<button type="button" data-act="focus-comment">${postCount(comments.length)} comment${comments.length === 1 ? '' : 's'}</button>` : ''}
@@ -756,6 +785,16 @@ Posts.mount = function (listEl, opts) {
     listEl.querySelectorAll('.fb-react-wrap.open').forEach(w => w.classList.remove('open'));
     wrap.classList.add('open');
     state.openPicker = pickerKeyFor(wrap);
+  });
+
+  listEl.addEventListener('change', e => {
+    const box = e.target.closest('[data-act="toggle-face-anim"]');
+    if (!box) return;
+    const postEl = box.closest('[data-post]');
+    if (!postEl) return;
+    setFaceAnimOff(postEl.dataset.post, !box.checked);
+    const icons = postEl.querySelector('.fb-reaction-icons');
+    if (icons) icons.classList.toggle('fb-face-anim-off', !box.checked);
   });
 
   listEl.addEventListener('click', async e => {

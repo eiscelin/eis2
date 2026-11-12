@@ -2104,6 +2104,23 @@ a.fb-post-name:hover { text-decoration: underline; }
 }
 .fb-post-card { overflow: visible; }
 .fb-reaction-icons > span.fb-rx-face-slot { box-shadow: none; }
+/* Switch beside a post's reactions that stops the growing and wiggling */
+.fb-face-anim-switch { display: inline-flex; align-items: center; margin-left: 0.35rem; cursor: pointer; }
+.fb-face-anim-switch input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.fb-face-anim-track {
+  position: relative; display: block; width: 26px; height: 14px;
+  border-radius: 999px; background: rgba(255, 255, 255, 0.22);
+  transition: background 0.15s ease;
+}
+.fb-face-anim-track::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 10px; height: 10px; border-radius: 50%; background: #fff;
+  transition: transform 0.15s ease;
+}
+.fb-face-anim-switch input:checked + .fb-face-anim-track { background: var(--fb-blue); }
+.fb-face-anim-switch input:checked + .fb-face-anim-track::after { transform: translateX(12px); }
+.fb-face-anim-switch input:focus-visible + .fb-face-anim-track { box-shadow: 0 0 0 2px var(--fb-blue); }
+.fb-face-anim-off .fb-rx-face { animation-name: none !important; }
 @media (max-width: 640px) {
   .fb-reaction-picker { padding: 0.35rem 0.45rem; }
   .fb-reaction-option, .fb-reaction-option .fb-rx { width: 44px; height: 44px; }
