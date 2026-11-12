@@ -538,10 +538,7 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
   height: 232px;
   overflow: hidden;
   border-radius: 0 0 var(--fb-radius) var(--fb-radius);
-  background:
-    radial-gradient(circle at 80% 24%, rgba(255, 255, 255, 0.22), transparent 45%),
-    radial-gradient(circle at 12% 88%, rgba(0, 0, 0, 0.4), transparent 55%),
-    linear-gradient(115deg, #0a2e6e 0%, #1877f2 55%, #0b3f92 100%);
+  background: #000;
 }
 .fb-cover::before {
   content: 'f';
