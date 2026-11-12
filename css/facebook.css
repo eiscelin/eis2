@@ -17,6 +17,8 @@
   --fb-blue-hover: #2d88ff;
   --fb-blue-soft: rgba(45, 136, 255, 0.14);
   --fb-green: #45bd62;
+  --fb-green-strong: #31a24c;
+  --fb-green-hover: #3cbb5b;
   --fb-radius: 10px;
 
   /* Re-point the app's brand tokens at the Facebook look */
@@ -1818,26 +1820,26 @@ a.admin-tool { text-decoration: none; display: inline-flex; align-items: center;
   .admin-setting { align-items: flex-start; }
 }
 
-/* ---------- Customer Service chat ---------- */
+/* ---------- Customer Service chat — always the top layer, in green ---------- */
 .fb-support-fab {
-  position: fixed; right: 1.5rem; bottom: 1.5rem; z-index: 9997;
+  position: fixed; right: 1.5rem; bottom: 1.5rem; z-index: 100000;
   display: inline-flex; align-items: center; gap: 0.45rem;
   padding: 0.7rem 1.1rem; border: none; border-radius: 999px;
-  background: var(--fb-blue); color: #fff; font: inherit; font-weight: 600; font-size: 0.9rem;
-  cursor: pointer; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  background: var(--fb-green-strong); color: #fff; font: inherit; font-weight: 600; font-size: 0.9rem;
+  cursor: pointer; box-shadow: 0 6px 20px rgba(49, 162, 76, 0.45);
 }
-.fb-support-fab:hover { background: var(--fb-blue-hover); }
+.fb-support-fab:hover { background: var(--fb-green-hover); }
 .fb-support.has-chat .fb-support-fab { bottom: 5.6rem; }
 .fb-support-panel {
-  position: fixed; right: 1.5rem; bottom: 5.5rem; z-index: 9998;
-  width: 340px; max-height: min(70vh, 460px);
+  position: fixed; right: 1.5rem; bottom: 5.5rem; z-index: 100001;
+  width: 340px; max-height: min(70vh, 470px);
   display: flex; flex-direction: column;
   background: var(--fb-card); border: 1px solid var(--fb-line);
   border-radius: 16px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55); overflow: hidden;
 }
 .fb-support.has-chat .fb-support-panel { bottom: 9.6rem; }
 .fb-support-panel[hidden] { display: none; }
-.fb-support-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.8rem 1rem; background: var(--fb-blue); color: #fff; }
+.fb-support-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.8rem 1rem; background: var(--fb-green-strong); color: #fff; }
 .fb-support-head strong { display: block; font-size: 0.95rem; }
 .fb-support-head span { display: block; font-size: 0.72rem; opacity: 0.88; }
 .fb-support-close { background: transparent; border: none; color: #fff; font-size: 1rem; cursor: pointer; }
@@ -1847,8 +1849,40 @@ a.admin-tool { text-decoration: none; display: inline-flex; align-items: center;
 .fb-support-empty { margin: auto; color: var(--fb-muted); font-size: 0.82rem; text-align: center; }
 .fb-support-form { display: flex; gap: 0.5rem; padding: 0.7rem; border-top: 1px solid var(--fb-line); }
 .fb-support-form input { flex: 1; min-width: 0; padding: 0.55rem 0.7rem; border-radius: 999px; border: 1px solid var(--fb-line); background: var(--fb-bg); color: var(--fb-text); font: inherit; font-size: 0.85rem; }
-.fb-support-form button { padding: 0.55rem 0.9rem; border: none; border-radius: 999px; background: var(--fb-blue); color: #fff; font: inherit; font-weight: 600; font-size: 0.85rem; cursor: pointer; }
-.fb-support-form button:hover { background: var(--fb-blue-hover); }
+.fb-support-form button { padding: 0.55rem 0.9rem; border: none; border-radius: 999px; background: var(--fb-green-strong); color: #fff; font: inherit; font-weight: 600; font-size: 0.85rem; cursor: pointer; }
+.fb-support-form button:hover { background: var(--fb-green-hover); }
+.fb-support-badge {
+  position: absolute; top: -0.35rem; right: -0.35rem;
+  min-width: 20px; height: 20px; padding: 0 5px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 999px; background: #e41e3f; color: #fff;
+  font-size: 0.72rem; font-weight: 700; line-height: 1; letter-spacing: 0;
+  box-shadow: 0 0 0 2px var(--fb-bg);
+}
+.fb-support-badge[hidden] { display: none; }
+.fb-support-list { flex: 1; min-height: 180px; overflow-y: auto; display: flex; flex-direction: column; }
+.fb-support-list[hidden] { display: none; }
+.fb-support-peer { width: 100%; border: none; background: transparent; color: inherit; font: inherit; text-align: left; }
+.fb-support-peer .chat-user-info { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.fb-support-peer .chat-user-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fb-support-peer .chat-user-role { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: none; }
+.fb-support-peer .chat-user-avatar { background: var(--fb-green-strong); }
+.fb-support-count {
+  min-width: 20px; height: 20px; padding: 0 5px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 999px; background: #e41e3f; color: #fff;
+  font-size: 0.7rem; font-weight: 700;
+}
+.fb-support-count[hidden] { display: none; }
+.fb-support-thread { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.fb-support-thread[hidden] { display: none; }
+.fb-support-back {
+  border: none; background: transparent; color: var(--fb-green);
+  font: inherit; font-size: 0.8rem; font-weight: 600; text-align: left;
+  padding: 0.55rem 1rem 0; cursor: pointer;
+}
+.fb-support-back:hover { color: var(--fb-green-hover); }
+.fb-support-back[hidden] { display: none; }
 
 @media (max-width: 900px) {
   .fb-support-fab { right: 1rem; bottom: calc(74px + env(safe-area-inset-bottom)); }
