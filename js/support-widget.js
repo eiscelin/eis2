@@ -86,8 +86,33 @@
     });
   }
 
+  // Pages that show a profile cover keep the button pinned under it, instead of
+  // floating over the content in the bottom corner
+  function syncDock() {
+    if (!root) return;
+    const cover = document.querySelector('.fb-cover');
+    const rect = cover ? cover.getBoundingClientRect() : null;
+    if (!rect || !rect.height) {
+      root.classList.remove('dock-cover');
+      root.style.removeProperty('--sup-top');
+      root.style.removeProperty('--sup-right');
+      return;
+    }
+    root.style.setProperty('--sup-right', Math.max(8, Math.round(document.documentElement.clientWidth - rect.right)) + 'px');
+    root.style.setProperty('--sup-top', Math.round(rect.bottom + window.scrollY + 6) + 'px');
+    root.classList.add('dock-cover');
+  }
+
+  // Layout keeps moving for a moment after a render or a resize — measure again
+  function onLayoutChange() {
+    syncDock();
+    [120, 500, 1500].forEach(ms => setTimeout(syncDock, ms));
+  }
+
   function unmount() {
     if (timer) { clearInterval(timer); timer = null; }
+    window.removeEventListener('resize', onLayoutChange);
+    window.removeEventListener('hashchange', onLayoutChange);
     if (root) { root.remove(); root = null; }
   }
 
@@ -95,7 +120,7 @@
     if (!sb) return;
     const identity = user ? String(user.id) : 'guest';
     // Same person as the widget already on screen: keep the open chat
-    if (root && root.isConnected && root.dataset.identity === identity) return;
+    if (root && root.isConnected && root.dataset.identity === identity) { syncDock(); return; }
     unmount();
 
     const signedIn = !!user;
@@ -165,6 +190,12 @@
 
     unlockSound();
     syncChatOffset();
+    syncDock();
+    window.addEventListener('resize', onLayoutChange);
+    window.addEventListener('hashchange', onLayoutChange);
+    // The page settles a moment after the first render — measure the cover again
+    [0, 300, 1200].forEach(ms => setTimeout(syncDock, ms));
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(syncDock);
     // The messenger bubble mounts a moment later — stack above it once it does
     [300, 1200].forEach(ms => setTimeout(syncChatOffset, ms));
 
@@ -430,6 +461,7 @@
       stopPolling();
       timer = setInterval(async () => {
         syncChatOffset();
+        syncDock();
         if (!panel.hidden && active) await loadThread();
         await watchInbox();
       }, POLL_MS);
