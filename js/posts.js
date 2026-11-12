@@ -89,10 +89,12 @@ function postReactionGroups(rows) {
 
 // Each face reaction shakes in its own turn instead of all of them at once
 function postFaceSlots(groups) {
+  const faceCount = groups.filter(g => postFaceUrl(g.type)).length;
   let slot = 0;
   return groups.map(g => {
     const face = !!postFaceUrl(g.type);
-    return `<span title="${g.label}">${Posts.reactionIcon(g.type, face ? slot++ : 0)}</span>`;
+    const icon = Posts.reactionIcon(g.type, face ? slot++ : 0, faceCount);
+    return `<span${face ? ' class="fb-rx-face-slot"' : ''} title="${g.label}">${icon}</span>`;
   }).join('');
 }
 

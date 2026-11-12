@@ -2059,7 +2059,7 @@ a.fb-post-name:hover { text-decoration: underline; }
 .fb-reaction-option:hover .fb-rx { transform: translateY(-16px) scale(1.35); filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.4)); }
 .fb-reaction-option:active .fb-rx { transform: translateY(-6px) scale(1.1); }
 /* A member's own face used as a reaction, and the button that adds another */
-.fb-rx-face { border-radius: 50%; background: rgba(255, 255, 255, 0.08); }
+.fb-rx-face { border-radius: 50%; background: none; }
 .fb-rx-img { display: block; width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
 .fb-reaction-add {
   width: 64px; height: 64px; flex-shrink: 0;
@@ -2087,28 +2087,23 @@ a.fb-post-name:hover { text-decoration: underline; }
 .fb-post-summary .fb-rx { width: 40px; height: 40px; }
 .fb-reaction-icons > span { width: 40px; height: 40px; margin-left: -10px; box-shadow: 0 0 0 3px var(--fb-card); }
 .fb-comment-reactions .fb-rx { width: 36px; height: 36px; }
-/* Uploaded face reactions swell to 10x while wiggling, one face after another,
-   each taking its own 2 second turn in the loop */
+/* Uploaded face reactions swell to 10x while wiggling, one face after another.
+   Each takes a 2 second turn and the next one starts the moment the previous
+   one has shrunk back, so the loop has no idle gap. Only the image is shown —
+   no ring, border or background behind it. Name/duration/delay are set inline
+   per face in js/reactions.js. */
 .fb-post-summary .fb-rx-face, .fb-post-act .fb-rx-face {
   position: relative;
   z-index: 4;
   pointer-events: none;
-  animation: fb-rx-shake 12s ease-in-out infinite;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
   transform-origin: center;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.22), 0 0 10px rgba(36, 134, 228, 0.45);
+  background: none;
+  box-shadow: none;
 }
 .fb-post-card { overflow: visible; }
-@keyframes fb-rx-shake {
-  0% { transform: scale(1) rotate(0deg); }
-  3% { transform: scale(4) rotate(-8deg); }
-  6% { transform: scale(8) rotate(8deg); }
-  8.333% { transform: scale(10) rotate(-6deg); }
-  10.417% { transform: scale(10) rotate(6deg); }
-  12.5% { transform: scale(10) rotate(-5deg); }
-  14.583% { transform: scale(10) rotate(4deg); }
-  16.667% { transform: scale(1) rotate(0deg); }
-  100% { transform: scale(1) rotate(0deg); }
-}
+.fb-reaction-icons > span.fb-rx-face-slot { box-shadow: none; }
 @media (max-width: 640px) {
   .fb-reaction-picker { padding: 0.35rem 0.45rem; }
   .fb-reaction-option, .fb-reaction-option .fb-rx { width: 44px; height: 44px; }
@@ -2122,7 +2117,7 @@ a.fb-post-name:hover { text-decoration: underline; }
 @media (prefers-reduced-motion: reduce) {
   .fb-reaction-option .fb-rx { transition: none; }
   .fb-react-wrap.open .fb-reaction-option .fb-rx { animation: none; }
-  .fb-post-summary .fb-rx-face, .fb-post-act .fb-rx-face { animation: none; }
+  .fb-post-summary .fb-rx-face, .fb-post-act .fb-rx-face { animation-name: none !important; }
 }
 
 .fb-comments { padding: 0.6rem 1rem 1rem; }

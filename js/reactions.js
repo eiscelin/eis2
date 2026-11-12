@@ -47,12 +47,39 @@ Posts.faceUrl = function (type) {
   return match ? match[1] : '';
 };
 
-Posts.reactionIcon = function (type, slot) {
+// Each face on a post swells and wiggles for 2 seconds, one after another.
+// One keyframe set per face count, so the loop is exactly as long as the
+// turns it holds: the next face starts the instant the previous one shrinks.
+const FB_FACE_TURNS = 6;
+(function buildFaceTurnKeyframes() {
+  let css = '';
+  for (let count = 1; count <= FB_FACE_TURNS; count += 1) {
+    const window = 100 / count;
+    const at = fraction => `${(window * fraction).toFixed(3)}%`;
+    css += `@keyframes fb-rx-turn-${count}{`
+      + '0%{transform:scale(1) rotate(0deg)}'
+      + `${at(0.18)}{transform:scale(4) rotate(-8deg)}`
+      + `${at(0.36)}{transform:scale(8) rotate(8deg)}`
+      + `${at(0.5)}{transform:scale(10) rotate(-6deg)}`
+      + `${at(0.625)}{transform:scale(10) rotate(6deg)}`
+      + `${at(0.75)}{transform:scale(10) rotate(-5deg)}`
+      + `${at(0.875)}{transform:scale(10) rotate(4deg)}`
+      + `${at(1)}{transform:scale(1) rotate(0deg)}`
+      + '100%{transform:scale(1) rotate(0deg)}}';
+  }
+  const style = document.createElement('style');
+  style.id = 'fb-face-turns';
+  style.textContent = css;
+  document.head.appendChild(style);
+})();
+
+Posts.reactionIcon = function (type, slot, faceCount) {
   const face = Posts.faceUrl(type);
   if (face) {
-    // Each face on a post takes its own 2 second turn in the loop.
-    const delay = slot ? ` style="animation-delay:${(slot % 6) * 2}s"` : '';
-    return `<span class="fb-rx fb-rx-face"${delay}><img class="fb-rx-img" src="${fbEscape(face)}" alt="" loading="lazy"></span>`;
+    const count = Math.min(Math.max(faceCount || 1, 1), FB_FACE_TURNS);
+    const turn = slot ? `; animation-delay:${slot * 2}s` : '';
+    const anim = `animation-name:fb-rx-turn-${count}; animation-duration:${count * 2}s${turn}`;
+    return `<span class="fb-rx fb-rx-face" style="${anim}"><img class="fb-rx-img" src="${fbEscape(face)}" alt="" loading="lazy"></span>`;
   }
   const art = FB_RX_ART[type] || FB_RX_ART.like;
   return `<span class="fb-rx fb-rx-${type}"><svg class="fb-rx-svg" viewBox="0 0 40 40" aria-hidden="true" focusable="false">${art}</svg></span>`;
