@@ -25,12 +25,17 @@ def safe_filename(name, content_type):
     return name if name and '.' in name else default
 
 
-def cloudinary_upload(data, content_type, filename=None):
-    """Forward a photo or video to Cloudinary; the preset stays on the server, never in the browser."""
-    cloud = os.environ.get('CLOUDINARY_CLOUD_NAME', '')
-    preset = os.environ.get('CLOUDINARY_UPLOAD_PRESET', '')
-    if not cloud or not preset:
-        return None
+def cloudinary_accounts():
+    """Primary account first, then the backup that takes over when it stops working."""
+    pairs = [
+        (os.environ.get('CLOUDINARY_CLOUD_NAME', ''), os.environ.get('CLOUDINARY_UPLOAD_PRESET', '')),
+        (os.environ.get('CLOUDINARY_CLOUD_NAME_BACKUP', ''),
+         os.environ.get('CLOUDINARY_UPLOAD_PRESET_BACKUP', ''))
+    ]
+    return [(cloud, preset) for cloud, preset in pairs if cloud and preset]
+
+
+def cloudinary_upload_to(cloud, preset, data, content_type, filename):
     kind = 'video' if is_video(content_type) else 'image'
     filename = safe_filename(filename, content_type)
     boundary = 'base44' + uuid.uuid4().hex
@@ -47,6 +52,20 @@ def cloudinary_upload(data, content_type, filename=None):
     )
     with urllib.request.urlopen(req, timeout=120 if kind == 'video' else 60) as res:
         return json.loads(res.read().decode()).get('secure_url')
+
+
+def cloudinary_upload(data, content_type, filename=None):
+    """Forward a photo or video to Cloudinary, moving to the backup account if one fails."""
+    accounts = cloudinary_accounts()
+    if not accounts:
+        return None
+    last_error = None
+    for cloud, preset in accounts:
+        try:
+            return cloudinary_upload_to(cloud, preset, data, content_type, filename)
+        except Exception as e:
+            last_error = e
+    raise last_error
 
 
 R2_EXPIRES = 900
@@ -165,7 +184,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 'SUPABASE_ANON_KEY': os.environ.get('SUPABASE_ANON_KEY', ''),
                 # Unsigned upload preset: public by design, so the browser can upload directly
                 'CLOUDINARY_CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME', ''),
-                'CLOUDINARY_UPLOAD_PRESET': os.environ.get('CLOUDINARY_UPLOAD_PRESET', '')
+                'CLOUDINARY_UPLOAD_PRESET': os.environ.get('CLOUDINARY_UPLOAD_PRESET', ''),
+                # Backup account, used by the browser when the primary one stops accepting uploads
+                'CLOUDINARY_CLOUD_NAME_BACKUP': os.environ.get('CLOUDINARY_CLOUD_NAME_BACKUP', ''),
+                'CLOUDINARY_UPLOAD_PRESET_BACKUP': os.environ.get('CLOUDINARY_UPLOAD_PRESET_BACKUP', '')
             }
             self.send_response(200)
             self.send_header('Content-Type', 'application/javascript')
