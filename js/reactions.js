@@ -47,6 +47,12 @@ Posts.faceUrl = function (type) {
   return match ? match[1] : '';
 };
 
+// A member's own video reaction is stored as "vid:<video url>"
+Posts.videoUrl = function (type) {
+  const match = /^vid:(.+)$/.exec(String(type || ''));
+  return match ? match[1] : '';
+};
+
 // Each face on a post swells and wiggles for 2 seconds, one after another.
 // One keyframe set per face count, so the loop is exactly as long as the
 // turns it holds: the next face starts the instant the previous one shrinks.
@@ -77,6 +83,13 @@ const FB_FACE_TURNS = 6;
 // Only the faces in a post's reaction stack animate; the copy inside the Like
 // button stays still so one face never grows and wiggles twice at once.
 Posts.reactionIcon = function (type, slot, faceCount) {
+  const video = Posts.videoUrl(type);
+  if (video) {
+    // A video reaction is animated by its own playback (js/posts.js), not by
+    // the face keyframes: it grows once, holds still while it plays, then
+    // shrinks back once the video is done.
+    return `<span class="fb-rx fb-rx-face fb-rx-video"><video class="fb-rx-img fb-rx-vid" src="${fbEscape(video)}" muted playsinline preload="auto"></video></span>`;
+  }
   const face = Posts.faceUrl(type);
   if (face) {
     let anim = '';

@@ -1626,6 +1626,10 @@ a.admin-tool { text-decoration: none; display: inline-flex; align-items: center;
   border-bottom: 1px solid var(--fb-line-soft);
 }
 .admin-row:last-child { border-bottom: none; }
+/* Own reactions a member uploaded, listed on their row so admins see the owner */
+.admin-rx { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.admin-rx-thumb { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; background: #000; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16); }
+.admin-rx-label, .admin-rx-more { font-size: 0.7rem; color: var(--fb-muted); }
 .admin-row:hover { background: rgba(255, 255, 255, 0.025); }
 .admin-index {
   width: 26px; height: 26px;
@@ -2104,6 +2108,17 @@ a.fb-post-name:hover { text-decoration: underline; }
 }
 .fb-post-card { overflow: visible; }
 .fb-reaction-icons > span.fb-rx-face-slot { box-shadow: none; }
+/* A member's video reaction: it grows once and then holds still — no wiggling —
+   for as long as the video plays, and shrinks back when the video is done.
+   js/posts.js starts the video and toggles .fb-rx-video-on. */
+.fb-rx-video { border-radius: 50%; background: #000; overflow: hidden; }
+.fb-rx-vid { object-fit: cover; }
+.fb-post-summary .fb-rx-face.fb-rx-video {
+  animation: none !important;
+  transition: transform 0.3s ease;
+  transform-origin: center;
+}
+.fb-post-summary .fb-rx-face.fb-rx-video.fb-rx-video-on { transform: scale(5); z-index: 30; }
 /* Switch beside a post's reactions that stops the growing and wiggling */
 .fb-face-anim-switch { display: inline-flex; align-items: center; margin-left: 0.35rem; cursor: pointer; }
 .fb-face-anim-switch input { position: absolute; width: 1px; height: 1px; opacity: 0; }

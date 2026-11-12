@@ -7,6 +7,8 @@ var Pages = window.Pages || {};
     users: [],
     messages: [],
     announcements: [],
+    reactionMedia: [],
+    reactionUses: [],
     settings: {},
     search: '',
     showDeleted: false,
@@ -45,6 +47,36 @@ var Pages = window.Pages || {};
 
   function pendingTotal() {
     return state.users.reduce((sum, u) => sum + pendingKinds(u).length, 0);
+  }
+
+  // Reactions a member uploaded themselves, shown on their row so an admin
+  // always sees who owns each one
+  function reactionsOf(u) {
+    const owned = state.reactionMedia.filter(m => String(m.user_id) === String(u.id));
+    if (owned.length) return owned.map(m => ({ url: m.url, kind: m.kind }));
+    const seen = new Map();
+    state.reactionUses
+      .filter(r => r.user_id === String(u.id))
+      .forEach(r => {
+        const type = String(r.type || '');
+        const url = type.replace(/^(face|vid):/, '');
+        if (url && !seen.has(url)) seen.set(url, { url, kind: type.indexOf('vid:') === 0 ? 'video' : 'face' });
+      });
+    return Array.from(seen.values());
+  }
+
+  function reactionChips(u) {
+    const media = reactionsOf(u);
+    if (!media.length) return '';
+    const name = nameOf(u);
+    const thumbs = media.slice(0, 4).map(m => (m.kind === 'video' || isVideoUrl(m.url)
+      ? `<video class="admin-rx-thumb" src="${fbEscape(m.url)}" muted playsinline preload="metadata" title="Video reaction · ${fbEscape(name)}"></video>`
+      : `<img class="admin-rx-thumb" src="${fbEscape(m.url)}" alt="Face reaction of ${fbEscape(name)}" title="Face reaction · ${fbEscape(name)}">`
+    )).join('');
+    return `<div class="admin-rx" title="${fbEscape(`${name} uploaded ${media.length} own reaction${media.length === 1 ? '' : 's'}`)}">
+      ${thumbs}${media.length > 4 ? `<span class="admin-rx-more">+${media.length - 4}</span>` : ''}
+      <span class="admin-rx-label">own reaction${media.length === 1 ? '' : 's'}</span>
+    </div>`;
   }
 
   function visibleUsers() {
@@ -109,15 +141,22 @@ var Pages = window.Pages || {};
   }
 
   async function loadAll() {
-    const [users, messages, announcements, settings] = await Promise.all([
+    const [users, messages, announcements, settings, reactionMedia, uses] = await Promise.all([
       rows(sb.from('users').select('*').order('created_at', { ascending: false })),
       rows(sb.from('chat_messages').select('*').order('created_at', { ascending: false }).limit(1000)),
       rows(sb.from('announcements').select('*').order('created_at', { ascending: false })),
-      rows(sb.from('app_settings').select('*'))
+      rows(sb.from('app_settings').select('*')),
+      rows(sb.from('reaction_media').select('*').order('created_at', { ascending: true })),
+      rows(sb.from('post_reactions').select('user_id, type').order('created_at', { ascending: false }).limit(2000))
     ]);
     state.users = users;
     state.messages = messages;
     state.announcements = announcements;
+    state.reactionMedia = reactionMedia;
+    // Before the upload table exists, the reactions a member used still show
+    // who they belong to
+    state.reactionUses = uses.filter(r => /^(face|vid):/.test(String(r.type)));
+    state.reactionUses.forEach(r => { r.user_id = String(r.user_id); });
     state.settings = {};
     settings.forEach(row => { state.settings[row.key] = row.value; });
   }
@@ -278,6 +317,7 @@ var Pages = window.Pages || {};
           <div class="admin-who">
             <div class="admin-name">${fbEscape(nameOf(u))}</div>
             <div class="admin-handle">@${fbEscape(u.username || '')}</div>
+            ${reactionChips(u)}
           </div>
           <div class="admin-col">${statusBadge(u)}</div>
           <div class="admin-col"><span class="admin-role ${isAdmin ? 'is-admin' : ''}">${isAdmin ? 'Admin' : 'Member'}</span></div>

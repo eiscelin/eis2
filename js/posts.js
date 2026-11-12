@@ -14,19 +14,33 @@ const FB_REACTIONS = {
 };
 const REACTION_ORDER = ['like', 'love', 'haha', 'wow', 'sad', 'angry'];
 
-// A member can turn their own photo into a reaction, saved as "face:<image url>"
+// A member can turn their own photo or video into a reaction,
+// saved as "face:<image url>" or "vid:<video url>"
+const REACTION_VIDEO_MAX = 5; // seconds
+
 function postFaceUrl(type) {
   const match = /^face:(.+)$/.exec(String(type || ''));
   return match ? match[1] : '';
 }
 
+function postVidUrl(type) {
+  const match = /^vid:(.+)$/.exec(String(type || ''));
+  return match ? match[1] : '';
+}
+
+// A face or a video the member uploaded themselves
+function postOwnReaction(type) {
+  return !!postFaceUrl(type) || !!postVidUrl(type);
+}
+
 function postReactionLabel(type) {
+  if (postVidUrl(type)) return 'Video';
   if (postFaceUrl(type)) return 'Face';
   return (FB_REACTIONS[type] || {}).label || 'Like';
 }
 
 function postReactionColor(type) {
-  if (postFaceUrl(type)) return '#1877f2';
+  if (postOwnReaction(type)) return '#1877f2';
   return (FB_REACTIONS[type] || {}).color || '#1877f2';
 }
 
@@ -76,12 +90,12 @@ function postReactionGroups(rows) {
   const order = [];
   (rows || []).forEach(r => {
     const type = String(r.type || '');
-    if (!postFaceUrl(type) && !FB_REACTIONS[type]) return;
+    if (!postOwnReaction(type) && !FB_REACTIONS[type]) return;
     if (!counts[type]) order.push(type);
     counts[type] = (counts[type] || 0) + 1;
   });
   const known = REACTION_ORDER.filter(t => counts[t]);
-  const faces = order.filter(t => postFaceUrl(t));
+  const faces = order.filter(t => postOwnReaction(t));
   return known.concat(faces).map(t => ({
     type: t, label: postReactionLabel(t), count: counts[t]
   }));
@@ -119,22 +133,26 @@ function postFaceSlots(groups) {
   const faceCount = groups.filter(g => postFaceUrl(g.type)).length;
   let slot = 0;
   return groups.map(g => {
+    // A video reaction keeps its own timing, so it never takes a face turn
     const face = !!postFaceUrl(g.type);
+    const own = face || !!postVidUrl(g.type);
     const icon = Posts.reactionIcon(g.type, face ? slot++ : 0, faceCount);
-    return `<span${face ? ' class="fb-rx-face-slot"' : ''} title="${g.label}">${icon}</span>`;
+    return `<span${own ? ' class="fb-rx-face-slot"' : ''} title="${g.label}">${icon}</span>`;
   }).join('');
 }
 
-function postReactionPicker(faces) {
-  const own = (faces || []).map(face => {
-    const type = 'face:' + face.image_url;
-    return `<button class="fb-reaction-option" type="button" data-react="${fbEscape(type)}" title="Your face" aria-label="Use your own face reaction">${Posts.reactionIcon(type)}</button>`;
+function postReactionPicker(media) {
+  const own = (media || []).map(item => {
+    const video = item.kind === 'video';
+    const type = (video ? 'vid:' : 'face:') + item.image_url;
+    const label = video ? 'Your video reaction' : 'Your face reaction';
+    return `<button class="fb-reaction-option" type="button" data-react="${fbEscape(type)}" title="${label}" aria-label="Use ${label.toLowerCase()}">${Posts.reactionIcon(type)}</button>`;
   }).join('');
   return `<div class="fb-reaction-picker">
     ${REACTION_ORDER.map(t =>
       `<button class="fb-reaction-option" type="button" data-react="${t}" title="${FB_REACTIONS[t].label}" aria-label="${FB_REACTIONS[t].label}">${Posts.reactionIcon(t)}</button>`
     ).join('')}${own}
-    <button class="fb-reaction-add" type="button" data-act="add-face" title="Upload your own face" aria-label="Upload your own face as a reaction">+</button>
+    <button class="fb-reaction-add" type="button" data-act="add-face" title="Upload your own face or a video up to 5 seconds" aria-label="Upload your own face or a short video as a reaction">+</button>
   </div>`;
 }
 
@@ -225,7 +243,7 @@ Posts.card = function (post, ctx) {
   const shares = Number(post.share_count) || 0;
   const viewerName = viewer.full_name || viewer.username || 'Member';
   const audience = postAudience(post);
-  const hasFaces = groups.some(g => postFaceUrl(g.type));
+  const hasFaces = groups.some(g => postOwnReaction(g.type));
   const faceOff = hasFaces && faceAnimOff(post.id);
 
   return `<article class="fb-card fb-post-card" data-post="${fbEscape(post.id)}">
@@ -475,6 +493,34 @@ Posts.mount = function (listEl, opts) {
     listEl.innerHTML = shown.length
       ? shown.map(p => Posts.card(p, ctxFor(p))).join('')
       : (options.emptyHtml || '');
+    startVideoReactions();
+  }
+
+  // A video reaction grows once and holds still while it plays — no growing or
+  // wiggling for the length of the video — then shrinks back when it finishes
+  function startVideoReactions() {
+    listEl.querySelectorAll('.fb-post-summary .fb-rx-video').forEach(holder => {
+      const video = holder.querySelector('video');
+      if (!video || holder.dataset.played) return;
+      holder.dataset.played = '1';
+      const card = holder.closest('[data-post]');
+      const growing = !(card && faceAnimOff(card.dataset.post));
+      if (growing) holder.classList.add('fb-rx-video-on');
+      const stop = () => holder.classList.remove('fb-rx-video-on');
+      video.addEventListener('ended', stop, { once: true });
+      // The reaction plays with its own sound; a browser that blocks sound
+      // still shows the video, played muted
+      video.muted = false;
+      video.volume = 1;
+      const attempt = video.play();
+      if (attempt && attempt.catch) {
+        attempt.catch(() => {
+          video.muted = true;
+          video.play().catch(stop);
+        });
+      }
+      setTimeout(stop, (REACTION_VIDEO_MAX + 2) * 1000);
+    });
   }
 
   async function load() {
@@ -489,7 +535,7 @@ Posts.mount = function (listEl, opts) {
     state.commentReactions = new Map();
     state.shared = new Map();
     state.friendIds = await loadFriendIds();
-    state.faces = loadCustomFaces();
+    state.faces = await loadReactionMedia();
 
     let query = sb.from('posts').select('*').order('created_at', { ascending: false }).limit(options.limit || 30);
     if (options.authorId) query = query.eq('user_id', options.authorId);
@@ -563,6 +609,7 @@ Posts.mount = function (listEl, opts) {
     }
     const el = listEl.querySelector(`[data-post="${key}"]`);
     if (el) el.outerHTML = Posts.card(post, ctxFor(post));
+    startVideoReactions();
   }
 
   async function setReaction(postId, type) {
@@ -678,28 +725,44 @@ Posts.mount = function (listEl, opts) {
     return ids;
   }
 
-  // Faces this member has uploaded, kept in this browser so they can reuse them
+  // Faces and videos this member has uploaded, so they can reuse them.
+  // The database row is what lets an admin see who owns the reaction;
+  // this browser copy keeps them usable if that table is not there yet.
   function faceStoreKey() {
     return 'meday.reactionFaces.' + (viewer.id || 'guest');
   }
 
-  function readFaceStore() {
+  function readReactionStore() {
     try {
       const raw = JSON.parse(localStorage.getItem(faceStoreKey()) || '[]');
-      return Array.isArray(raw) ? raw.filter(Boolean) : [];
+      return (Array.isArray(raw) ? raw : []).map(item =>
+        (typeof item === 'string'
+          ? { url: item, kind: 'face' }
+          : { url: item && item.url, kind: (item && item.kind) || 'face' })
+      ).filter(m => m.url);
     } catch (err) {
       return [];
     }
   }
 
-  function saveFaceStore(urls) {
+  function saveReactionStore(media) {
     try {
-      localStorage.setItem(faceStoreKey(), JSON.stringify(urls));
+      localStorage.setItem(faceStoreKey(), JSON.stringify(media));
     } catch (err) { /* a full or blocked store only costs the saved list */ }
   }
 
-  function loadCustomFaces() {
-    return readFaceStore().map(url => ({ image_url: url }));
+  function reactionMediaFrom(media) {
+    return media.map(m => ({ image_url: m.url, kind: m.kind }));
+  }
+
+  async function loadReactionMedia() {
+    const local = readReactionStore();
+    if (!sb || !viewer.id) return reactionMediaFrom(local);
+    const { data, error } = await sb.from('reaction_media').select('url, kind').eq('user_id', viewer.id);
+    if (error || !data) return reactionMediaFrom(local);
+    const media = data.map(row => ({ url: row.url, kind: row.kind || 'face' }));
+    if (media.length) saveReactionStore(media);
+    return reactionMediaFrom(media);
   }
 
   function openShare(post) {
@@ -742,11 +805,11 @@ Posts.mount = function (listEl, opts) {
     return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
   }
 
-  function pickFaceFile() {
+  function pickReactionFile() {
     return new Promise(resolve => {
       const input = document.createElement('input');
       input.type = 'file';
-      input.accept = 'image/*';
+      input.accept = 'image/*,video/*';
       input.style.display = 'none';
       document.body.appendChild(input);
       input.addEventListener('change', () => {
@@ -758,28 +821,75 @@ Posts.mount = function (listEl, opts) {
     });
   }
 
-  // Uploads a face, remembers it for next time, then reacts with it
-  async function addFaceReaction(postId, commentId) {
-    const file = await pickFaceFile();
+  // How long the picked video runs, read before it is uploaded
+  function reactionVideoSeconds(file) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const probe = document.createElement('video');
+      probe.preload = 'metadata';
+      const done = seconds => {
+        URL.revokeObjectURL(url);
+        resolve(seconds);
+      };
+      probe.onloadedmetadata = () => {
+        if (isFinite(probe.duration) && probe.duration > 0) return done(probe.duration);
+        // Some recordings report no length until the browser seeks past the end
+        probe.ondurationchange = () => {
+          if (isFinite(probe.duration) && probe.duration > 0) done(probe.duration);
+        };
+        probe.currentTime = 1e101;
+      };
+      probe.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error('that video could not be read'));
+      };
+      probe.src = url;
+    });
+  }
+
+  // Uploads a face or a video reaction (5 seconds at most), remembers it for
+  // next time and for the admin list, then reacts with it
+  async function addOwnReaction(postId, commentId) {
+    const file = await pickReactionFile();
     if (!file) return;
     if (!sb || !viewer.id) return showToast('Sign in to save your own reaction', 'error');
-    if (!String(file.type || '').startsWith('image/')) return showToast('Choose a photo of your face', 'error');
+    const type = String(file.type || '');
+    const video = type.startsWith('video/');
+    if (!video && !type.startsWith('image/')) {
+      return showToast('Choose a photo or a video of 5 seconds or less', 'error');
+    }
     try {
-      showToast('Uploading your face…', '', 6000);
-      const blob = await postFaceSquare(file).catch(() => file);
+      let kind = 'face';
+      let blob = file;
+      if (video) {
+        const seconds = await reactionVideoSeconds(file);
+        if (!(seconds > 0) || seconds > REACTION_VIDEO_MAX + 0.1) {
+          return showToast('A reaction video must be 5 seconds or shorter', 'error', 6000);
+        }
+        kind = 'video';
+        showToast('Uploading your video reaction…', '', 6000);
+      } else {
+        showToast('Uploading your face…', '', 6000);
+        blob = await postFaceSquare(file).catch(() => file);
+      }
       const url = await cloudinaryUpload(blob);
-      if (!url) throw new Error('image hosting is not connected');
-      const faces = readFaceStore();
-      if (!faces.includes(url)) faces.push(url);
-      saveFaceStore(faces);
-      state.faces = faces.map(image_url => ({ image_url }));
-      showToast('Your face reaction is ready', 'success');
-      const type = 'face:' + url;
-      if (commentId) await setCommentReaction(postId, commentId, type);
-      else await setReaction(postId, type);
+      if (!url) throw new Error('media hosting is not connected');
+      const media = readReactionStore();
+      if (!media.some(m => m.url === url)) media.push({ url, kind });
+      saveReactionStore(media);
+      state.faces = reactionMediaFrom(media);
+      const typeName = (kind === 'video' ? 'vid:' : 'face:') + url;
+      // Stored with its owner so the admin member list shows who it belongs to
+      const { error } = await sb.from('reaction_media').insert([{ user_id: viewer.id, kind, url }]);
+      if (error) {
+        showToast('Saved in this browser — run supabase/migrations/014_create_reaction_media.sql so admins can see it', 'error', 8000);
+      }
+      showToast(kind === 'video' ? 'Your video reaction is ready' : 'Your face reaction is ready', 'success');
+      if (commentId) await setCommentReaction(postId, commentId, typeName);
+      else await setReaction(postId, typeName);
     } catch (err) {
       const message = String((err && err.message) || '');
-      showToast('Could not save your face: ' + message, 'error', 6000);
+      showToast('Could not save your reaction: ' + message, 'error', 6000);
     }
   }
 
@@ -840,7 +950,7 @@ Posts.mount = function (listEl, opts) {
     const commentEl = act.closest('[data-comment]');
     const kind = act.dataset.act;
 
-    if (kind === 'add-face') return addFaceReaction(postId, commentEl ? commentEl.dataset.comment : null);
+    if (kind === 'add-face') return addOwnReaction(postId, commentEl ? commentEl.dataset.comment : null);
     if (kind === 'react-picker') {
       const wrap = act.closest('.fb-react-wrap');
       if (wrap) {
