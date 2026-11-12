@@ -59,7 +59,7 @@ Pages.userProfile = async function (el, username) {
   // Only the public columns are read — never the password
   let person = null;
   if (sb) {
-    const publicColumns = 'id, username, full_name, role, avatar_url, cover_url, status, deleted_at';
+    const publicColumns = 'id, username, full_name, role, created_at, avatar_url, cover_url, background_url, status, deleted_at';
     const overlayColumns = ', overlay_image_url, overlay_video_url, overlay_media, overlay_opacity, overlay_volume';
     let { data, error } = await sb.from('users')
       .select(publicColumns + overlayColumns)
@@ -77,6 +77,13 @@ Pages.userProfile = async function (el, username) {
 
   if (person && (person.deleted_at || person.status === 'deleted' || person.status === 'suspended')) {
     person = null;
+  }
+
+  // Age is optional: the profile still loads before 009_add_profile_details.sql runs
+  let age = null;
+  if (person && sb) {
+    const { data: ageRows } = await sb.from('users').select('id, age').eq('id', person.id).limit(1);
+    if (ageRows && ageRows[0]) age = ageRows[0].age;
   }
 
   if (!person) {
@@ -97,17 +104,20 @@ Pages.userProfile = async function (el, username) {
   }
 
   const name = person.full_name || person.username || 'Member';
-  const initial = (name.trim()[0] || '?').toUpperCase();
+
   const cover = person.cover_url || '';
   const coverIsVideo = upIsVideo(cover);
   const avatar = person.avatar_url || '';
   const avatarIsVideo = upIsVideo(avatar);
   const link = fbProfileLink(person.username);
+  const joined = person.created_at
+    ? new Date(person.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long' })
+    : '';
 
   el.innerHTML = `<div class="fb-public">
     ${bar}
     <div class="fb-profile">
-      <div class="fb-cover${cover ? ' fb-cover--media' : ''}" id="upCover">
+      <div class="fb-cover${cover ? ' fb-cover--media' : ' fb-cover--empty'}" id="upCover">
         ${cover
           ? coverIsVideo
             ? `<video class="fb-cover-media" src="${fbEscape(cover)}" autoplay muted loop playsinline></video>`
@@ -124,7 +134,7 @@ Pages.userProfile = async function (el, username) {
           ? avatarIsVideo
             ? `<video class="fb-avatar-img" src="${fbEscape(avatar)}" autoplay muted loop playsinline></video>`
             : `<img class="fb-avatar-img" src="${fbEscape(avatar)}" alt="${fbEscape(name)}">`
-          : fbEscape(initial)}${avatar && window.AdminModerate ? AdminModerate.mediaButton('avatar', person.id) : ''}</div>
+          : fbBrandMark()}${avatar && window.AdminModerate ? AdminModerate.mediaButton('avatar', person.id) : ''}</div>
         <div class="fb-profile-id">
           <h1 class="fb-profile-name">${fbEscape(name)}</h1>
           <div class="fb-profile-meta">${fbEscape(fbRoleLabel(person.role))} · @${fbEscape(person.username)}</div>
@@ -138,6 +148,27 @@ Pages.userProfile = async function (el, username) {
             : ''}
           <button class="fb-btn fb-btn-secondary" id="upCopy" type="button">Copy link</button>
         </div>
+      </div>
+    </div>
+
+    <div class="fb-profile-cols">
+      <div class="fb-col">
+        <section class="fb-card" id="upAbout">
+          <div class="fb-card-head"><h3>Personal details</h3></div>
+          <ul class="fb-detail-list">
+            <li><span class="ico" aria-hidden="true">📛</span><span class="k">Name:</span> ${fbEscape(name)}</li>
+            <li><span class="ico" aria-hidden="true">👤</span><span class="k">Username:</span> @${fbEscape(person.username)}</li>
+            <li><span class="ico" aria-hidden="true">🏷️</span><span class="k">Role:</span> ${fbEscape(fbRoleLabel(person.role))}</li>
+            ${age ? `<li><span class="ico" aria-hidden="true">🎂</span><span class="k">Age:</span> ${fbEscape(age)}</li>` : ''}
+            ${joined ? `<li><span class="ico" aria-hidden="true">📅</span><span class="k">Joined:</span> ${fbEscape(joined)}</li>` : ''}
+          </ul>
+        </section>
+      </div>
+      <div class="fb-col">
+        <section class="fb-card" id="upPosts">
+          <div class="fb-card-head"><h3>Posts</h3></div>
+          <div id="upFeed"><div class="loading" style="padding:1rem;">Loading posts…</div></div>
+        </section>
       </div>
     </div>
   </div>`;
@@ -166,5 +197,16 @@ Pages.userProfile = async function (el, username) {
   const expand = el.querySelector('#upExpand');
   if (expand) expand.addEventListener('click', () => fbPlayFullVideo(cover));
   if (cover && upIsVideo(cover)) upApplyFraming(el.querySelector('#upCover'));
+  // This member's posts, with their reactions and comments
+  if (window.Posts) {
+    Posts.mount(el.querySelector('#upFeed'), {
+      viewer: viewer,
+      authorId: person.id,
+      limit: 20,
+      emptyHtml: '<div class="empty-state" style="padding:1.5rem;">No posts yet.</div>'
+    });
+  }
   ProfileOverlay.paint(el.querySelector('.fb-profile'), person);
+  // The account's own picture is the page background, signed in or not
+  fbPaintPageBackground(person.background_url || '');
 };

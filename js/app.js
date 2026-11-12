@@ -1,5 +1,8 @@
 // Main app entry — registers all routes and boots the router
 Auth.init();
+// Every page starts from the signed-in member's own background picture; an
+// account page then swaps in the picture of the account it shows.
+Router.afterRender = () => fbPaintPageBackground(Auth.currentUser && Auth.currentUser.background_url);
 Router.register('/', Pages.landing);
 Router.register('/Login', Pages.login);
 Router.register('/Register', Pages.register);

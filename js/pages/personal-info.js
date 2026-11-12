@@ -53,7 +53,22 @@
           <label class="pi-field">Repeat new password<input name="confirm_password" type="text" maxlength="60" placeholder="Type it again" autocomplete="new-password"></label>
           <button class="pi-save" type="submit">Change password</button>
         </form>
-      </section>`;
+      </section>
+
+      ${isSelf ? `
+      <section class="pi-card">
+        <h3 class="pi-title">Account background</h3>
+        <p class="pi-private">Any picture you upload here shows behind every page while you are signed in.</p>
+        <div class="pi-bg">
+          <div class="pi-bg-preview" id="piBgPreview">
+            <span>No background picture yet</span>
+          </div>
+          <div class="pi-bg-actions">
+            <button class="pi-save" id="piBgUpload" type="button">Upload picture</button>
+            <button class="pi-clear" id="piBgClear" type="button"${user.background_url ? '' : ' hidden'}>Remove</button>
+          </div>
+        </div>
+      </section>` : ''}`;
 
     const details = container.querySelector('.pi-details');
     details.addEventListener('submit', async (e) => {
@@ -133,6 +148,94 @@
         btn.textContent = 'Change password';
       }
     });
+
+    // ---------- Account background picture (shown behind every page) ----------
+
+    const backgroundBtn = container.querySelector('#piBgUpload');
+    if (backgroundBtn) {
+      const backgroundClear = container.querySelector('#piBgClear');
+      const preview = container.querySelector('#piBgPreview');
+
+      function paintBackground(url) {
+        preview.style.backgroundImage = url ? `url('${url}')` : '';
+        preview.classList.toggle('has-image', !!url);
+        preview.innerHTML = url ? '' : '<span>No background picture yet</span>';
+        backgroundClear.hidden = !url;
+        fbPaintPageBackground(url);
+      }
+
+      async function saveBackground(url) {
+        if (!sb) throw new Error('connect the database to change your background');
+        const { error } = await sb.rpc('set_page_background', {
+          p_user_id: user.id,
+          p_background_url: url
+        });
+        if (error) throw error;
+        user.background_url = url;
+        if (isSelf) remember({ background_url: url });
+        paintBackground(url);
+      }
+
+      function backgroundProblem(err) {
+        const message = String((err && err.message) || err || '');
+        return /set_page_background|could not find the function|does not exist|schema cache/i.test(message)
+          ? 'Run 015_add_page_background.sql in Supabase, then try again'
+          : 'Could not update your background: ' + message;
+      }
+
+      // Show what is saved already
+      if (user.background_url) paintBackground(user.background_url);
+
+      const backgroundFile = document.createElement('input');
+      backgroundFile.type = 'file';
+      backgroundFile.accept = 'image/*';
+      backgroundFile.hidden = true;
+      container.append(backgroundFile);
+
+      backgroundBtn.addEventListener('click', () => backgroundFile.click());
+
+      backgroundFile.addEventListener('change', async () => {
+        const file = backgroundFile.files[0];
+        backgroundFile.value = '';
+        if (!file) return;
+        if (file.type && file.type.indexOf('image/') !== 0) {
+          showToast('Choose an image file', 'error');
+          return;
+        }
+        if (file.size > 20 * 1024 * 1024) {
+          showToast('That picture is larger than 20 MB', 'error');
+          return;
+        }
+        backgroundBtn.disabled = true;
+        backgroundBtn.textContent = 'Uploading…';
+        try {
+          // Any picture is accepted: what the browser cannot shrink goes up as it is
+          let payload = file;
+          try { payload = await shrinkImage(file, 2000); } catch { payload = file; }
+          const url = await cloudinaryUpload(payload);
+          if (!url) throw new Error('image hosting is not connected');
+          await saveBackground(url);
+          showToast('Your account background is updated', 'success');
+        } catch (err) {
+          showToast(backgroundProblem(err), 'error', 6000);
+        } finally {
+          backgroundBtn.disabled = false;
+          backgroundBtn.textContent = 'Upload picture';
+        }
+      });
+
+      backgroundClear.addEventListener('click', async () => {
+        backgroundClear.disabled = true;
+        try {
+          await saveBackground('');
+          showToast('Account background removed', 'success');
+        } catch (err) {
+          showToast(backgroundProblem(err), 'error', 6000);
+        } finally {
+          backgroundClear.disabled = false;
+        }
+      });
+    }
   }
 
   window.PersonalInfo = { render };

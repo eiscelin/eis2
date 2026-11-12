@@ -10,7 +10,7 @@ function fbRoleLabel(role) {
 
 Pages.profileTab = function(main, user) {
   const name = user.full_name || user.username || 'Member';
-  const initial = (name.trim()[0] || '?').toUpperCase();
+
   const role = fbRoleLabel(user.role);
   const brand = fbBrand();
   let avatarUrl = user.avatar_url || '';
@@ -33,7 +33,7 @@ Pages.profileTab = function(main, user) {
   // A profile picture can be a photo or a short video
   function avatarMedia(video) {
     const isVid = video === undefined ? isVideo(avatarUrl) : video;
-    if (!avatarUrl) return fbEscape(initial);
+    if (!avatarUrl) return fbBrandMark();
     return isVid
       ? `<video class="fb-avatar-img" src="${fbEscape(avatarUrl)}" autoplay muted loop playsinline></video>`
       : `<img class="fb-avatar-img" src="${fbEscape(avatarUrl)}" alt="${fbEscape(name)}">`;
@@ -41,7 +41,7 @@ Pages.profileTab = function(main, user) {
 
   main.innerHTML = `
     <div class="fb-profile">
-      <div class="fb-cover${coverUrl ? ' fb-cover--media' : ''}" id="pfCover">
+      <div class="fb-cover${coverUrl ? ' fb-cover--media' : ' fb-cover--empty'}" id="pfCover">
         ${coverUrl
           ? isVideo(coverUrl)
             ? `<video class="fb-cover-media" src="${fbEscape(coverUrl)}" autoplay muted loop playsinline></video>`
@@ -221,6 +221,7 @@ Pages.profileTab = function(main, user) {
   function paintCover(video) {
     const cover = main.querySelector('#pfCover');
     cover.classList.toggle('fb-cover--media', !!coverUrl);
+    cover.classList.toggle('fb-cover--empty', !coverUrl);
     cover.querySelector('.fb-cover-media')?.remove();
     cover.querySelector('#pfCoverExpand')?.remove();
     if (!coverUrl) return;

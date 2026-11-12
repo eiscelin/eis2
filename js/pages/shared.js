@@ -50,6 +50,27 @@ function fbBrandMark() {
   return fbEscape(brand.initial);
 }
 
+// Account background: the picture the signed-in member chose shows behind every
+// page. The layer lives on <body>, so it survives every route change.
+function fbPaintPageBackground(url) {
+  const picture = String(url || '').trim();
+  let layer = document.getElementById('fbPageBg');
+  if (!picture) {
+    if (layer) layer.remove();
+    document.body.classList.remove('has-page-bg');
+    return;
+  }
+  if (!layer) {
+    layer = document.createElement('div');
+    layer.id = 'fbPageBg';
+    layer.className = 'page-bg';
+    layer.setAttribute('aria-hidden', 'true');
+    document.body.insertBefore(layer, document.body.firstChild);
+  }
+  layer.style.backgroundImage = 'url("' + picture.replace(/"/g, '%22') + '")';
+  document.body.classList.add('has-page-bg');
+}
+
 function showToast(msg, type = '', ms = 3000) {
   const t = document.createElement('div');
   t.className = `toast ${type}`;

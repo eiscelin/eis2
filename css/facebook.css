@@ -393,6 +393,8 @@ body.fb-searching { overflow: hidden; }
   border-radius: 50%;
   background: #fff;
 }
+.fb-menu-switch[aria-checked="false"] { background: var(--fb-hover); }
+.fb-menu-switch[aria-checked="false"] i { right: auto; left: 2px; }
 .fb-menu .is-hidden { display: none !important; }
 
 /* ===================== Surfaces ===================== */
@@ -541,6 +543,9 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
     radial-gradient(circle at 12% 88%, rgba(0, 0, 0, 0.4), transparent 55%),
     linear-gradient(115deg, #0a2e6e 0%, #1877f2 55%, #0b3f92 100%);
 }
+/* Empty cover: plain white until the owner picks a photo or video */
+.fb-cover--empty { background: #fff; }
+.fb-cover--empty::before { display: none; }
 .fb-cover::before {
   content: 'f';
   position: absolute; right: 6%; top: 42%;
@@ -876,6 +881,8 @@ a.fb-person-img:hover { filter: brightness(1.1); }
 .fb-post { padding: 0.85rem 1rem 0.4rem; border-top: 1px solid var(--fb-line); }
 .fb-post:first-of-type { border-top: none; }
 .fb-post-head { display: flex; align-items: center; gap: 0.6rem; }
+/* Grow/sound switches live in the post head, clear of the growing reactions */
+.fb-post-toggles { margin-left: auto; display: inline-flex; align-items: center; gap: 0.1rem; flex-shrink: 0; }
 .fb-post-name { font-weight: 700; font-size: 0.93rem; color: var(--fb-text); }
 .fb-post-time { font-size: 0.76rem; color: var(--fb-muted); }
 .fb-post-body { padding: 0.6rem 0 0.7rem; font-size: 0.93rem; line-height: 1.45; color: var(--fb-text); }
@@ -1964,6 +1971,33 @@ a.admin-tool { text-decoration: none; display: inline-flex; align-items: center;
 .pi-field input[readonly] { background: #e4e6eb; color: #1c1e21; cursor: default; }
 .pi-private { margin: 0; color: var(--fb-muted); font-size: .82rem; line-height: 1.5; }
 
+/* ===================== Account background picture ===================== */
+/* The member's picture sits behind every page; a scrim keeps the text readable */
+.page-bg {
+  position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background-position: center; background-size: cover; background-repeat: no-repeat;
+}
+.page-bg::after { content: ""; position: absolute; inset: 0; background: rgba(16, 17, 20, 0.76); }
+body.has-page-bg .fb-shell,
+body.has-page-bg .admin-page { background: transparent; }
+
+.pi-bg { display: flex; flex-direction: column; gap: .75rem; }
+.pi-bg-preview {
+  height: 150px; border-radius: 12px; border: 1px dashed rgba(255, 255, 255, .2);
+  background-color: #1c1e21; background-position: center; background-size: cover; background-repeat: no-repeat;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--fb-muted); font-size: .85rem;
+}
+.pi-bg-preview.has-image { border-style: solid; }
+.pi-bg-actions { display: flex; gap: .6rem; flex-wrap: wrap; }
+.pi-clear {
+  padding: .65rem 1rem; border: none; border-radius: 10px;
+  background: rgba(255, 255, 255, .12); color: #fff; font: inherit; font-size: .9rem; cursor: pointer;
+}
+.pi-clear:hover { background: rgba(255, 255, 255, .2); }
+.pi-clear:disabled { opacity: .6; cursor: not-allowed; }
+.pi-clear[hidden] { display: none; }
+
 /* ===================== Member posts: media, reactions, comments ===================== */
 .fb-composer-card { padding: 0; }
 .fb-posts-composer .fb-composer { padding: 0.85rem 1rem 0.35rem; }
@@ -2124,24 +2158,32 @@ a.fb-post-name:hover { text-decoration: underline; }
    the faces: it grows and wiggles while it plays (js/posts.js starts it once). */
 .fb-rx-video { border-radius: 50%; background: #000; overflow: hidden; }
 .fb-rx-vid { object-fit: cover; }
-/* Switch beside a post's reactions that stops the growing and wiggling */
-.fb-face-anim-switch { display: inline-flex; align-items: center; margin-left: 0.35rem; cursor: pointer; }
+/* Switch beside a post's reactions that stops the growing and wiggling.
+   It sits on its own card-coloured chip above the growing faces (which reach
+   z-index 20 while they grow), so it stays visible and clickable. */
+.fb-face-anim-switch {
+  position: relative; z-index: 21;
+  display: inline-flex; align-items: center;
+  margin-left: 0.45rem; padding: 0.15rem 0.35rem;
+  border-radius: 999px; background: var(--fb-card);
+  cursor: pointer;
+}
 .fb-face-anim-switch input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .fb-face-anim-track {
-  position: relative; display: block; width: 26px; height: 14px;
+  position: relative; display: block; width: 40px; height: 22px;
   border-radius: 999px; background: rgba(255, 255, 255, 0.22);
   transition: background 0.15s ease;
 }
 .fb-face-anim-track::after {
-  content: ''; position: absolute; top: 2px; left: 2px;
-  width: 10px; height: 10px; border-radius: 50%; background: #fff;
+  content: ''; position: absolute; top: 3px; left: 3px;
+  width: 16px; height: 16px; border-radius: 50%; background: #fff;
   transition: transform 0.15s ease;
 }
 .fb-face-anim-switch input:checked + .fb-face-anim-track { background: var(--fb-blue); }
-.fb-face-anim-switch input:checked + .fb-face-anim-track::after { transform: translateX(12px); }
+.fb-face-anim-switch input:checked + .fb-face-anim-track::after { transform: translateX(18px); }
 .fb-face-anim-switch input:focus-visible + .fb-face-anim-track { box-shadow: 0 0 0 2px var(--fb-blue); }
 /* Sound switch beside it, which silences the video reactions on that post */
-.fb-rx-sound-icon { font-size: 13px; line-height: 1; }
+.fb-rx-sound-icon { font-size: 20px; line-height: 1; }
 .fb-face-anim-off .fb-rx-face { animation-name: none !important; }
 @media (max-width: 640px) {
   .fb-reaction-picker { padding: 0.35rem 0.45rem; }
@@ -2150,6 +2192,9 @@ a.fb-post-name:hover { text-decoration: underline; }
   .fb-reaction-add { width: 44px; height: 44px; font-size: 1.2rem; }
   .fb-post-act .fb-rx { width: 36px; height: 36px; }
   .fb-post-summary .fb-rx { width: 30px; height: 30px; }
+  /* On a phone the growing reaction expands to the right of its slot instead of
+     centred on it, so it never spills past the screen's left edge */
+  .fb-post-summary .fb-rx-face { transform-origin: left center; }
   .fb-reaction-icons > span { width: 30px; height: 30px; margin-left: -8px; }
   .fb-comment-reactions .fb-rx { width: 28px; height: 28px; }
 }

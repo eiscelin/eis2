@@ -284,6 +284,7 @@ Posts.card = function (post, ctx) {
         <a class="fb-post-name" href="${postProfileHref(authorUsername)}">${fbEscape(authorName)}</a>
         <div class="fb-post-time">${fbEscape(postTimeAgo(post.created_at))} · <span title="${audience.label}" aria-label="${audience.label}">${audience.icon}</span></div>
       </div>
+      ${hasFaces ? `<span class="fb-post-toggles">${postFaceAnimSwitch(post.id, faceOff)}${postRxSoundSwitch(post.id, rxSoundOff(post.id))}</span>` : ''}
     </div>
     ${post.content ? `<div class="fb-post-text">${fbEscape(post.content)}</div>` : ''}
     ${ctx.shared ? postSharedHtml(ctx.shared, ctx.users) : ''}
@@ -291,7 +292,7 @@ Posts.card = function (post, ctx) {
     ${totalReactions || comments.length || shares
       ? `<div class="fb-post-stats">
           <span class="fb-post-summary">${totalReactions
-            ? `<span class="fb-reaction-icons${faceOff ? ' fb-face-anim-off' : ''}">${postFaceSlots(groups)}</span>${postCount(totalReactions)}${hasFaces ? postFaceAnimSwitch(post.id, faceOff) + postRxSoundSwitch(post.id, rxSoundOff(post.id)) : ''}`
+            ? `<span class="fb-reaction-icons${faceOff ? ' fb-face-anim-off' : ''}">${postFaceSlots(groups)}</span>${postCount(totalReactions)}`
             : ''}</span>
           <span class="fb-post-counts">
             ${comments.length ? `<button type="button" data-act="focus-comment">${postCount(comments.length)} comment${comments.length === 1 ? '' : 's'}</button>` : ''}
@@ -521,7 +522,11 @@ Posts.mount = function (listEl, opts) {
   function visibleToViewer(post) {
     const audience = post.audience || 'public';
     if (audience === 'public' || String(post.user_id) === String(viewer.id)) return true;
-    if (audience === 'friends') return state.friendIds ? state.friendIds.has(String(post.user_id)) : true;
+    if (audience === 'friends') {
+      // A visitor who is not signed in only sees public posts
+      if (!viewer.id) return false;
+      return state.friendIds ? state.friendIds.has(String(post.user_id)) : true;
+    }
     return false;
   }
 
@@ -736,6 +741,7 @@ Posts.mount = function (listEl, opts) {
   async function addComment(postId, input) {
     const body = input.value.trim();
     if (!body) return;
+    if (!viewer.id) return showToast('Log in to comment', '', 4000);
     const { error } = await sb.from('post_comments').insert([{
       post_id: postId,
       user_id: viewer.id,
@@ -1052,6 +1058,14 @@ Posts.mount = function (listEl, opts) {
   });
 
   listEl.addEventListener('click', async e => {
+    // Visitors who are not signed in can read posts and their reactions, not add to them.
+    // The grow/sound switches are local display settings, so they keep working.
+    const guarded = e.target.closest('[data-act], .fb-reaction-option');
+    if (!viewer.id && guarded && !/^toggle-/.test(guarded.dataset.act || '')) {
+      e.preventDefault();
+      showToast('Log in to react and comment', '', 4000);
+      return;
+    }
     const option = e.target.closest('.fb-reaction-option');
     if (option) {
       e.preventDefault();

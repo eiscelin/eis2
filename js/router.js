@@ -2,6 +2,7 @@
 const Router = {
   routes: {},
   beforeRender: null,
+  afterRender: null,
 
   fallbacks: [],
 
@@ -44,6 +45,7 @@ const Router = {
       app.innerHTML = '';
       if (this.beforeRender) this.beforeRender();
       handler(app);
+      if (this.afterRender) this.afterRender(path);
     }
   },
 
