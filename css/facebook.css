@@ -881,6 +881,8 @@ a.fb-person-img:hover { filter: brightness(1.1); }
 .fb-post { padding: 0.85rem 1rem 0.4rem; border-top: 1px solid var(--fb-line); }
 .fb-post:first-of-type { border-top: none; }
 .fb-post-head { display: flex; align-items: center; gap: 0.6rem; }
+/* Grow/sound switches live in the post head, clear of the growing reactions */
+.fb-post-toggles { margin-left: auto; display: inline-flex; align-items: center; gap: 0.1rem; flex-shrink: 0; }
 .fb-post-name { font-weight: 700; font-size: 0.93rem; color: var(--fb-text); }
 .fb-post-time { font-size: 0.76rem; color: var(--fb-muted); }
 .fb-post-body { padding: 0.6rem 0 0.7rem; font-size: 0.93rem; line-height: 1.45; color: var(--fb-text); }

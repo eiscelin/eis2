@@ -284,6 +284,7 @@ Posts.card = function (post, ctx) {
         <a class="fb-post-name" href="${postProfileHref(authorUsername)}">${fbEscape(authorName)}</a>
         <div class="fb-post-time">${fbEscape(postTimeAgo(post.created_at))} · <span title="${audience.label}" aria-label="${audience.label}">${audience.icon}</span></div>
       </div>
+      ${hasFaces ? `<span class="fb-post-toggles">${postFaceAnimSwitch(post.id, faceOff)}${postRxSoundSwitch(post.id, rxSoundOff(post.id))}</span>` : ''}
     </div>
     ${post.content ? `<div class="fb-post-text">${fbEscape(post.content)}</div>` : ''}
     ${ctx.shared ? postSharedHtml(ctx.shared, ctx.users) : ''}
@@ -291,7 +292,7 @@ Posts.card = function (post, ctx) {
     ${totalReactions || comments.length || shares
       ? `<div class="fb-post-stats">
           <span class="fb-post-summary">${totalReactions
-            ? `<span class="fb-reaction-icons${faceOff ? ' fb-face-anim-off' : ''}">${postFaceSlots(groups)}</span>${postCount(totalReactions)}${hasFaces ? postFaceAnimSwitch(post.id, faceOff) + postRxSoundSwitch(post.id, rxSoundOff(post.id)) : ''}`
+            ? `<span class="fb-reaction-icons${faceOff ? ' fb-face-anim-off' : ''}">${postFaceSlots(groups)}</span>${postCount(totalReactions)}`
             : ''}</span>
           <span class="fb-post-counts">
             ${comments.length ? `<button type="button" data-act="focus-comment">${postCount(comments.length)} comment${comments.length === 1 ? '' : 's'}</button>` : ''}
