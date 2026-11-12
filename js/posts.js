@@ -735,6 +735,15 @@ Posts.mount = function (listEl, opts) {
     }
   }
 
+  // Hovering only previews the options: the picker stays open until a reaction is clicked
+  listEl.addEventListener('mouseover', e => {
+    const wrap = e.target.closest('.fb-react-wrap');
+    if (!wrap || wrap.classList.contains('open')) return;
+    const card = wrap.closest('[data-post]');
+    if (card) card.querySelectorAll('.fb-react-wrap.open').forEach(w => w.classList.remove('open'));
+    wrap.classList.add('open');
+  });
+
   listEl.addEventListener('click', async e => {
     const option = e.target.closest('.fb-reaction-option');
     if (option) {

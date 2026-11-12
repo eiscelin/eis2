@@ -50,8 +50,8 @@ Posts.faceUrl = function (type) {
 Posts.reactionIcon = function (type, slot) {
   const face = Posts.faceUrl(type);
   if (face) {
-    // Each face on a post takes its own turn in the shake loop (one second apart).
-    const delay = slot ? ` style="animation-delay:${slot % 6}s"` : '';
+    // Each face on a post takes its own 2 second turn in the loop.
+    const delay = slot ? ` style="animation-delay:${(slot % 6) * 2}s"` : '';
     return `<span class="fb-rx fb-rx-face"${delay}><img class="fb-rx-img" src="${fbEscape(face)}" alt="" loading="lazy"></span>`;
   }
   const art = FB_RX_ART[type] || FB_RX_ART.like;

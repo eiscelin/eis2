@@ -2087,21 +2087,26 @@ a.fb-post-name:hover { text-decoration: underline; }
 .fb-post-summary .fb-rx { width: 40px; height: 40px; }
 .fb-reaction-icons > span { width: 40px; height: 40px; margin-left: -10px; box-shadow: 0 0 0 3px var(--fb-card); }
 .fb-comment-reactions .fb-rx { width: 36px; height: 36px; }
-/* Uploaded face reactions shake while growing and shrinking, one face after another */
+/* Uploaded face reactions swell to 10x while wiggling, one face after another,
+   each taking its own 2 second turn in the loop */
 .fb-post-summary .fb-rx-face, .fb-post-act .fb-rx-face {
-  animation: fb-rx-shake 6s ease-in-out infinite;
+  position: relative;
+  z-index: 4;
+  pointer-events: none;
+  animation: fb-rx-shake 12s ease-in-out infinite;
   transform-origin: center;
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.22), 0 0 10px rgba(36, 134, 228, 0.45);
 }
+.fb-post-card { overflow: visible; }
 @keyframes fb-rx-shake {
   0% { transform: scale(1) rotate(0deg); }
-  2% { transform: scale(1.2) rotate(-10deg); }
-  4% { transform: scale(1.25) rotate(10deg); }
-  6% { transform: scale(1.2) rotate(-8deg); }
-  8% { transform: scale(1.14) rotate(8deg); }
-  10% { transform: scale(1.08) rotate(-5deg); }
-  12% { transform: scale(1.04) rotate(4deg); }
-  15% { transform: scale(1) rotate(0deg); }
+  3% { transform: scale(4) rotate(-8deg); }
+  6% { transform: scale(8) rotate(8deg); }
+  8.333% { transform: scale(10) rotate(-6deg); }
+  10.417% { transform: scale(10) rotate(6deg); }
+  12.5% { transform: scale(10) rotate(-5deg); }
+  14.583% { transform: scale(10) rotate(4deg); }
+  16.667% { transform: scale(1) rotate(0deg); }
   100% { transform: scale(1) rotate(0deg); }
 }
 @media (max-width: 640px) {
