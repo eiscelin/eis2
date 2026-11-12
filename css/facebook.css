@@ -2074,6 +2074,18 @@ a.fb-post-name:hover { text-decoration: underline; }
   transition: border-color 0.15s ease, color 0.15s ease;
 }
 .fb-reaction-add:hover { border-color: var(--fb-blue); color: var(--fb-blue); }
+/* An uploaded reaction carries a delete badge for the member who owns it */
+.fb-reaction-own { position: relative; display: inline-flex; }
+.fb-reaction-remove {
+  position: absolute; top: 6px; right: 6px; z-index: 2;
+  width: 22px; height: 22px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: none; border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6); color: #fff;
+  font-size: 0.95rem; line-height: 1; cursor: pointer;
+  transition: background 0.15s ease;
+}
+.fb-reaction-remove:hover { background: #f02849; }
 .fb-react-wrap.open .fb-reaction-option .fb-rx { animation: fb-rx-pop 0.24s ease-out backwards; }
 .fb-react-wrap.open .fb-reaction-option:nth-child(2) .fb-rx { animation-delay: 0.02s; }
 .fb-react-wrap.open .fb-reaction-option:nth-child(3) .fb-rx { animation-delay: 0.04s; }

@@ -142,11 +142,16 @@ function postFaceSlots(groups) {
 }
 
 function postReactionPicker(media) {
+  // A member's own uploads sit in the choices with a delete badge, so the
+  // reaction can be taken back out by the member who put it there
   const own = (media || []).map(item => {
     const video = item.kind === 'video';
     const type = (video ? 'vid:' : 'face:') + item.image_url;
     const label = video ? 'Your video reaction' : 'Your face reaction';
-    return `<button class="fb-reaction-option" type="button" data-react="${fbEscape(type)}" title="${label}" aria-label="Use ${label.toLowerCase()}">${Posts.reactionIcon(type)}</button>`;
+    return `<span class="fb-reaction-own">
+      <button class="fb-reaction-option" type="button" data-react="${fbEscape(type)}" title="${label}" aria-label="Use ${label.toLowerCase()}">${Posts.reactionIcon(type)}</button>
+      <button class="fb-reaction-remove" type="button" data-act="remove-face" data-url="${fbEscape(item.image_url)}"${item.id ? ` data-id="${fbEscape(item.id)}"` : ''} title="Delete this reaction" aria-label="Delete ${label.toLowerCase()}">×</button>
+    </span>`;
   }).join('');
   return `<div class="fb-reaction-picker">
     ${REACTION_ORDER.map(t =>
@@ -446,6 +451,14 @@ Posts.mount = function (listEl, opts) {
   function closePickers() {
     state.openPicker = null;
     listEl.querySelectorAll('.fb-react-wrap.open').forEach(w => w.classList.remove('open'));
+  }
+
+  // Repaints every reaction picker so an upload or a delete shows up in all of
+  // them, not only on the post that was used last
+  function refreshReactionPickers() {
+    listEl.querySelectorAll('.fb-react-wrap > .fb-reaction-picker').forEach(picker => {
+      picker.outerHTML = postReactionPicker(state.faces);
+    });
   }
 
   // Identifies one reaction picker so it can survive a card re-render
@@ -752,15 +765,15 @@ Posts.mount = function (listEl, opts) {
   }
 
   function reactionMediaFrom(media) {
-    return media.map(m => ({ image_url: m.url, kind: m.kind }));
+    return media.map(m => ({ id: m.id || '', image_url: m.url, kind: m.kind }));
   }
 
   async function loadReactionMedia() {
     const local = readReactionStore();
     if (!sb || !viewer.id) return reactionMediaFrom(local);
-    const { data, error } = await sb.from('reaction_media').select('url, kind').eq('user_id', viewer.id);
+    const { data, error } = await sb.from('reaction_media').select('id, url, kind').eq('user_id', viewer.id);
     if (error || !data) return reactionMediaFrom(local);
-    const media = data.map(row => ({ url: row.url, kind: row.kind || 'face' }));
+    const media = data.map(row => ({ id: row.id, url: row.url, kind: row.kind || 'face' }));
     if (media.length) saveReactionStore(media);
     return reactionMediaFrom(media);
   }
@@ -878,11 +891,16 @@ Posts.mount = function (listEl, opts) {
       if (!media.some(m => m.url === url)) media.push({ url, kind });
       saveReactionStore(media);
       state.faces = reactionMediaFrom(media);
+      refreshReactionPickers();
       const typeName = (kind === 'video' ? 'vid:' : 'face:') + url;
       // Stored with its owner so the admin member list shows who it belongs to
       const { error } = await sb.from('reaction_media').insert([{ user_id: viewer.id, kind, url }]);
       if (error) {
         showToast('Saved in this browser — run supabase/migrations/014_create_reaction_media.sql so admins can see it', 'error', 8000);
+      } else {
+        // Re-read so the new choice carries the row id its delete badge needs
+        state.faces = await loadReactionMedia();
+        refreshReactionPickers();
       }
       showToast(kind === 'video' ? 'Your video reaction is ready' : 'Your face reaction is ready', 'success');
       if (commentId) await setCommentReaction(postId, commentId, typeName);
@@ -891,6 +909,25 @@ Posts.mount = function (listEl, opts) {
       const message = String((err && err.message) || '');
       showToast('Could not save your reaction: ' + message, 'error', 6000);
     }
+  }
+
+  // Only the member who uploaded a reaction can take it out of the choices
+  async function removeOwnReaction(el) {
+    const url = el.dataset.url;
+    if (!url || !viewer.id) return;
+    const id = el.dataset.id;
+    const store = readReactionStore().filter(m => m.url !== url);
+    saveReactionStore(store);
+    if (sb) {
+      let query = sb.from('reaction_media').delete().eq('user_id', viewer.id);
+      query = id ? query.eq('id', id) : query.eq('url', url);
+      const { error } = await query;
+      if (error) showToast('Removed in this browser only — run supabase/migrations/014_create_reaction_media.sql first', 'error', 8000);
+    }
+    // Drop it from the choices here too, in case the database delete could not run
+    state.faces = (state.faces || []).filter(m => m.image_url !== url);
+    refreshReactionPickers();
+    showToast('Reaction deleted', 'success');
   }
 
   // Hovering only previews the options: the picker stays open until a reaction is clicked
@@ -951,6 +988,7 @@ Posts.mount = function (listEl, opts) {
     const kind = act.dataset.act;
 
     if (kind === 'add-face') return addOwnReaction(postId, commentEl ? commentEl.dataset.comment : null);
+    if (kind === 'remove-face') return removeOwnReaction(act);
     if (kind === 'react-picker') {
       const wrap = act.closest('.fb-react-wrap');
       if (wrap) {
