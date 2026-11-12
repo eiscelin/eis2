@@ -2140,6 +2140,8 @@ a.fb-post-name:hover { text-decoration: underline; }
 .fb-face-anim-switch input:checked + .fb-face-anim-track { background: var(--fb-blue); }
 .fb-face-anim-switch input:checked + .fb-face-anim-track::after { transform: translateX(12px); }
 .fb-face-anim-switch input:focus-visible + .fb-face-anim-track { box-shadow: 0 0 0 2px var(--fb-blue); }
+/* Sound switch beside it, which silences the video reactions on that post */
+.fb-rx-sound-icon { font-size: 13px; line-height: 1; }
 .fb-face-anim-off .fb-rx-face { animation-name: none !important; }
 @media (max-width: 640px) {
   .fb-reaction-picker { padding: 0.35rem 0.45rem; }
