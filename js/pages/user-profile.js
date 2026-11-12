@@ -59,7 +59,7 @@ Pages.userProfile = async function (el, username) {
   // Only the public columns are read — never the password
   let person = null;
   if (sb) {
-    const publicColumns = 'id, username, full_name, role, avatar_url, cover_url, status, deleted_at';
+    const publicColumns = 'id, username, full_name, role, avatar_url, cover_url, background_url, status, deleted_at';
     const overlayColumns = ', overlay_image_url, overlay_video_url, overlay_media, overlay_opacity, overlay_volume';
     let { data, error } = await sb.from('users')
       .select(publicColumns + overlayColumns)
@@ -167,4 +167,6 @@ Pages.userProfile = async function (el, username) {
   if (expand) expand.addEventListener('click', () => fbPlayFullVideo(cover));
   if (cover && upIsVideo(cover)) upApplyFraming(el.querySelector('#upCover'));
   ProfileOverlay.paint(el.querySelector('.fb-profile'), person);
+  // The account's own picture is the page background, signed in or not
+  fbPaintPageBackground(person.background_url || '');
 };
