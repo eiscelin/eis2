@@ -47,6 +47,7 @@ const Auth = {
   logout() {
     this.currentUser = null;
     localStorage.removeItem('chookee_user');
+    if (typeof fbPaintPageBackground === 'function') fbPaintPageBackground('');
     location.hash = '#/';
   },
 

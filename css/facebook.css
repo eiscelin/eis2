@@ -1964,6 +1964,33 @@ a.admin-tool { text-decoration: none; display: inline-flex; align-items: center;
 .pi-field input[readonly] { background: #e4e6eb; color: #1c1e21; cursor: default; }
 .pi-private { margin: 0; color: var(--fb-muted); font-size: .82rem; line-height: 1.5; }
 
+/* ===================== Account background picture ===================== */
+/* The member's picture sits behind every page; a scrim keeps the text readable */
+.page-bg {
+  position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background-position: center; background-size: cover; background-repeat: no-repeat;
+}
+.page-bg::after { content: ""; position: absolute; inset: 0; background: rgba(16, 17, 20, 0.76); }
+body.has-page-bg .fb-shell,
+body.has-page-bg .admin-page { background: transparent; }
+
+.pi-bg { display: flex; flex-direction: column; gap: .75rem; }
+.pi-bg-preview {
+  height: 150px; border-radius: 12px; border: 1px dashed rgba(255, 255, 255, .2);
+  background-color: #1c1e21; background-position: center; background-size: cover; background-repeat: no-repeat;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--fb-muted); font-size: .85rem;
+}
+.pi-bg-preview.has-image { border-style: solid; }
+.pi-bg-actions { display: flex; gap: .6rem; flex-wrap: wrap; }
+.pi-clear {
+  padding: .65rem 1rem; border: none; border-radius: 10px;
+  background: rgba(255, 255, 255, .12); color: #fff; font: inherit; font-size: .9rem; cursor: pointer;
+}
+.pi-clear:hover { background: rgba(255, 255, 255, .2); }
+.pi-clear:disabled { opacity: .6; cursor: not-allowed; }
+.pi-clear[hidden] { display: none; }
+
 /* ===================== Member posts: media, reactions, comments ===================== */
 .fb-composer-card { padding: 0; }
 .fb-posts-composer .fb-composer { padding: 0.85rem 1rem 0.35rem; }

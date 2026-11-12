@@ -1,5 +1,7 @@
 // Main app entry — registers all routes and boots the router
 Auth.init();
+// The saved account background is on screen before the first page renders
+fbPaintPageBackground(Auth.currentUser && Auth.currentUser.background_url);
 Router.register('/', Pages.landing);
 Router.register('/Login', Pages.login);
 Router.register('/Register', Pages.register);
