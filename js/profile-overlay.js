@@ -26,6 +26,14 @@ var ProfileOverlay = (function () {
     return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   }
 
+  // A tab in the background pauses the clip — start it again on the way back
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) return;
+    document.querySelectorAll('.fb-overlay-media video').forEach(video => {
+      if (video.paused) video.play().catch(() => {});
+    });
+  });
+
   // Plays the overlay clip at the owner's volume. Browsers block autoplay with
   // sound until the visitor interacts, so it starts silent and the first tap or
   // key press brings the saved volume in.
@@ -66,8 +74,10 @@ var ProfileOverlay = (function () {
     const item = shown(profile);
     if (!item) return '';
     const still = reducesMotion();
+    // The clip loops for as long as the page is open, so it starts muted and
+    // autoplaying; the saved volume comes in on the first tap (see playWithSound)
     const asset = item.video
-      ? `<video class="fb-overlay-asset" src="${fbEscape(item.url)}" loop playsinline preload="${still ? 'auto' : 'metadata'}"></video>`
+      ? `<video class="fb-overlay-asset" src="${fbEscape(item.url)}" autoplay muted loop playsinline preload="${still ? 'auto' : 'metadata'}"></video>`
       : `<img class="fb-overlay-asset" src="${fbEscape(item.url)}" alt="">`;
     return `<div class="fb-overlay-media" aria-hidden="true" style="opacity:${clampOpacity(profile.overlay_opacity) / 100}">${asset}</div>`;
   }
@@ -80,7 +90,17 @@ var ProfileOverlay = (function () {
     if (!markup) return;
     host.insertAdjacentHTML('afterbegin', markup);
     const video = host.querySelector('.fb-overlay-media video');
-    if (video && !reducesMotion()) playWithSound(video, profile.overlay_volume);
+    if (!video) return;
+    // Never let the clip stop: loop it, restart it if a browser ends it anyway,
+    // and pick it up again when the visitor comes back to the tab
+    video.loop = true;
+    const again = () => {
+      if (!video.isConnected) return;
+      video.currentTime = 0;
+      video.play().catch(() => {});
+    };
+    video.addEventListener('ended', again);
+    if (!reducesMotion()) playWithSound(video, profile.overlay_volume);
   }
 
   // Owner editor: upload an image and a video, choose what shows, set the fade and volume
