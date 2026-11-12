@@ -2192,6 +2192,9 @@ a.fb-post-name:hover { text-decoration: underline; }
   .fb-reaction-add { width: 44px; height: 44px; font-size: 1.2rem; }
   .fb-post-act .fb-rx { width: 36px; height: 36px; }
   .fb-post-summary .fb-rx { width: 30px; height: 30px; }
+  /* On a phone the growing reaction expands to the right of its slot instead of
+     centred on it, so it never spills past the screen's left edge */
+  .fb-post-summary .fb-rx-face { transform-origin: left center; }
   .fb-reaction-icons > span { width: 30px; height: 30px; margin-left: -8px; }
   .fb-comment-reactions .fb-rx { width: 28px; height: 28px; }
 }
