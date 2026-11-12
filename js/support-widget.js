@@ -170,8 +170,7 @@
     el.dataset.identity = identity;
     el.innerHTML = `
       <button class="fb-support-fab" id="supFab" type="button" aria-expanded="false" aria-label="Customer Service">
-        <img class="fb-support-icon" src="/img/support-logo.png" alt="">
-        <span class="fb-support-label">Customer Service</span>
+        <span aria-hidden="true">🎧</span> <span class="fb-support-label">Customer Service</span>
         <span class="fb-support-badge" id="supBadge" hidden>0</span>
       </button>
       <section class="fb-support-panel" id="supPanel" hidden aria-label="Customer Service chat">

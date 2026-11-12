@@ -8,7 +8,7 @@ window.ChatWidget = function(container, currentUser) {
   let messages = [];
 
   container.innerHTML = `
-    <div class="chat-fab" id="chatFab">💬</div>
+    <div class="chat-fab" id="chatFab"><img class="chat-fab-icon" src="/img/chat-bubble-logo.png" alt=""></div>
     <div class="chat-panel" id="chatPanel" style="display:none">
       <div class="chat-header">
         <div class="chat-header-title" id="chatHeaderTitle">Messages</div>

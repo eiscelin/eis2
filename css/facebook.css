@@ -1239,7 +1239,7 @@ a.fb-person-img:hover { filter: brightness(1.1); }
 .fb-portal-split p { color: var(--fb-muted); font-size: 0.86rem; line-height: 1.45; margin-bottom: 0.7rem; }
 
 /* ===================== Chat (Messenger look) ===================== */
-.chat-fab { background: var(--fb-blue); box-shadow: 0 4px 16px rgba(24, 119, 242, 0.45); }
+.chat-fab { background: var(--fb-blue); box-shadow: 0 10px 26px rgba(24, 119, 242, 0.45), inset 0 -3px 0 rgba(0, 0, 0, 0.18); }
 .chat-panel { background: var(--fb-card); border-color: var(--fb-line); box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); }
 .chat-header { background: var(--fb-card); border-bottom: 1px solid var(--fb-line); }
 .chat-close { background: var(--fb-elevated); }
@@ -1386,7 +1386,7 @@ a.fb-person-img:hover { filter: brightness(1.1); }
   .fb-person-img { height: 104px; }
 
   /* Chat above the bottom nav */
-  .chat-fab { bottom: calc(74px + env(safe-area-inset-bottom)); right: 1rem; width: 52px; height: 52px; }
+  .chat-fab { bottom: calc(74px + env(safe-area-inset-bottom)); right: 1rem; width: 58px; height: 58px; }
   .chat-panel {
     width: calc(100vw - 1.5rem);
     right: 0.75rem;
@@ -1829,12 +1829,9 @@ a.admin-tool { text-decoration: none; display: inline-flex; align-items: center;
   display: inline-flex; align-items: center; gap: 0.45rem;
   padding: 0.7rem 1.1rem; border: none; border-radius: 999px;
   background: #16a34a; color: #fff; font: inherit; font-weight: 600; font-size: 0.9rem;
-  cursor: pointer;
-  /* Chubby pill: a fat green capsule that visibly sits on top of the page */
-  box-shadow: 0 8px 24px rgba(22, 163, 74, 0.55), inset 0 -2px 0 rgba(0, 0, 0, 0.18);
+  cursor: pointer; box-shadow: 0 6px 22px rgba(22, 163, 74, 0.5);
 }
 .fb-support-fab:hover { background: #15803d; }
-.fb-support-icon { display: block; height: 24px; width: auto; border-radius: 6px; flex-shrink: 0; }
 .fb-support-badge {
   position: absolute; top: -7px; right: -7px;
   min-width: 20px; height: 20px; padding: 0 5px;
@@ -1917,11 +1914,9 @@ a.admin-tool { text-decoration: none; display: inline-flex; align-items: center;
   .fb-support.has-chat:not(.dock-bar):not(.dock-cover) .fb-support-panel { bottom: calc(188px + env(safe-area-inset-bottom)); }
   /* Docked in the top bar on phones: a round icon that fits the vacant space */
   .fb-support.dock-compact .fb-support-fab {
-    width: 42px; height: 42px; padding: 0; border-radius: 14px;
+    width: 38px; height: 38px; padding: 0; border-radius: 50%;
     justify-content: center; font-size: 1rem;
-    box-shadow: 0 6px 18px rgba(22, 163, 74, 0.6), inset 0 -2px 0 rgba(0, 0, 0, 0.18);
   }
-  .fb-support.dock-compact .fb-support-icon { height: 22px; }
   .fb-support.dock-compact .fb-support-label { display: none; }
   .fb-support.dock-compact .fb-support-panel {
     position: fixed; left: 0.75rem; right: 0.75rem; width: auto;
