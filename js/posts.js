@@ -425,6 +425,11 @@ Posts.mount = function (listEl, opts) {
     return state.posts.find(p => String(p.id) === String(id));
   }
 
+  function closePickers() {
+    state.openPicker = null;
+    listEl.querySelectorAll('.fb-react-wrap.open').forEach(w => w.classList.remove('open'));
+  }
+
   // Identifies one reaction picker so it can survive a card re-render
   function pickerKeyFor(wrap) {
     const postEl = wrap && wrap.closest('[data-post]');
@@ -787,6 +792,23 @@ Posts.mount = function (listEl, opts) {
     state.openPicker = pickerKeyFor(wrap);
   });
 
+  // The reaction shelf goes away when the member clicks away, swipes/scrolls
+  // off it, or presses Escape
+  if (!listEl.dataset.pickerDismiss) {
+    listEl.dataset.pickerDismiss = '1';
+    document.addEventListener('click', e => {
+      if (!state.openPicker) return;
+      if (e.target.closest('.fb-react-wrap.open')) return;
+      closePickers();
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closePickers();
+    });
+    window.addEventListener('scroll', () => {
+      if (state.openPicker) closePickers();
+    }, { passive: true, capture: true });
+  }
+
   listEl.addEventListener('change', e => {
     const box = e.target.closest('[data-act="toggle-face-anim"]');
     if (!box) return;
@@ -804,8 +826,7 @@ Posts.mount = function (listEl, opts) {
       const postEl = option.closest('[data-post]');
       if (!postEl) return;
       const commentEl = option.closest('[data-comment]');
-      listEl.querySelectorAll('.fb-react-wrap.open').forEach(w => w.classList.remove('open'));
-      state.openPicker = null;
+      closePickers();
       if (commentEl) await setCommentReaction(postEl.dataset.post, commentEl.dataset.comment, option.dataset.react);
       else await setReaction(postEl.dataset.post, option.dataset.react);
       return;
@@ -824,7 +845,7 @@ Posts.mount = function (listEl, opts) {
       const wrap = act.closest('.fb-react-wrap');
       if (wrap) {
         const willOpen = !wrap.classList.contains('open');
-        listEl.querySelectorAll('.fb-react-wrap.open').forEach(w => w.classList.remove('open'));
+        closePickers();
         wrap.classList.toggle('open', willOpen);
         state.openPicker = willOpen ? pickerKeyFor(wrap) : null;
       }

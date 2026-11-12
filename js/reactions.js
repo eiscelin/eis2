@@ -74,13 +74,18 @@ const FB_FACE_TURNS = 6;
   document.head.appendChild(style);
 })();
 
+// Only the faces in a post's reaction stack animate; the copy inside the Like
+// button stays still so one face never grows and wiggles twice at once.
 Posts.reactionIcon = function (type, slot, faceCount) {
   const face = Posts.faceUrl(type);
   if (face) {
-    const count = Math.min(Math.max(faceCount || 1, 1), FB_FACE_TURNS);
-    const turn = slot ? `; animation-delay:${slot * 2}s` : '';
-    const anim = `animation-name:fb-rx-turn-${count}; animation-duration:${count * 2}s${turn}`;
-    return `<span class="fb-rx fb-rx-face" style="${anim}"><img class="fb-rx-img" src="${fbEscape(face)}" alt="" loading="lazy"></span>`;
+    let anim = '';
+    if (faceCount) {
+      const count = Math.min(Math.max(faceCount, 1), FB_FACE_TURNS);
+      const turn = slot ? `; animation-delay:${slot * 2}s` : '';
+      anim = ` style="animation-name:fb-rx-turn-${count}; animation-duration:${count * 2}s${turn}"`;
+    }
+    return `<span class="fb-rx fb-rx-face"${anim}><img class="fb-rx-img" src="${fbEscape(face)}" alt="" loading="lazy"></span>`;
   }
   const art = FB_RX_ART[type] || FB_RX_ART.like;
   return `<span class="fb-rx fb-rx-${type}"><svg class="fb-rx-svg" viewBox="0 0 40 40" aria-hidden="true" focusable="false">${art}</svg></span>`;

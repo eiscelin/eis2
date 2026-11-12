@@ -2092,7 +2092,7 @@ a.fb-post-name:hover { text-decoration: underline; }
    one has shrunk back, so the loop has no idle gap. Only the image is shown —
    no ring, border or background behind it. Name/duration/delay are set inline
    per face in js/reactions.js. */
-.fb-post-summary .fb-rx-face, .fb-post-act .fb-rx-face {
+.fb-post-summary .fb-rx-face {
   position: relative;
   z-index: 4;
   pointer-events: none;
@@ -2134,7 +2134,7 @@ a.fb-post-name:hover { text-decoration: underline; }
 @media (prefers-reduced-motion: reduce) {
   .fb-reaction-option .fb-rx { transition: none; }
   .fb-react-wrap.open .fb-reaction-option .fb-rx { animation: none; }
-  .fb-post-summary .fb-rx-face, .fb-post-act .fb-rx-face { animation-name: none !important; }
+  .fb-post-summary .fb-rx-face { animation-name: none !important; }
 }
 
 .fb-comments { padding: 0.6rem 1rem 1rem; }
