@@ -1852,6 +1852,8 @@ a.admin-tool { text-decoration: none; display: inline-flex; align-items: center;
   position: absolute; top: calc(100% + 8px); right: 0; bottom: auto;
   max-height: min(60vh, 460px);
 }
+/* Short screen: the chat opens above the button so it never drops below the fold */
+.fb-support.dock-cover .fb-support-panel.panel-up { top: auto; bottom: calc(100% + 8px); }
 .fb-support-panel {
   position: fixed; right: 1.5rem; bottom: 5.5rem; z-index: 100001;
   width: 340px; max-height: min(70vh, 460px);

@@ -405,6 +405,14 @@
     async function openPanel() {
       panel.hidden = false;
       fab.setAttribute('aria-expanded', 'true');
+      // Docked under the cover the chat hangs below the button: on a short screen
+      // that puts it past the bottom edge, so it opens upwards instead
+      if (root.classList.contains('dock-cover')) {
+        const fabRect = fab.getBoundingClientRect();
+        panel.classList.toggle('panel-up', fabRect.bottom + panel.offsetHeight + 16 > window.innerHeight);
+      } else {
+        panel.classList.remove('panel-up');
+      }
       if (!admins.length) await loadAdmins();
       if (!admins.length) {
         log.innerHTML = '<div class="fb-support-empty">Customer Service is offline right now. Please try again later.</div>';
@@ -481,7 +489,7 @@
 
     // ---------- wiring ----------
     fab.addEventListener('click', () => {
-      audio();
+      try { audio(); } catch { /* the chat must still open without sound */ }
       if (panel.hidden) openPanel();
       else closePanel();
     });
