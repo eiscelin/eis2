@@ -1841,15 +1841,18 @@ a.admin-tool { text-decoration: none; display: inline-flex; align-items: center;
 }
 .fb-support-badge[hidden] { display: none; }
 .fb-support.has-chat .fb-support-fab { bottom: 5.6rem; }
-/* Pages with a profile cover: the button sits under the cover, still on top */
+/* Pages with a profile cover: the button sits at the top center of the cover, still on top */
 .fb-support.dock-cover {
-  position: absolute; top: var(--sup-top, 0); right: var(--sup-right, 1.5rem); z-index: 100002;
-  display: flex; flex-direction: column; align-items: flex-end;
+  position: absolute; top: var(--sup-top, 0); left: var(--sup-left, 50%); right: auto; z-index: 100002;
+  transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center;
 }
 .fb-support.dock-cover .fb-support-fab { position: relative; right: auto; bottom: auto; padding: 0.55rem 1rem; }
 .fb-support.dock-cover.has-chat .fb-support-fab { bottom: auto; }
 .fb-support.dock-cover .fb-support-panel {
-  position: absolute; top: calc(100% + 8px); right: 0; bottom: auto;
+  position: absolute; top: calc(100% + 8px); left: 50%; right: auto; bottom: auto;
+  transform: translateX(-50%);
+  width: min(340px, calc(100vw - 2rem));
   max-height: min(60vh, 460px);
 }
 /* Short screen: the chat opens above the button so it never drops below the fold */
@@ -1896,10 +1899,10 @@ a.admin-tool { text-decoration: none; display: inline-flex; align-items: center;
   .fb-support.has-chat .fb-support-fab { bottom: calc(138px + env(safe-area-inset-bottom)); }
   .fb-support-panel { left: 1rem; right: 1rem; width: auto; bottom: calc(124px + env(safe-area-inset-bottom)); }
   .fb-support.has-chat .fb-support-panel { bottom: calc(188px + env(safe-area-inset-bottom)); }
-  .fb-support.dock-cover { right: 1rem; }
+  .fb-support.dock-cover { left: var(--sup-left, 50%); right: auto; }
   .fb-support.dock-cover .fb-support-fab { bottom: auto; }
   .fb-support.dock-cover .fb-support-panel {
-    left: auto; right: 0; bottom: auto;
+    left: 50%; right: auto; bottom: auto;
     width: min(340px, calc(100vw - 2rem));
   }
 }

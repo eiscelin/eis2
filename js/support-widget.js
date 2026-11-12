@@ -86,8 +86,8 @@
     });
   }
 
-  // Pages that show a profile cover keep the button pinned under it, instead of
-  // floating over the content in the bottom corner
+  // Pages that show a profile cover keep the button pinned at the top center of
+  // the cover, instead of floating over the content in the bottom corner
   function syncDock() {
     if (!root) return;
     const cover = document.querySelector('.fb-cover');
@@ -95,19 +95,12 @@
     if (!rect || !rect.height) {
       root.classList.remove('dock-cover');
       root.style.removeProperty('--sup-top');
-      root.style.removeProperty('--sup-right');
+      root.style.removeProperty('--sup-left');
       return;
     }
-    // Wide screens put the profile buttons right under the cover, so the pill
-    // sits at the far right of the tab bar instead of crowding them
-    const tabs = window.innerWidth > 900 ? document.querySelector('.fb-profile-tabs') : null;
-    const band = tabs ? tabs.getBoundingClientRect() : null;
-    const fabHeight = root.querySelector('.fb-support-fab').offsetHeight || 35;
-    const top = band && band.height
-      ? band.top + window.scrollY + Math.max(0, Math.round((band.height - fabHeight) / 2))
-      : rect.bottom + window.scrollY + 6;
-    root.style.setProperty('--sup-right', Math.max(8, Math.round(document.documentElement.clientWidth - rect.right)) + 'px');
-    root.style.setProperty('--sup-top', Math.round(top) + 'px');
+    const centerX = rect.left + window.scrollX + rect.width / 2;
+    root.style.setProperty('--sup-left', Math.round(centerX) + 'px');
+    root.style.setProperty('--sup-top', Math.round(rect.top + window.scrollY + 10) + 'px');
     root.classList.add('dock-cover');
   }
 
