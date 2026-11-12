@@ -2,14 +2,28 @@
 // (stored publicly — anyone with the link can open them).
 // A backup account is used automatically when the primary account stops working,
 // and the app's own server uploads as the last resort.
+const CLOUDINARY_WORKING_KEY = 'cloudinaryWorkingAccount';
+
+function cloudinaryRememberWorking(cloud) {
+  try { localStorage.setItem(CLOUDINARY_WORKING_KEY, cloud); } catch (e) { /* private mode */ }
+}
+
+function cloudinaryLastWorking() {
+  try { return localStorage.getItem(CLOUDINARY_WORKING_KEY) || ''; } catch (e) { return ''; }
+}
+
 function cloudinaryAccounts() {
   const cfg = window.APP_CONFIG || {};
-  return [
+  const accounts = [
     [cfg.CLOUDINARY_CLOUD_NAME, cfg.CLOUDINARY_UPLOAD_PRESET],
     [cfg.CLOUDINARY_CLOUD_NAME_BACKUP, cfg.CLOUDINARY_UPLOAD_PRESET_BACKUP]
   ]
     .filter((pair) => pair[0] && pair[1])
     .map((pair) => ({ cloud: pair[0], preset: pair[1] }));
+  // The account that accepted the last upload goes first, so a disabled account
+  // is not retried on every single upload. The others stay as fallbacks.
+  const working = cloudinaryLastWorking();
+  return accounts.sort((a, b) => (b.cloud === working) - (a.cloud === working));
 }
 
 function uploadFileName(blob) {
@@ -68,7 +82,9 @@ async function cloudinaryUpload(blob) {
   let lastError = null;
   for (const account of cloudinaryAccounts()) {
     try {
-      return await cloudinaryUploadDirect(blob, account);
+      const url = await cloudinaryUploadDirect(blob, account);
+      cloudinaryRememberWorking(account.cloud);
+      return url;
     } catch (e) {
       // Account unreachable or refusing uploads (disabled, quota, bad preset): try the next one.
       lastError = e;
