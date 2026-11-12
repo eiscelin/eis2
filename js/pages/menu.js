@@ -80,7 +80,7 @@ var openAppMenu = (function () {
                   <span class="fb-menu-row-icon" aria-hidden="true">${row.icon}</span>
                   <span class="fb-menu-row-label">${fbEscape(row.label)}</span>
                   ${row.toggle
-                    ? '<span class="fb-menu-switch" role="switch" aria-checked="true"><i></i></span>'
+                    ? `<span class="fb-menu-switch" role="switch" aria-checked="${Theme.isLight() ? 'false' : 'true'}"><i></i></span>`
                     : row.meta ? `<span class="fb-menu-row-meta">${fbEscape(row.meta)}</span>` : ''}
                 </button>`).join('')}
             </div>
@@ -134,10 +134,16 @@ var openAppMenu = (function () {
     });
 
     el.querySelectorAll('.fb-menu-row').forEach(row => {
+      const dark = row.querySelector('.fb-menu-switch');
       row.addEventListener('click', () => {
-        showToast(row.querySelector('.fb-menu-switch')
-          ? 'Dark mode is always on for now'
-          : row.dataset.label + ' isn\'t available yet');
+        if (!dark) {
+          showToast(row.dataset.label + ' isn\'t available yet');
+          return;
+        }
+        // Switch off = light mode
+        const isDark = !Theme.toggle();
+        dark.setAttribute('aria-checked', String(isDark));
+        showToast(isDark ? 'Dark mode on' : 'Light mode on');
       });
     });
 

@@ -393,6 +393,8 @@ body.fb-searching { overflow: hidden; }
   border-radius: 50%;
   background: #fff;
 }
+.fb-menu-switch[aria-checked="false"] { background: var(--fb-hover); }
+.fb-menu-switch[aria-checked="false"] i { right: auto; left: 2px; }
 .fb-menu .is-hidden { display: none !important; }
 
 /* ===================== Surfaces ===================== */
