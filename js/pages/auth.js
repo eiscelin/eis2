@@ -100,8 +100,6 @@ Pages.login = function (el) {
     await Auth.login(fd.get('username').trim(), fd.get('password'));
     Router.navigate('/App');
   });
-  // Anyone who cannot log in can reach Customer Service from here
-  if (window.SupportWidget) window.SupportWidget.mount(null);
 };
 
 // ===== Register (username + password) =====
