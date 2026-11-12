@@ -1841,7 +1841,18 @@ a.admin-tool { text-decoration: none; display: inline-flex; align-items: center;
 }
 .fb-support-badge[hidden] { display: none; }
 .fb-support.has-chat .fb-support-fab { bottom: 5.6rem; }
-/* Pages with a profile cover: the button sits at the top center of the cover, still on top */
+/* Wide screens: the button takes the vacant stretch of the top bar, still on top */
+.fb-support.dock-bar {
+  position: fixed; top: var(--sup-top, 0.65rem); right: var(--sup-right, 12rem); z-index: 100002;
+  display: flex; flex-direction: column; align-items: flex-end;
+}
+.fb-support.dock-bar .fb-support-fab { position: relative; right: auto; bottom: auto; padding: 0.45rem 0.9rem; font-size: 0.85rem; }
+.fb-support.dock-bar.has-chat .fb-support-fab { bottom: auto; }
+.fb-support.dock-bar .fb-support-panel {
+  position: absolute; top: calc(100% + 8px); right: 0; bottom: auto;
+  max-height: min(70vh, 460px);
+}
+/* Phones with a profile cover: the button sits at the top center of the cover, still on top */
 .fb-support.dock-cover {
   position: absolute; top: var(--sup-top, 0); left: var(--sup-left, 50%); right: auto; z-index: 100002;
   transform: translateX(-50%);

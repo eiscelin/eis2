@@ -86,10 +86,29 @@
     });
   }
 
-  // Pages that show a profile cover keep the button pinned at the top center of
-  // the cover, instead of floating over the content in the bottom corner
+  // Where the button lives: the empty stretch of the top bar next to the section
+  // icons on wide screens, the top center of the profile cover on phones
   function syncDock() {
     if (!root) return;
+    if (window.innerWidth > 900) {
+      const bar = document.querySelector('.fb-topbar');
+      const rect = bar ? bar.getBoundingClientRect() : null;
+      if (rect && rect.height) {
+        const fabHeight = root.querySelector('.fb-support-fab').offsetHeight || 35;
+        // Sit in the vacant space right after the section icons, before the
+        // profile buttons at the end of the bar
+        const rightGroup = bar.querySelector('.fb-topbar-right');
+        const groupRect = rightGroup ? rightGroup.getBoundingClientRect() : null;
+        const edge = groupRect ? groupRect.left : rect.right - 16;
+        root.style.setProperty('--sup-top', Math.round(rect.top + (rect.height - fabHeight) / 2) + 'px');
+        root.style.setProperty('--sup-right', Math.round(document.documentElement.clientWidth - edge + 10) + 'px');
+        root.classList.add('dock-bar');
+        root.classList.remove('dock-cover');
+        root.style.removeProperty('--sup-left');
+        return;
+      }
+    }
+    root.classList.remove('dock-bar');
     const cover = document.querySelector('.fb-cover');
     const rect = cover ? cover.getBoundingClientRect() : null;
     if (!rect || !rect.height) {
