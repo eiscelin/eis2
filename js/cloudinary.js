@@ -28,53 +28,76 @@ function uploadFileName(blob) {
   return 'upload.' + ext;
 }
 
-async function cloudinaryUploadDirect(blob, settings) {
+// An upload that reports how much of the file has gone out — a plain fetch
+// cannot say, and a big video with no answer looks frozen
+function uploadRequest({ url, method, headers, body, onProgress }) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method || 'POST', url);
+    Object.keys(headers || {}).forEach(name => xhr.setRequestHeader(name, headers[name]));
+    if (onProgress && xhr.upload) {
+      xhr.upload.onprogress = e => {
+        if (e.lengthComputable && e.total) onProgress(e.loaded / e.total);
+      };
+    }
+    xhr.onload = () => resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status, text: xhr.responseText });
+    xhr.onerror = () => reject(new Error('The upload connection dropped'));
+    xhr.onabort = () => reject(new Error('Upload cancelled'));
+    xhr.send(body);
+  });
+}
+
+async function cloudinaryUploadDirect(blob, settings, onProgress) {
   const kind = String(blob.type || '').indexOf('video/') === 0 ? 'video' : 'image';
   const form = new FormData();
   form.append('upload_preset', settings.preset);
   form.append('file', blob, uploadFileName(blob));
-  const res = await fetch(`https://api.cloudinary.com/v1_1/${settings.cloud}/${kind}/upload`, {
-    method: 'POST',
-    body: form
+  const res = await uploadRequest({
+    url: `https://api.cloudinary.com/v1_1/${settings.cloud}/${kind}/upload`,
+    body: form,
+    onProgress
   });
-  const data = await res.json().catch(() => ({}));
+  let data = {};
+  try { data = JSON.parse(res.text || '{}'); } catch { data = {}; }
   if (!res.ok || !data.secure_url) {
     throw new Error((data.error && data.error.message) || 'Cloudinary upload failed');
   }
   return data.secure_url;
 }
 
-async function cloudinaryUploadViaServer(blob) {
-  const res = await fetch('/api/upload', {
-    method: 'POST',
+async function cloudinaryUploadViaServer(blob, onProgress) {
+  const res = await uploadRequest({
+    url: '/api/upload',
     headers: {
       'Content-Type': blob.type || 'image/jpeg',
       'X-File-Name': encodeURIComponent(uploadFileName(blob))
     },
-    body: blob
+    body: blob,
+    onProgress
   });
   if (res.status === 404 || res.status === 501) return '';
-  const data = await res.json().catch(() => ({}));
+  let data = {};
+  try { data = JSON.parse(res.text || '{}'); } catch { data = {}; }
   if (!res.ok || !data.url) throw new Error(data.error || 'Cloudinary upload failed');
   return data.url;
 }
 
-async function cloudinaryUpload(blob) {
+async function cloudinaryUpload(blob, onProgress) {
   // Cloudflare R2 wins when the server can sign for it; otherwise Cloudinary as before.
   if (typeof r2Upload === 'function') {
-    const r2Url = await r2Upload(blob);
+    const r2Url = await r2Upload(blob, onProgress);
     if (r2Url) return r2Url;
   }
   let lastError = null;
   for (const account of cloudinaryAccounts()) {
     try {
-      return await cloudinaryUploadDirect(blob, account);
+      return await cloudinaryUploadDirect(blob, account, onProgress);
     } catch (e) {
       // Account unreachable or refusing uploads (disabled, quota, bad preset): try the next one.
       lastError = e;
     }
   }
-  const viaServer = await cloudinaryUploadViaServer(blob);
+  const viaServer = await cloudinaryUploadViaServer(blob, onProgress);
   if (viaServer) return viaServer;
   throw lastError || new Error('Cloudinary is not connected');
 }

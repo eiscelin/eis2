@@ -2204,6 +2204,13 @@ body.has-page-bg .admin-page { background: transparent; }
 .fb-composer-tool:hover { background: var(--fb-hover); color: var(--fb-text); }
 .fb-composer-preview { position: relative; margin: 0.15rem 1rem 0.7rem; border-radius: 10px; overflow: hidden; background: #000; }
 .fb-composer-media { display: block; width: 100%; max-height: 320px; object-fit: contain; background: #000; }
+/* Upload line: fills while a photo or video travels to the host, so a big file
+   answers the moment it is picked instead of looking stuck */
+.fb-composer-upload { display: flex; align-items: center; gap: 0.6rem; margin: 0.15rem 1rem 0.7rem; }
+.fb-composer-upload[hidden] { display: none; }
+.fb-composer-upload-track { flex: 1; height: 6px; border-radius: 999px; background: var(--fb-elevated); overflow: hidden; }
+.fb-composer-upload-track i { display: block; height: 100%; width: 0; border-radius: inherit; background: var(--fb-blue); transition: width 0.2s ease; }
+.fb-composer-upload-label { font-size: 0.78rem; font-weight: 600; color: var(--fb-text); white-space: nowrap; }
 .fb-composer-remove {
   position: absolute; top: 8px; right: 8px;
   width: 30px; height: 30px; border-radius: 50%; border: none;

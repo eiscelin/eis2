@@ -205,7 +205,7 @@ function postReactionPicker(media) {
 function postMediaHtml(post) {
   if (!post.media_url) return '';
   return `<div class="fb-post-media">${post.media_type === 'video'
-    ? `<video class="fb-post-media-el" src="${fbEscape(post.media_url)}" controls playsinline preload="none"></video>`
+    ? `<video class="fb-post-media-el" src="${fbEscape(post.media_url)}" controls playsinline preload="metadata"></video>`
     : `<img class="fb-post-media-el" src="${fbEscape(post.media_url)}" alt="" loading="lazy" decoding="async">`}</div>`;
 }
 
@@ -356,6 +356,10 @@ Posts.composerMarkup = function (viewer, placeholder) {
       <input type="text" data-post-text placeholder="${fbEscape(placeholder || "What's on your mind?")}" aria-label="Write a post">
     </div>
     <div class="fb-composer-preview" data-preview hidden></div>
+    <div class="fb-composer-upload" data-upload hidden>
+      <div class="fb-composer-upload-track"><i data-upload-bar></i></div>
+      <span class="fb-composer-upload-label" data-upload-label></span>
+    </div>
     <div class="fb-composer-foot">
       <div class="fb-composer-tools">
         <button class="fb-composer-tool" type="button" data-pick="image"><span aria-hidden="true">🖼️</span> Photo</button>
@@ -374,8 +378,39 @@ Posts.composer = function (root, opts) {
   const textEl = wrap.querySelector('[data-post-text]');
   const preview = wrap.querySelector('[data-preview]');
   const submit = wrap.querySelector('[data-post-submit]');
+  const uploadEl = wrap.querySelector('[data-upload]');
+  const uploadBar = wrap.querySelector('[data-upload-bar]');
+  const uploadLabel = wrap.querySelector('[data-upload-label]');
   let file = null;
   let busy = false;
+
+  // The line that fills while the file travels, so a big video answers the
+  // moment it is picked instead of looking stuck until it lands
+  function beginUpload(kind) {
+    const noun = kind === 'video' ? 'video' : 'photo';
+    uploadEl.hidden = false;
+    uploadBar.style.width = '0%';
+    uploadLabel.textContent = 'Uploading ' + noun + '…';
+    submit.textContent = 'Uploading…';
+    return {
+      progress(fraction) {
+        const pct = Math.max(0, Math.min(100, Math.round(fraction * 100)));
+        uploadBar.style.width = pct + '%';
+        // The last chunk is still being processed by the host after it arrives
+        if (pct >= 100) {
+          uploadLabel.textContent = 'Finishing ' + noun + '…';
+          submit.textContent = 'Posting…';
+          return;
+        }
+        uploadLabel.textContent = 'Uploading ' + noun + ' ' + pct + '%';
+        submit.textContent = pct + '%';
+      },
+      done() {
+        uploadEl.hidden = true;
+        submit.textContent = 'Post';
+      }
+    };
+  }
 
   function paintPreview() {
     if (!file) {
@@ -426,14 +461,15 @@ Posts.composer = function (root, opts) {
     if (!sb) return showToast('Posting needs a connected database', 'error');
     busy = true;
     submit.disabled = true;
+    let upload = null;
     try {
       let mediaUrl = '';
       let mediaType = '';
       if (file) {
         const isVideo = String(file.type || '').startsWith('video/');
-        showToast(isVideo ? 'Uploading your video…' : 'Uploading your photo…', '', 6000);
+        upload = beginUpload(isVideo ? 'video' : 'photo');
         const payload = isVideo ? file : await shrinkImage(file, 1600).catch(() => file);
-        mediaUrl = await cloudinaryUpload(payload);
+        mediaUrl = await cloudinaryUpload(payload, fraction => upload.progress(fraction));
         if (!mediaUrl) throw new Error('image hosting is not connected');
         mediaType = isVideo ? 'video' : 'image';
       }
@@ -457,6 +493,7 @@ Posts.composer = function (root, opts) {
         ? 'Run supabase/migrations/012_create_posts.sql in Supabase first'
         : 'Could not post: ' + message, 'error', 6000);
     } finally {
+      if (upload) upload.done();
       busy = false;
       submit.disabled = false;
     }
