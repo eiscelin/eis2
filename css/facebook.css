@@ -2265,7 +2265,10 @@ a.fb-post-name:hover { text-decoration: underline; }
 .fb-post-summary { display: inline-flex; align-items: center; gap: 0.35rem; }
 /* The standard emoji and the members' own uploads are two separate stacks,
    kept close together but never overlapping each other */
-.fb-reaction-icons { display: inline-flex; align-items: center; gap: 8px; }
+.fb-reaction-icons { display: inline-flex; align-items: center; }
+/* The standard emoji on a post that also has uploaded reactions: they sit in
+   the free space between the reaction count and the comment count */
+.fb-post-emoji { display: inline-flex; align-items: center; margin: 0 auto; }
 .fb-reaction-group { display: inline-flex; align-items: center; }
 .fb-reaction-group > span {
   display: inline-flex; align-items: center; justify-content: center;
@@ -2430,7 +2433,6 @@ a.fb-post-name:hover { text-decoration: underline; }
   /* On a phone the growing reaction expands to the right of its slot instead of
      centred on it, so it never spills past the screen's left edge */
   .fb-post-summary .fb-rx-face { transform-origin: left center; }
-  .fb-reaction-icons { gap: 6px; }
   .fb-reaction-group > span { width: 30px; height: 30px; margin-left: -8px; }
   .fb-comment-reactions .fb-rx { width: 28px; height: 28px; }
 }

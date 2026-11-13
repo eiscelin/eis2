@@ -175,14 +175,13 @@ function postRxSoundSwitch(postId, on) {
 function postFaceSlots(groups) {
   const ownCount = groups.filter(g => postOwnReaction(g.type)).length;
   let slot = 0;
-  // The standard emoji and the members' own uploads are shown as two separate
-  // stacks, one beside the other, so an uploaded face never hides an emoji
-  const emoji = groups.filter(g => !postOwnReaction(g.type))
-    .map(g => `<span title="${g.label}">${Posts.reactionIcon(g.type)}</span>`).join('');
-  const uploads = groups.filter(g => postOwnReaction(g.type))
-    .map(g => `<span class="fb-rx-face-slot" title="${g.label}">${Posts.reactionIcon(g.type, slot++, ownCount)}</span>`).join('');
-  return `${emoji ? `<span class="fb-reaction-group">${emoji}</span>` : ''}`
-    + `${uploads ? `<span class="fb-reaction-group fb-reaction-group-faces">${uploads}</span>` : ''}`;
+  // One stack: a post with uploads shows the standard emoji in a stack of their
+  // own, so an uploaded face never hides an emoji beside it
+  return `<span class="fb-reaction-group">${groups.map(g => {
+    const own = postOwnReaction(g.type);
+    const icon = Posts.reactionIcon(g.type, own ? slot++ : 0, ownCount);
+    return `<span${own ? ' class="fb-rx-face-slot"' : ''} title="${g.label}">${icon}</span>`;
+  }).join('')}</span>`;
 }
 
 function postReactionPicker(media) {
@@ -296,6 +295,10 @@ Posts.card = function (post, ctx) {
   const audience = postAudience(post);
   const hasFaces = groups.some(g => postOwnReaction(g.type));
   const faceOff = hasFaces && faceAnimOff(post.id);
+  // When a post carries uploaded reactions, the standard emoji leave the pile
+  // and sit in the free space between the reactions and the comment count
+  const faceGroups = groups.filter(g => postOwnReaction(g.type));
+  const emojiGroups = groups.filter(g => !postOwnReaction(g.type));
 
   return `<article class="fb-card fb-post-card" data-post="${fbEscape(post.id)}">
     <div class="fb-post-head">
@@ -312,8 +315,11 @@ Posts.card = function (post, ctx) {
     ${totalReactions || comments.length || shares
       ? `<div class="fb-post-stats">
           <span class="fb-post-summary">${totalReactions
-            ? `<span class="fb-reaction-icons${faceOff ? ' fb-face-anim-off' : ''}">${postFaceSlots(groups)}</span>${postCount(totalReactions)}`
+            ? `<span class="fb-reaction-icons${faceOff ? ' fb-face-anim-off' : ''}">${postFaceSlots(faceGroups.length ? faceGroups : groups)}</span>${postCount(totalReactions)}`
             : ''}</span>
+          ${faceGroups.length && emojiGroups.length
+            ? `<span class="fb-post-emoji fb-reaction-icons">${postFaceSlots(emojiGroups)}</span>`
+            : ''}
           <span class="fb-post-counts">
             ${comments.length ? `<button type="button" data-act="focus-comment">${postCount(comments.length)} comment${comments.length === 1 ? '' : 's'}</button>` : ''}
             ${shares ? `<span>${postCount(shares)} share${shares === 1 ? '' : 's'}</span>` : ''}
