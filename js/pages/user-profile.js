@@ -206,7 +206,7 @@ Pages.userProfile = async function (el, username) {
       emptyHtml: '<div class="empty-state" style="padding:1.5rem;">No posts yet.</div>'
     });
   }
-  ProfileOverlay.paint(el.querySelector('.fb-profile'), person);
+  ProfileOverlay.paint(el.querySelector('.fb-profile'), person, { sound: true });
   // The account's own picture is the page background, signed in or not
   fbPaintPageBackground(person.background_url || '');
 };

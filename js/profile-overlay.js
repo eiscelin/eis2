@@ -59,6 +59,108 @@ var ProfileOverlay = (function () {
     video.play().catch(silently);
   }
 
+  // A visitor sets the floating clip's sound for themselves; the choice is kept
+  // in this browser and starts silent, the same way post reaction videos do
+  const SOUND_KEY = 'meday.overlaySound';
+  const VOLUME_KEY = 'meday.overlayVolume';
+
+  function visitorSoundOn() {
+    try {
+      return localStorage.getItem(SOUND_KEY) === '1';
+    } catch (err) {
+      return false;
+    }
+  }
+
+  function setVisitorSoundOn(on) {
+    try {
+      if (on) localStorage.setItem(SOUND_KEY, '1');
+      else localStorage.removeItem(SOUND_KEY);
+    } catch (err) { /* a blocked store only loses the preference */ }
+  }
+
+  function visitorVolume(fallback) {
+    try {
+      const raw = localStorage.getItem(VOLUME_KEY);
+      if (raw !== null && raw !== '') return clampVolume(raw);
+    } catch (err) { /* a blocked store only loses the preference */ }
+    return clampVolume(fallback);
+  }
+
+  function setVisitorVolume(value) {
+    try {
+      localStorage.setItem(VOLUME_KEY, String(clampVolume(value)));
+    } catch (err) { /* a blocked store only loses the preference */ }
+  }
+
+  // The visitor's own control over the floating clip: a small chip beside the
+  // page with a speaker switch and a volume slider, like a post's sound switch
+  function mountSound(host, video, profile) {
+    const ownerVolume = clampVolume(profile.overlay_volume);
+    let last = ownerVolume;
+    const control = document.createElement('div');
+    control.className = 'fb-overlay-sound';
+    control.setAttribute('role', 'group');
+    control.setAttribute('aria-label', 'Overlay video sound');
+    control.innerHTML = `
+      <button class="fb-overlay-sound-btn" type="button" data-overlay-mute aria-pressed="false">🔇</button>
+      <input class="fb-overlay-sound-range" type="range" min="0" max="100" step="1" aria-label="Overlay video volume">`;
+    host.appendChild(control);
+    const button = control.querySelector('[data-overlay-mute]');
+    const range = control.querySelector('.fb-overlay-sound-range');
+
+    // The icon always shows what the clip is doing right now
+    function paintSound() {
+      const on = !video.muted && video.volume > 0;
+      button.textContent = on ? '🔊' : '🔇';
+      button.setAttribute('aria-pressed', on ? 'true' : 'false');
+      button.setAttribute('aria-label', on ? 'Mute overlay video' : 'Unmute overlay video');
+      button.title = on ? 'Mute overlay video' : 'Unmute overlay video';
+    }
+
+    function apply(level, on) {
+      video.volume = clampVolume(level) / 100;
+      video.muted = !on || video.volume === 0;
+      video.play().catch(() => {});
+      paintSound();
+    }
+
+    const savedVolume = visitorVolume(ownerVolume);
+    if (savedVolume > 0) last = savedVolume;
+    range.value = savedVolume;
+    apply(savedVolume, visitorSoundOn());
+
+    button.addEventListener('click', () => {
+      if (!video.muted && video.volume > 0) {
+        setVisitorSoundOn(false);
+        apply(range.value, false);
+        return;
+      }
+      // Unmuting with the slider left at zero returns sound at the last level
+      let level = clampVolume(range.value);
+      if (level === 0) {
+        level = last || ownerVolume || 60;
+        range.value = level;
+      }
+      setVisitorSoundOn(true);
+      setVisitorVolume(level);
+      apply(level, true);
+    });
+
+    range.addEventListener('input', () => {
+      const level = clampVolume(range.value);
+      if (level > 0) last = level;
+      apply(level, level > 0);
+    });
+    // The choice is only written down once the visitor settles on a level
+    range.addEventListener('change', () => {
+      const level = clampVolume(range.value);
+      setVisitorSoundOn(level > 0);
+      setVisitorVolume(level);
+      paintSound();
+    });
+  }
+
   // What the owner chose to show, when that media is actually stored
   function shown(profile) {
     const media = profile && profile.overlay_media;
@@ -82,10 +184,12 @@ var ProfileOverlay = (function () {
     return `<div class="fb-overlay-media" aria-hidden="true" style="opacity:${clampOpacity(profile.overlay_opacity) / 100}">${asset}</div>`;
   }
 
-  // Draws (or clears) the layer inside a rendered profile page
-  function paint(host, profile) {
+  // Draws (or clears) the layer inside a rendered profile page. `options.sound`
+  // gives the visitor their own sound control instead of the visitor tap-unmute.
+  function paint(host, profile, options) {
     if (!host) return;
     host.querySelector('.fb-overlay-media')?.remove();
+    host.querySelector('.fb-overlay-sound')?.remove();
     const markup = layerHTML(profile);
     if (!markup) return;
     host.insertAdjacentHTML('afterbegin', markup);
@@ -100,6 +204,12 @@ var ProfileOverlay = (function () {
       video.play().catch(() => {});
     };
     video.addEventListener('ended', again);
+    // A visitor decides the volume themselves, so the clip never turns its own
+    // sound on behind their back
+    if (options && options.sound) {
+      mountSound(host, video, profile);
+      return;
+    }
     if (!reducesMotion()) playWithSound(video, profile.overlay_volume);
   }
 
