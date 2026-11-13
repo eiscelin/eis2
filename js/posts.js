@@ -629,6 +629,25 @@ Posts.mount = function (listEl, opts) {
     lowerSpotlightComment();
   }
 
+  // The page only moves when the lit comment is actually out of view, and a
+  // downward scroll stops as soon as the post's own top reaches the top bar —
+  // so the author, the text and the action buttons stay put on screen.
+  function keepSpotlightVisible(comment) {
+    const card = comment.closest('.fb-post-card') || spotlightPost;
+    const topLimit = SPOTLIGHT_TOP_BAR + 8;
+    const bottomLimit = window.innerHeight - 8;
+    const rect = comment.getBoundingClientRect();
+    // Already in view: leave the page completely still
+    if (rect.top >= topLimit && rect.bottom <= bottomLimit) return;
+    let delta = rect.bottom > bottomLimit ? rect.bottom - bottomLimit : rect.top - topLimit;
+    if (delta > 0 && card) {
+      // Never shove the post's own top — and the member who wrote it — away
+      const room = card.getBoundingClientRect().top - topLimit;
+      delta = Math.min(delta, Math.max(0, room));
+    }
+    if (delta) window.scrollBy({ top: delta, behavior: 'smooth' });
+  }
+
   function clearSpotlight() {
     clearTimeout(spotlightTimer);
     spotlightTimer = 0;
@@ -661,12 +680,12 @@ Posts.mount = function (listEl, opts) {
     liftSpotlightComment(comment);
     spotlightCommentId = String(comment.dataset.comment);
     spotlightEndsAt = Date.now() + COMMENT_SPOTLIGHT_MS;
-    // Bring the comment near its post into the middle of the screen, clear of
-    // the sticky top bar, instead of leaving it buried far below. The scroll it
-    // causes must not be mistaken for the member choosing another post.
+    // Keep the lit comment readable without scrolling the post away: the page
+    // only moves if the comment is out of view. The scroll it causes must not
+    // be mistaken for the member choosing another post.
     if (!typing) {
       spotlightIgnoreScrollUntil = Date.now() + 1200;
-      comment.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      keepSpotlightVisible(comment);
     }
     spotlightIndex = (spotlightIndex + 1) % comments.length;
     spotlightTimer = setTimeout(spotlightNext, COMMENT_SPOTLIGHT_MS);
