@@ -1539,7 +1539,8 @@ a.fb-person-img:hover { filter: brightness(1.1); }
    above the layer and keeps the page underneath readable and clickable. */
 .fb-overlay-sound {
   position: fixed;
-  left: 1rem; bottom: 1rem;
+  top: calc(56px + 0.6rem); left: 50%;
+  transform: translateX(-50%);
   z-index: 151;
   display: flex; align-items: center; gap: 0.4rem;
   padding: 0.35rem 0.6rem;
@@ -1564,7 +1565,7 @@ a.fb-person-img:hover { filter: brightness(1.1); }
   cursor: pointer;
 }
 @media (max-width: 640px) {
-  .fb-overlay-sound { left: 0.7rem; bottom: 0.7rem; padding: 0.3rem 0.5rem; }
+  .fb-overlay-sound { top: calc(56px + 0.45rem); padding: 0.3rem 0.5rem; }
   .fb-overlay-sound-range { width: 62px; }
 }
 
