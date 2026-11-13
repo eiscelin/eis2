@@ -575,9 +575,26 @@ Posts.mount = function (listEl, opts) {
     return best;
   }
 
+  // The spotlit comment is lifted to the first line of its thread so it never
+  // stays buried; it drops back into its own place when its turn is over.
+  let spotlightLifted = null; // { el, homePrev }
+
+  function lowerSpotlightComment() {
+    if (!spotlightLifted) return;
+    const { el, homePrev } = spotlightLifted;
+    spotlightLifted = null;
+    if (!el.isConnected || !el.parentNode) return;
+    if (homePrev && homePrev.isConnected && homePrev.parentNode === el.parentNode) {
+      homePrev.after(el);
+    } else {
+      el.parentNode.prepend(el);
+    }
+  }
+
   function clearSpotlightMark() {
     listEl.querySelectorAll('.fb-comment-spotlight')
       .forEach(el => el.classList.remove('fb-comment-spotlight'));
+    lowerSpotlightComment();
   }
 
   function clearSpotlight() {
@@ -604,6 +621,13 @@ Posts.mount = function (listEl, opts) {
     if (spotlightIndex >= comments.length) spotlightIndex = 0;
     const comment = comments[spotlightIndex];
     comment.classList.add('fb-comment-spotlight');
+    // Move it to the first line of the thread while it is lit
+    const thread = comment.parentNode;
+    const firstComment = thread ? thread.querySelector('.fb-comment') : null;
+    if (firstComment && firstComment !== comment) {
+      spotlightLifted = { el: comment, homePrev: comment.previousElementSibling };
+      thread.insertBefore(comment, firstComment);
+    }
     // Bring the comment near its post into the middle of the screen, clear of
     // the sticky top bar, instead of leaving it buried far below. The scroll it
     // causes must not be mistaken for the member choosing another post.
