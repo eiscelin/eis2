@@ -227,7 +227,10 @@ Pages.feedTab = function (main, user) {
   storyRow.addEventListener('click', (e) => {
     const open = e.target.closest('[data-group]');
     if (open) return openStoryViewer(storyGroups, Number(open.dataset.group));
-    if (e.target.closest('#storyCreate')) storyFile.click();
+    if (e.target.closest('#storyCreate')) {
+      if (ReadOnlyMode.block('Adding a story')) return;
+      storyFile.click();
+    }
   });
   storyFile.addEventListener('change', () => {
     const file = storyFile.files && storyFile.files[0];

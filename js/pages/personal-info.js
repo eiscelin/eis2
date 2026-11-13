@@ -73,6 +73,7 @@
     const details = container.querySelector('.pi-details');
     details.addEventListener('submit', async (e) => {
       e.preventDefault();
+      if (ReadOnlyMode.block('Saving your details')) return;
       const fd = new FormData(details);
       const ageRaw = fieldValue(fd, 'age');
       const age = ageRaw ? Number(ageRaw) : null;
@@ -198,6 +199,7 @@
         const file = backgroundFile.files[0];
         backgroundFile.value = '';
         if (!file) return;
+        if (ReadOnlyMode.block('Uploading a picture')) return;
         if (file.type && file.type.indexOf('image/') !== 0) {
           showToast('Choose an image file', 'error');
           return;

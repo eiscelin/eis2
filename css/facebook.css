@@ -58,6 +58,50 @@ body {
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06), 0 2px 10px rgba(0, 0, 0, 0.45);
 }
 
+/* Read-only notice: a member's first profile picture or video waits for an admin */
+.fb-approval-bar {
+  position: sticky;
+  top: 56px;
+  z-index: 110;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 1rem;
+  background: linear-gradient(90deg, rgba(24, 119, 242, 0.22), rgba(24, 119, 242, 0.06));
+  border-bottom: 1px solid var(--fb-line);
+  color: var(--fb-text);
+}
+.fb-approval-icon { font-size: 1.25rem; flex-shrink: 0; }
+.fb-approval-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  font-size: 0.85rem;
+  line-height: 1.35;
+  color: var(--fb-muted);
+}
+.fb-approval-text strong { color: var(--fb-text); font-size: 0.9rem; }
+.fb-approval-bar .fb-btn { flex-shrink: 0; margin-left: auto; }
+
+/* Composer and comment box replaced by this while approval is pending */
+.fb-composer-locked {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px dashed var(--fb-line);
+  border-radius: var(--fb-radius);
+  color: var(--fb-muted);
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+
+@media (max-width: 700px) {
+  .fb-approval-bar { flex-wrap: wrap; padding: 0.6rem 0.75rem; }
+  .fb-approval-bar .fb-btn { width: 100%; margin-left: 0; }
+}
+
 .fb-topbar-left,
 .fb-topbar-right { display: flex; align-items: center; gap: 0.5rem; flex: 1 1 0; min-width: 0; }
 .fb-topbar-right { justify-content: flex-end; }

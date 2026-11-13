@@ -9,29 +9,6 @@ function fbPendingApproval(member) {
   return member.avatar_review_status === 'pending' || member.cover_review_status === 'pending';
 }
 
-function fbApprovalLock(el, user) {
-  const brand = fbBrand();
-  const name = user.full_name || user.username || 'there';
-  el.innerHTML = `
-    <div class="fb-public">
-      <div class="fb-public-bar">
-        <span class="fb-logo" aria-label="${fbEscape(brand.name)}">${fbBrandMark()}</span>
-        <button class="fb-btn fb-btn-secondary" id="lockLogout" type="button">Log out</button>
-      </div>
-      <section class="fb-card" style="margin:1rem;padding:2rem;text-align:center;">
-        <div style="font-size:2.5rem;" aria-hidden="true">🕓</div>
-        <h2>Waiting for admin approval</h2>
-        <p style="margin-top:0.5rem;color:var(--fb-muted);">
-          ${fbEscape(name)}, your first profile picture or video is waiting for an admin.
-          Posting, commenting and sending messages unlock as soon as it is approved.
-        </p>
-        <button class="fb-btn fb-btn-primary" id="lockRefresh" type="button" style="margin-top:1rem;">Check again</button>
-      </section>
-    </div>`;
-  el.querySelector('#lockLogout').addEventListener('click', () => Auth.logout());
-  el.querySelector('#lockRefresh').addEventListener('click', () => Pages.app(el));
-}
-
 Pages.app = async function (el, startTab) {
   const user = Auth.currentUser;
   if (!user) {
@@ -63,11 +40,9 @@ Pages.app = async function (el, startTab) {
     } catch { /* accounts table not ready yet — keep the stored session */ }
   }
 
-  // A first profile picture or video waiting for an admin locks the account
-  if (fbPendingApproval(member)) {
-    fbApprovalLock(el, user);
-    return;
-  }
+  // A first profile picture or video waiting for an admin leaves the app readable,
+  // with every write action locked until the media is approved
+  window.fbApprovalPending = fbPendingApproval(member);
 
   const navItems = [
     { id: 'home', icon: '🏠', label: 'Home' },

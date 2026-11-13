@@ -318,13 +318,15 @@ Posts.card = function (post, ctx) {
     </div>
     <div class="fb-comments">
       ${comments.map(c => postCommentHtml(c, ctx)).join('')}
-      <div class="fb-comment-form">
+      ${ctx.locked
+        ? `<div class="fb-composer-locked"><span aria-hidden="true">🔒</span><span>Commenting unlocks once an admin approves your profile picture or video.</span></div>`
+        : `<div class="fb-comment-form">
         ${postAvatar(viewer, viewerName, 'fb-avatar-xs')}
         <div class="fb-comment-box">
           <input class="fb-comment-input" type="text" data-comment-input placeholder="Write a comment…" aria-label="Write a comment">
           <button class="fb-comment-send" type="button" data-act="send-comment" aria-label="Send comment">➤</button>
         </div>
-      </div>
+      </div>`}
     </div>
   </article>`;
 };
@@ -332,6 +334,10 @@ Posts.card = function (post, ctx) {
 // Composer: text plus one photo or video
 Posts.composerMarkup = function (viewer, placeholder) {
   const name = (viewer && (viewer.full_name || viewer.username)) || 'Member';
+  // A member waiting for approval reads the feed but cannot upload or post yet
+  if (ReadOnlyMode.active()) {
+    return `<div class="fb-composer-locked"><span aria-hidden="true">🔒</span><span>Uploading and posting unlock once an admin approves your profile picture or video.</span></div>`;
+  }
   return `<div class="fb-posts-composer" data-composer>
     <div class="fb-composer">
       ${postAvatar(viewer, name, 'fb-avatar-sm')}
@@ -520,7 +526,8 @@ Posts.mount = function (listEl, opts) {
       faces: state.faces || [],
       openPicker: state.openPicker,
       postId: String(post.id),
-      postOwnerId: String(post.user_id)
+      postOwnerId: String(post.user_id),
+      locked: ReadOnlyMode.active()
     };
   }
 
@@ -1233,6 +1240,14 @@ Posts.mount = function (listEl, opts) {
     if (!viewer.id && guarded && !/^toggle-/.test(guarded.dataset.act || '')) {
       e.preventDefault();
       showToast('Log in to react and comment', '', 4000);
+      return;
+    }
+    // A member waiting for approval reads the feed, but cannot react, comment or share
+    const actName = guarded ? (guarded.dataset.act || '') : '';
+    const readOnlyAct = guarded && !guarded.classList.contains('fb-reaction-option')
+      && (/^toggle-/.test(actName) || actName === 'focus-comment' || actName === 'react-picker');
+    if (guarded && !readOnlyAct && ReadOnlyMode.block('Reacting, commenting and sharing')) {
+      e.preventDefault();
       return;
     }
     const option = e.target.closest('.fb-reaction-option');

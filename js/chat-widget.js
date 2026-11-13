@@ -144,6 +144,7 @@ window.ChatWidget = function(container, currentUser) {
   async function sendMessage() {
     const text = input.value.trim();
     if (!text || !activeChat) return;
+    if (ReadOnlyMode.block('Sending messages')) return;
     input.value = '';
     try {
       await sb.from('chat_messages').insert([{ sender_id: currentUser.id, receiver_id: activeChat.id, message: text }]);

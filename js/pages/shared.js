@@ -167,6 +167,21 @@ function appShell(el, user, navItems, renderContent, startTab) {
     </div>
   `;
 
+  // A member waiting for approval browses in read-only mode; this says why
+  if (window.fbApprovalPending) {
+    const bar = document.createElement('div');
+    bar.className = 'fb-approval-bar';
+    bar.innerHTML = `
+      <span class="fb-approval-icon" aria-hidden="true">⏳</span>
+      <div class="fb-approval-text">
+        <strong>Waiting for admin approval</strong>
+        <span>Look around all you like — uploading, posting, commenting, reacting and messaging unlock once an admin approves your profile picture or video.</span>
+      </div>
+      <button class="fb-btn fb-btn-primary" type="button" id="approvalCheck">Check again</button>`;
+    el.querySelector('.fb-topbar').insertAdjacentElement('afterend', bar);
+    bar.querySelector('#approvalCheck').addEventListener('click', () => Pages.app(el));
+  }
+
   const nav = el.querySelector('#sidebarNav');
   const topNav = el.querySelector('#fbTopNav');
   const bottomNav = el.querySelector('#fbBottomNav');

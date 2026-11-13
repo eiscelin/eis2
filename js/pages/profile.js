@@ -415,6 +415,7 @@ Pages.profileTab = function(main, user) {
 
   async function saveMedia(kind, file, crop, cropSize) {
     if (!file) return;
+    if (ReadOnlyMode.block('Uploading photos and videos')) return;
     const label = kind === 'avatar' ? 'profile picture' : 'cover';
     const video = String(file.type || '').startsWith('video/');
     const previous = kind === 'avatar' ? avatarUrl : coverUrl;
