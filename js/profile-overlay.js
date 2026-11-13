@@ -31,17 +31,17 @@ var ProfileOverlay = (function () {
     return !!(window.matchMedia && window.matchMedia('(max-width: 900px), (pointer: coarse)').matches);
   }
 
-  // A phone plays a short, small copy of the clip: the file an owner uploads can
-  // run for minutes, and a full-screen video that keeps decoding for that long
-  // is what makes a phone stutter — and can even crash the page. Cloudinary
-  // hands back a trimmed, lighter copy of the same clip; a profile whose clip
-  // cannot be rewritten keeps the original file (see paint).
-  const PHONE_CLIP = 'so_0,du_15,w_480,q_auto:low,c_limit';
+  // A phone plays the whole clip, start to finish, from a phone-sized copy of
+  // it: Cloudinary hands back the same clip re-encoded 480 wide as H.264 with a
+  // light bitrate, which a phone decodes in hardware and streams without
+  // stalling — no seconds are dropped. A profile whose clip cannot be rewritten
+  // keeps the original file (see paint).
+  const PHONE_CLIP = 'w_480,q_auto:low,vc_h264,c_limit';
 
   // Cloudinary can hand back that copy for a clip it hosts; a file it can't
   // rewrite keeps its original address
   function clipCopy(url) {
-    const match = String(url || '').match(/^(https?:\/\/res\.cloudinary\.com\/[^/]+\/video\/upload\/)(v\d+\/.+)$/);
+    const match = String(url || '').match(/^(https?:\/\/res\.cloudinary\.com\/[^/]+\/video\/upload\/)(.+)$/);
     return match ? match[1] + PHONE_CLIP + '/' + match[2] : '';
   }
 
@@ -250,16 +250,32 @@ var ProfileOverlay = (function () {
     host.insertAdjacentHTML('afterbegin', markup);
     const video = host.querySelector('.fb-overlay-media video');
     if (!video) return;
-    // A lighter copy that will not load still leaves the profile with its clip
+    // The phone copy is built the first time it is asked for, and that first
+    // answer can fail while it is being prepared. It is asked for again before
+    // the original file is used, so a phone never drops to a clip it cannot
+    // stream smoothly just because of one early hiccup.
     const fullSrc = video.getAttribute('data-full-src');
     if (fullSrc) {
+      let tries = 0;
       const useFull = () => {
         if (video.dataset.fellBack) return;
         video.dataset.fellBack = '1';
         video.src = fullSrc;
         video.play().catch(() => {});
       };
-      video.addEventListener('error', useFull);
+      video.addEventListener('error', () => {
+        if (video.dataset.fellBack) return;
+        tries += 1;
+        if (tries > 2) {
+          useFull();
+          return;
+        }
+        setTimeout(() => {
+          if (!video.isConnected || video.dataset.fellBack) return;
+          video.load();
+          video.play().catch(() => {});
+        }, 1500 * tries);
+      });
       if (video.error) useFull();
     } else if (!smallScreen()) {
       // A device with room to spare prepares the lighter copy for phones
