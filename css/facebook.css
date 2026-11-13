@@ -2462,10 +2462,12 @@ a.fb-post-name:hover { text-decoration: underline; }
      animation repaints on every frame and makes phones stutter */
   animation: fbCommentSpotlight 0.7s ease-out;
 }
+/* The spotlit comment's text doubles in size so it is easy to read at a glance */
 .fb-comment.fb-comment-spotlight .fb-comment-name,
 .fb-comment.fb-comment-spotlight .fb-comment-body { color: #fff; }
+.fb-comment.fb-comment-spotlight .fb-comment-name { font-size: 1.6rem; }
 .fb-comment.fb-comment-spotlight .fb-comment-body {
-  font-size: 0.95rem; line-height: 1.45;
+  font-size: 1.8rem; line-height: 1.45;
   white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;
   max-height: none; overflow: visible;
 }
