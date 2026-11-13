@@ -619,18 +619,19 @@ Posts.mount = function (listEl, opts) {
     spotlightTimer = 0;
     // The feed was replaced (tab change), so the loop has nothing left to show
     if (!listEl.isConnected) return clearSpotlight();
-    // Stay put while the member is writing, editing or deleting a comment
+    // The turns keep coming while the member is writing or editing a comment —
+    // only the automatic scroll waits, so the page never jumps under them
     const active = document.activeElement;
-    if (active && listEl.contains(active) && active.closest('.fb-comment-form, .fb-comment-edit')) {
-      spotlightEndsAt = Date.now() + COMMENT_SPOTLIGHT_MS;
+    const typing = !!(active && listEl.contains(active)
+      && active.closest('.fb-comment-form, .fb-comment-edit'));
+    if (!spotlightPost || !spotlightPost.isConnected) spotlightPost = focusedPost();
+    clearSpotlightMark();
+    // A post without comments has nothing to highlight — just wait for one
+    const comments = spotlightPost ? Array.from(spotlightPost.querySelectorAll('.fb-comment')) : [];
+    if (!comments.length) {
       spotlightTimer = setTimeout(spotlightNext, COMMENT_SPOTLIGHT_MS);
       return;
     }
-    if (!spotlightPost || !spotlightPost.isConnected) spotlightPost = focusedPost();
-    clearSpotlightMark();
-    // A post without comments has nothing to highlight — just wait
-    const comments = spotlightPost ? Array.from(spotlightPost.querySelectorAll('.fb-comment')) : [];
-    if (!comments.length) return;
     if (spotlightIndex >= comments.length) spotlightIndex = 0;
     const comment = comments[spotlightIndex];
     comment.classList.add('fb-comment-spotlight');
@@ -641,8 +642,10 @@ Posts.mount = function (listEl, opts) {
     // Bring the comment near its post into the middle of the screen, clear of
     // the sticky top bar, instead of leaving it buried far below. The scroll it
     // causes must not be mistaken for the member choosing another post.
-    spotlightIgnoreScrollUntil = Date.now() + 1200;
-    comment.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (!typing) {
+      spotlightIgnoreScrollUntil = Date.now() + 1200;
+      comment.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
     spotlightIndex = (spotlightIndex + 1) % comments.length;
     spotlightTimer = setTimeout(spotlightNext, COMMENT_SPOTLIGHT_MS);
   }
