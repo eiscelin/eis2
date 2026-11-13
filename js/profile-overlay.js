@@ -26,6 +26,37 @@ var ProfileOverlay = (function () {
     return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   }
 
+  // A phone (or a narrow window) is where a full-screen clip is expensive
+  function smallScreen() {
+    return !!(window.matchMedia && window.matchMedia('(max-width: 900px), (pointer: coarse)').matches);
+  }
+
+  // A phone plays a short, small copy of the clip: the file an owner uploads can
+  // run for minutes, and a full-screen video that keeps decoding for that long
+  // is what makes a phone stutter — and can even crash the page. Cloudinary
+  // hands back a trimmed, lighter copy of the same clip; a profile whose clip
+  // cannot be rewritten keeps the original file (see paint).
+  const PHONE_CLIP = 'so_0,du_15,w_480,q_auto:low,c_limit';
+
+  // Cloudinary can hand back that copy for a clip it hosts; a file it can't
+  // rewrite keeps its original address
+  function clipCopy(url) {
+    const match = String(url || '').match(/^(https?:\/\/res\.cloudinary\.com\/[^/]+\/video\/upload\/)(v\d+\/.+)$/);
+    return match ? match[1] + PHONE_CLIP + '/' + match[2] : '';
+  }
+
+  function phoneClip(url) {
+    return smallScreen() ? clipCopy(url) : '';
+  }
+
+  // Cloudinary builds the copy on the first request for it, and that first
+  // request can fail. Asking for it from a device with room to spare, as soon as
+  // the clip is saved or seen, leaves it ready before a phone needs it
+  function warmClipCopy(url) {
+    const copy = clipCopy(url);
+    if (copy) fetch(copy, { credentials: 'omit' }).catch(() => {});
+  }
+
   // A tab in the background pauses the clip — start it again on the way back
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) return;
@@ -200,8 +231,10 @@ var ProfileOverlay = (function () {
     // A visitor's clip is not started here: it plays with sound from the
     // visitor's switch (see mountSound) so nothing races it into silent playback.
     const visitor = !!(options && options.sound);
+    const light = item.video ? phoneClip(item.url) : '';
+    const full = light ? ` data-full-src="${fbEscape(item.url)}"` : '';
     const asset = item.video
-      ? `<video class="fb-overlay-asset" src="${fbEscape(item.url)}"${visitor ? '' : ' autoplay'} muted loop playsinline preload="metadata"></video>`
+      ? `<video class="fb-overlay-asset" src="${fbEscape(light || item.url)}"${full}${visitor ? '' : ' autoplay'} muted loop playsinline preload="metadata"></video>`
       : `<img class="fb-overlay-asset" src="${fbEscape(item.url)}" alt="">`;
     return `<div class="fb-overlay-media" aria-hidden="true" style="opacity:${clampOpacity(profile.overlay_opacity) / 100}">${asset}</div>`;
   }
@@ -217,6 +250,22 @@ var ProfileOverlay = (function () {
     host.insertAdjacentHTML('afterbegin', markup);
     const video = host.querySelector('.fb-overlay-media video');
     if (!video) return;
+    // A lighter copy that will not load still leaves the profile with its clip
+    const fullSrc = video.getAttribute('data-full-src');
+    if (fullSrc) {
+      const useFull = () => {
+        if (video.dataset.fellBack) return;
+        video.dataset.fellBack = '1';
+        video.src = fullSrc;
+        video.play().catch(() => {});
+      };
+      video.addEventListener('error', useFull);
+      if (video.error) useFull();
+    } else if (!smallScreen()) {
+      // A device with room to spare prepares the lighter copy for phones
+      const item = shown(profile);
+      if (item && item.video) warmClipCopy(item.url);
+    }
     // Never let the clip stop: loop it, restart it if a browser ends it anyway,
     // and pick it up again when the visitor comes back to the tab
     video.loop = true;
@@ -451,6 +500,7 @@ var ProfileOverlay = (function () {
           opacity: state.opacity,
           volume: state.volume
         });
+        if (state.video) warmClipCopy(state.video);
         close();
       } catch (e) {
         busy = false;
