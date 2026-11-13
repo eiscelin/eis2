@@ -235,8 +235,9 @@ function postCommentHtml(comment, ctx) {
   const groups = postReactionGroups(rows);
   const mine = rows.find(r => String(r.user_id) === String(viewer.id));
   const own = String(comment.user_id) === String(viewer.id);
-  // The comment's writer and the member who posted it can remove it
-  const canDelete = own || (ctx.postOwnerId !== undefined
+  // The comment's writer, the member who posted it, or an admin can remove it
+  const admin = typeof AdminModerate !== 'undefined' && AdminModerate.can();
+  const canDelete = own || admin || (ctx.postOwnerId !== undefined
     && String(ctx.postOwnerId) === String(viewer.id));
 
   return `<div class="fb-comment" data-comment="${fbEscape(comment.id)}">
