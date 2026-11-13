@@ -2002,7 +2002,7 @@ a.admin-tool { text-decoration: none; display: inline-flex; align-items: center;
   position: absolute; top: calc(100% + 8px); right: 0; bottom: auto;
   max-height: min(70vh, 460px);
 }
-/* Phones with a profile cover: the button sits at the top center of the cover, still on top */
+/* Profile covers: the button sits just above the cover, never on the photo */
 .fb-support.dock-cover {
   position: absolute; top: var(--sup-top, 0); left: var(--sup-left, 50%); right: auto; z-index: 100002;
   transform: translateX(-50%);
