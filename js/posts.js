@@ -175,11 +175,14 @@ function postRxSoundSwitch(postId, on) {
 function postFaceSlots(groups) {
   const ownCount = groups.filter(g => postOwnReaction(g.type)).length;
   let slot = 0;
-  return groups.map(g => {
-    const own = postOwnReaction(g.type);
-    const icon = Posts.reactionIcon(g.type, own ? slot++ : 0, ownCount);
-    return `<span${own ? ' class="fb-rx-face-slot"' : ''} title="${g.label}">${icon}</span>`;
-  }).join('');
+  // The standard emoji and the members' own uploads are shown as two separate
+  // stacks, one beside the other, so an uploaded face never hides an emoji
+  const emoji = groups.filter(g => !postOwnReaction(g.type))
+    .map(g => `<span title="${g.label}">${Posts.reactionIcon(g.type)}</span>`).join('');
+  const uploads = groups.filter(g => postOwnReaction(g.type))
+    .map(g => `<span class="fb-rx-face-slot" title="${g.label}">${Posts.reactionIcon(g.type, slot++, ownCount)}</span>`).join('');
+  return `${emoji ? `<span class="fb-reaction-group">${emoji}</span>` : ''}`
+    + `${uploads ? `<span class="fb-reaction-group fb-reaction-group-faces">${uploads}</span>` : ''}`;
 }
 
 function postReactionPicker(media) {

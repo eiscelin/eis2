@@ -2263,13 +2263,16 @@ a.fb-post-name:hover { text-decoration: underline; }
 
 .fb-post-stats { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.5rem 1rem; font-size: 0.85rem; color: var(--fb-muted); }
 .fb-post-summary { display: inline-flex; align-items: center; gap: 0.35rem; }
-.fb-reaction-icons { display: inline-flex; align-items: center; }
-.fb-reaction-icons > span {
+/* The standard emoji and the members' own uploads are two separate stacks,
+   kept close together but never overlapping each other */
+.fb-reaction-icons { display: inline-flex; align-items: center; gap: 8px; }
+.fb-reaction-group { display: inline-flex; align-items: center; }
+.fb-reaction-group > span {
   display: inline-flex; align-items: center; justify-content: center;
   width: 20px; height: 20px; margin-left: -5px; border-radius: 50%;
   box-shadow: 0 0 0 2px var(--fb-card);
 }
-.fb-reaction-icons > span:first-child { margin-left: 0; }
+.fb-reaction-group > span:first-child { margin-left: 0; }
 .fb-post-counts { display: inline-flex; gap: 0.6rem; }
 .fb-post-counts button { padding: 0; border: none; background: none; color: inherit; font: inherit; cursor: pointer; }
 .fb-post-counts button:hover { text-decoration: underline; }
@@ -2367,7 +2370,7 @@ a.fb-post-name:hover { text-decoration: underline; }
 /* Small reaction icons inside the Like button and the reaction count */
 .fb-post-act .fb-rx { width: 48px; height: 48px; }
 .fb-post-summary .fb-rx { width: 40px; height: 40px; }
-.fb-reaction-icons > span { width: 40px; height: 40px; margin-left: -10px; box-shadow: 0 0 0 3px var(--fb-card); }
+.fb-reaction-group > span { width: 40px; height: 40px; margin-left: -10px; box-shadow: 0 0 0 3px var(--fb-card); }
 .fb-comment-reactions .fb-rx { width: 36px; height: 36px; }
 /* Uploaded face reactions swell to 10x while wiggling, one face after another.
    Each takes a 2 second turn and the next one starts the moment the previous
@@ -2385,7 +2388,7 @@ a.fb-post-name:hover { text-decoration: underline; }
   box-shadow: none;
 }
 .fb-post-card { overflow: visible; }
-.fb-reaction-icons > span.fb-rx-face-slot { box-shadow: none; }
+.fb-reaction-group > span.fb-rx-face-slot { box-shadow: none; }
 /* A member's video reaction takes its own turn in the same one-by-one loop as
    the faces: it grows and wiggles while it plays (js/posts.js starts it once). */
 .fb-rx-video { border-radius: 50%; background: #000; overflow: hidden; }
@@ -2427,7 +2430,8 @@ a.fb-post-name:hover { text-decoration: underline; }
   /* On a phone the growing reaction expands to the right of its slot instead of
      centred on it, so it never spills past the screen's left edge */
   .fb-post-summary .fb-rx-face { transform-origin: left center; }
-  .fb-reaction-icons > span { width: 30px; height: 30px; margin-left: -8px; }
+  .fb-reaction-icons { gap: 6px; }
+  .fb-reaction-group > span { width: 30px; height: 30px; margin-left: -8px; }
   .fb-comment-reactions .fb-rx { width: 28px; height: 28px; }
 }
 @media (prefers-reduced-motion: reduce) {
