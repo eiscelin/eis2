@@ -131,30 +131,42 @@ function postFaceAnimSwitch(postId, off) {
   </label>`;
 }
 
-// A member can also silence the video reactions on one post; kept in this browser
-function rxSoundOffKey(postId) {
-  return 'meday.rxSoundOff.' + postId;
+// Video reactions are silent by default. A member can switch the sound on for
+// one post; that choice is kept in this browser.
+function rxSoundOnKey(postId) {
+  return 'meday.rxSoundOn.' + postId;
 }
 
-function rxSoundOff(postId) {
+function rxSoundOn(postId) {
   try {
-    return localStorage.getItem(rxSoundOffKey(postId)) === '1';
+    return localStorage.getItem(rxSoundOnKey(postId)) === '1';
   } catch (err) {
     return false;
   }
 }
 
-function setRxSoundOff(postId, off) {
+function setRxSoundOn(postId, on) {
   try {
-    if (off) localStorage.setItem(rxSoundOffKey(postId), '1');
-    else localStorage.removeItem(rxSoundOffKey(postId));
+    if (on) localStorage.setItem(rxSoundOnKey(postId), '1');
+    else localStorage.removeItem(rxSoundOnKey(postId));
   } catch (err) { /* a blocked store only loses the preference */ }
 }
 
-function postRxSoundSwitch(postId, off) {
+// One place that decides whether a post's reaction videos can be heard, so the
+// switch and the play loop can never disagree. Volume 0 as well, so a video
+// that was already playing falls silent the instant the switch goes off.
+function applyRxSound(root, on) {
+  if (!root) return;
+  root.querySelectorAll('.fb-rx-video video').forEach(video => {
+    video.muted = !on;
+    video.volume = on ? 1 : 0;
+  });
+}
+
+function postRxSoundSwitch(postId, on) {
   return `<label class="fb-face-anim-switch" title="Reaction sound">
-    <input type="checkbox" data-act="toggle-rx-sound"${off ? '' : ' checked'} aria-label="Reaction sound">
-    <span class="fb-rx-sound-icon" aria-hidden="true">${off ? '🔇' : '🔊'}</span>
+    <input type="checkbox" data-act="toggle-rx-sound"${on ? ' checked' : ''} aria-label="Reaction sound">
+    <span class="fb-rx-sound-icon" aria-hidden="true">${on ? '🔊' : '🔇'}</span>
   </label>`;
 }
 
@@ -289,7 +301,7 @@ Posts.card = function (post, ctx) {
         <a class="fb-post-name" href="${postProfileHref(authorUsername)}">${fbEscape(authorName)}</a>
         <div class="fb-post-time">${fbEscape(postTimeAgo(post.created_at))} · <span title="${audience.label}" aria-label="${audience.label}">${audience.icon}</span></div>
       </div>
-      ${hasFaces ? `<span class="fb-post-toggles">${postFaceAnimSwitch(post.id, faceOff)}${postRxSoundSwitch(post.id, rxSoundOff(post.id))}</span>` : ''}
+      ${hasFaces ? `<span class="fb-post-toggles">${postFaceAnimSwitch(post.id, faceOff)}${postRxSoundSwitch(post.id, rxSoundOn(post.id))}</span>` : ''}
     </div>
     ${post.content ? `<div class="fb-post-text">${fbEscape(post.content)}</div>` : ''}
     ${ctx.shared ? postSharedHtml(ctx.shared, ctx.users) : ''}
@@ -708,6 +720,9 @@ Posts.mount = function (listEl, opts) {
     const q = state.query.trim().toLowerCase();
     const shown = state.posts.filter(visibleToViewer).filter(p => !q
       || `${p.content || ''} ${p.author_name || ''}`.toLowerCase().includes(q));
+    // Stop the videos of the cards being replaced: a detached video keeps
+    // playing its sound until it is paused by name
+    stopVideoReactions();
     listEl.innerHTML = shown.length
       ? shown.map(p => Posts.card(p, ctxFor(p))).join('')
       : (options.emptyHtml || '');
@@ -738,15 +753,14 @@ Posts.mount = function (listEl, opts) {
     video.pause();
     if (video.currentTime) video.currentTime = 0;
     const card = holder.closest('[data-post]');
-    const silent = card ? rxSoundOff(card.dataset.post) : false;
-    // The reaction plays with its own sound unless this browser silenced the
-    // post; a browser that blocks sound still shows the video, played muted
-    video.muted = silent;
-    video.volume = 1;
+    // Silent unless the member switched this post's sound on
+    const soundOn = card ? rxSoundOn(card.dataset.post) : false;
+    video.muted = !soundOn;
+    video.volume = soundOn ? 1 : 0;
     holder.rxPlaying = true;
     const attempt = video.play();
     if (attempt && attempt.catch) attempt.catch(() => {
-      if (silent) return;
+      // A browser that blocks sound still shows the video, played silently
       video.muted = true;
       video.play().catch(() => {});
     });
@@ -1223,14 +1237,12 @@ Posts.mount = function (listEl, opts) {
     if (!sound) return;
     const postEl = sound.closest('[data-post]');
     if (!postEl) return;
-    const off = !sound.checked;
-    setRxSoundOff(postEl.dataset.post, off);
+    const on = sound.checked;
+    setRxSoundOn(postEl.dataset.post, on);
     const icon = sound.parentElement.querySelector('.fb-rx-sound-icon');
-    if (icon) icon.textContent = off ? '🔇' : '🔊';
-    postEl.querySelectorAll('.fb-rx-video video').forEach(video => {
-      video.muted = off;
-      if (!off) video.volume = 1;
-    });
+    if (icon) icon.textContent = on ? '🔊' : '🔇';
+    // Applies to every video of this post, playing or about to play
+    applyRxSound(postEl, on);
   });
 
   listEl.addEventListener('click', async e => {
