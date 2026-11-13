@@ -737,7 +737,7 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
 .fb-profile-id { padding-bottom: 0.6rem; min-width: 0; }
 .fb-profile-name { font-size: 2rem; font-weight: 800; line-height: 1.15; color: var(--fb-text); }
 .fb-profile-meta { color: var(--fb-muted); font-size: 0.92rem; margin-top: 0.2rem; }
-.fb-profile-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.fb-profile-actions { position: relative; display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .fb-profile-head > .fb-profile-actions { margin-left: auto; padding-bottom: 0.7rem; }
 
 .fb-btn {
@@ -1539,8 +1539,8 @@ a.fb-person-img:hover { filter: brightness(1.1); }
    above the layer and keeps the page underneath readable and clickable. */
 .fb-overlay-sound {
   position: absolute;
-  right: 1.5rem;
-  bottom: calc(100% + 0.35rem);
+  right: 0;
+  bottom: calc(100% + 0.45rem);
   z-index: 151;
   display: flex; align-items: center; gap: 0.4rem;
   padding: 0.35rem 0.6rem;
@@ -1565,7 +1565,7 @@ a.fb-person-img:hover { filter: brightness(1.1); }
   cursor: pointer;
 }
 @media (max-width: 640px) {
-  .fb-overlay-sound { right: 0.85rem; bottom: calc(100% + 0.55rem); padding: 0.3rem 0.5rem; }
+  .fb-overlay-sound { bottom: calc(100% + 0.4rem); padding: 0.3rem 0.5rem; }
   .fb-overlay-sound-range { width: 62px; }
 }
 

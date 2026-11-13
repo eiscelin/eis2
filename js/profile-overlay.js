@@ -104,9 +104,9 @@ var ProfileOverlay = (function () {
     control.innerHTML = `
       <button class="fb-overlay-sound-btn" type="button" data-overlay-mute aria-pressed="true">🔊</button>
       <input class="fb-overlay-sound-range" type="range" min="0" max="100" step="1" aria-label="Overlay video volume">`;
-    // Sits in the vacant strip above the profile's buttons, where a visitor
-    // looking for "Copy link" can't miss it
-    (host.querySelector('.fb-profile-head') || host).appendChild(control);
+    // Sits in the vacant strip just above the profile's buttons, beside the
+    // name, where a visitor looking for "Copy link" can't miss it
+    (host.querySelector('.fb-profile-actions') || host).appendChild(control);
     const button = control.querySelector('[data-overlay-mute]');
     const range = control.querySelector('.fb-overlay-sound-range');
 
