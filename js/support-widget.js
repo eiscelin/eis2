@@ -86,12 +86,29 @@
     });
   }
 
+  // Sits the button on the top center of a profile cover, above the picture
+  function dockOnCover(cover) {
+    const rect = cover.getBoundingClientRect();
+    if (!rect.height) return false;
+    root.classList.add('dock-cover');
+    root.style.setProperty('--sup-left', Math.round(rect.left + window.scrollX + rect.width / 2) + 'px');
+    root.style.setProperty('--sup-top', Math.round(rect.top + window.scrollY + 10) + 'px');
+    return true;
+  }
+
   // Where the button lives: the vacant stretch of the top bar, or the top center
   // of the profile cover on pages without one
   function syncDock() {
     if (!root) return;
     const fab = root.querySelector('.fb-support-fab');
     const bar = document.querySelector('.fb-topbar');
+    const cover = document.querySelector('.fb-cover');
+    // A profile page always puts the button on top of the cover, even when the
+    // page also has a bar (a shared profile link, or the app's own profile tab)
+    if (cover && /^#\/(?:u\/|App\/Profile)/.test(location.hash || '') && dockOnCover(cover)) {
+      root.classList.remove('dock-bar', 'dock-compact');
+      return;
+    }
     const rect = bar ? bar.getBoundingClientRect() : null;
     if (rect && rect.height) {
       const narrow = window.innerWidth <= 900;
@@ -113,18 +130,10 @@
       return;
     }
     root.classList.remove('dock-bar', 'dock-compact');
-    const cover = document.querySelector('.fb-cover');
-    const coverRect = cover ? cover.getBoundingClientRect() : null;
-    if (!coverRect || !coverRect.height) {
-      root.classList.remove('dock-cover');
-      root.style.removeProperty('--sup-top');
-      root.style.removeProperty('--sup-left');
-      return;
-    }
-    const centerX = coverRect.left + window.scrollX + coverRect.width / 2;
-    root.style.setProperty('--sup-left', Math.round(centerX) + 'px');
-    root.style.setProperty('--sup-top', Math.round(coverRect.top + window.scrollY + 10) + 'px');
-    root.classList.add('dock-cover');
+    if (cover && dockOnCover(cover)) return;
+    root.classList.remove('dock-cover');
+    root.style.removeProperty('--sup-top');
+    root.style.removeProperty('--sup-left');
   }
 
   // Layout keeps moving for a moment after a render or a resize — measure again
