@@ -124,12 +124,17 @@ var ProfileOverlay = (function () {
       video.muted = !on || video.volume === 0;
       const started = video.play();
       if (started && started.catch) {
-        // A browser that blocks sound on arrival must still show the clip: it
-        // plays silently until the visitor taps the speaker
-        started.catch(() => {
+        started.catch(err => {
           if (!video.isConnected) return;
-          video.muted = true;
-          video.play().catch(() => {});
+          paintSound();
+          // Only a browser holding sound back until the visitor touches the page
+          // needs the silent start; anything else is a start that got interrupted
+          if (err && err.name === 'NotAllowedError') {
+            video.muted = true;
+            video.play().catch(() => {});
+          } else {
+            video.play().catch(() => {});
+          }
           paintSound();
         });
       }
@@ -196,15 +201,16 @@ var ProfileOverlay = (function () {
     return url ? { url, video: isVideo(url) } : null;
   }
 
-  function layerHTML(profile) {
+  function layerHTML(profile, options) {
     const item = shown(profile);
     if (!item) return '';
-    // The clip loops for as long as the page is open. It carries the muted
-    // attribute so it can always start, and the saved volume comes straight in
-    // (see playWithSound and mountSound). It buffers as soon as the page paints,
-    // so the first frame shows quickly.
+    // The clip loops for as long as the page is open and buffers as soon as the
+    // page paints, so the first frame shows quickly. A visitor's clip is not
+    // started here: it plays with sound from the visitor's switch (see mountSound)
+    // so nothing races it into silent playback first.
+    const visitor = !!(options && options.sound);
     const asset = item.video
-      ? `<video class="fb-overlay-asset" src="${fbEscape(item.url)}" autoplay muted loop playsinline preload="auto"></video>`
+      ? `<video class="fb-overlay-asset" src="${fbEscape(item.url)}"${visitor ? '' : ' autoplay'} muted loop playsinline preload="auto"></video>`
       : `<img class="fb-overlay-asset" src="${fbEscape(item.url)}" alt="">`;
     return `<div class="fb-overlay-media" aria-hidden="true" style="opacity:${clampOpacity(profile.overlay_opacity) / 100}">${asset}</div>`;
   }
@@ -215,7 +221,7 @@ var ProfileOverlay = (function () {
     if (!host) return;
     host.querySelector('.fb-overlay-media')?.remove();
     host.querySelector('.fb-overlay-sound')?.remove();
-    const markup = layerHTML(profile);
+    const markup = layerHTML(profile, options);
     if (!markup) return;
     host.insertAdjacentHTML('afterbegin', markup);
     const video = host.querySelector('.fb-overlay-media video');
