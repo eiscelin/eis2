@@ -604,6 +604,12 @@ Posts.mount = function (listEl, opts) {
   let spotlightIndex = 0;
   let spotlightCommentId = ''; // the comment lit right now
   let spotlightEndsAt = 0;     // when its turn ends
+  // The page never pans by itself before the visitor scrolls: arriving on a
+  // profile keeps the bar, the logo and the cover on screen
+  let spotlightUserScrolled = false;
+  ['wheel', 'touchmove', 'keydown'].forEach(type => {
+    window.addEventListener(type, () => { spotlightUserScrolled = true; }, { passive: true });
+  });
 
   // The post being viewed: the first one starting in the upper part of the
   // screen. When none starts there (only the tail of a previous post shows),
@@ -720,7 +726,7 @@ Posts.mount = function (listEl, opts) {
     // Keep the lit comment readable without scrolling the post away: the page
     // only moves if the comment is out of view. The scroll it causes must not
     // be mistaken for the member choosing another post.
-    if (!typing) {
+    if (!typing && spotlightUserScrolled) {
       spotlightIgnoreScrollUntil = Date.now() + 1200;
       keepSpotlightVisible(comment);
     }
