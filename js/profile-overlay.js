@@ -59,29 +59,19 @@ var ProfileOverlay = (function () {
     video.play().catch(silently);
   }
 
-  // A visitor sets the floating clip's sound for themselves; the choice is kept
-  // in this browser and the clip arrives with sound on unless they turned it off
-  const SOUND_KEY = 'meday.overlaySound';
+  // A visitor sets the floating clip's sound for themselves and the level is kept
+  // in this browser. Every visit still arrives with sound on: muting only lasts
+  // for the clip in view, so a silent visit can never make the next one silent
   const VOLUME_KEY = 'meday.overlayVolume';
-
-  function visitorSoundOn() {
-    try {
-      return localStorage.getItem(SOUND_KEY) !== '0';
-    } catch (err) {
-      return true;
-    }
-  }
-
-  function setVisitorSoundOn(on) {
-    try {
-      localStorage.setItem(SOUND_KEY, on ? '1' : '0');
-    } catch (err) { /* a blocked store only loses the preference */ }
-  }
 
   function visitorVolume(fallback) {
     try {
       const raw = localStorage.getItem(VOLUME_KEY);
-      if (raw !== null && raw !== '') return clampVolume(raw);
+      if (raw !== null && raw !== '') {
+        const level = clampVolume(raw);
+        // A level left at zero must not start the next visit silent
+        if (level > 0) return level;
+      }
     } catch (err) { /* a blocked store only loses the preference */ }
     return clampVolume(fallback);
   }
@@ -97,6 +87,7 @@ var ProfileOverlay = (function () {
   function mountSound(host, video, profile) {
     const ownerVolume = clampVolume(profile.overlay_volume);
     let last = ownerVolume;
+    let soundOn = true; // the clip always arrives with sound
     const control = document.createElement('div');
     control.className = 'fb-overlay-sound';
     control.setAttribute('role', 'group');
@@ -144,7 +135,7 @@ var ProfileOverlay = (function () {
     const savedVolume = visitorVolume(ownerVolume);
     if (savedVolume > 0) last = savedVolume;
     range.value = savedVolume;
-    apply(savedVolume, visitorSoundOn());
+    apply(savedVolume, true);
 
     // Browsers hold sound back until the visitor touches the page: the first tap
     // or key press outside this control brings the saved volume in
@@ -152,7 +143,7 @@ var ProfileOverlay = (function () {
       if (control.contains(e.target)) return;
       document.removeEventListener('pointerdown', resume);
       document.removeEventListener('keydown', resume);
-      if (!video.isConnected || !visitorSoundOn()) return;
+      if (!video.isConnected || !soundOn) return;
       if (!video.muted && video.volume > 0) return;
       apply(clampVolume(range.value), true);
     };
@@ -161,7 +152,7 @@ var ProfileOverlay = (function () {
 
     button.addEventListener('click', () => {
       if (!video.muted && video.volume > 0) {
-        setVisitorSoundOn(false);
+        soundOn = false;
         apply(range.value, false);
         return;
       }
@@ -171,7 +162,7 @@ var ProfileOverlay = (function () {
         level = last || ownerVolume || 60;
         range.value = level;
       }
-      setVisitorSoundOn(true);
+      soundOn = true;
       setVisitorVolume(level);
       apply(level, true);
     });
@@ -179,13 +170,12 @@ var ProfileOverlay = (function () {
     range.addEventListener('input', () => {
       const level = clampVolume(range.value);
       if (level > 0) last = level;
-      apply(level, level > 0);
+      soundOn = level > 0;
+      apply(level, soundOn);
     });
     // The choice is only written down once the visitor settles on a level
     range.addEventListener('change', () => {
-      const level = clampVolume(range.value);
-      setVisitorSoundOn(level > 0);
-      setVisitorVolume(level);
+      setVisitorVolume(clampVolume(range.value));
       paintSound();
     });
   }
