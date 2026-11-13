@@ -121,7 +121,17 @@ var ProfileOverlay = (function () {
     function apply(level, on) {
       video.volume = clampVolume(level) / 100;
       video.muted = !on || video.volume === 0;
-      video.play().catch(() => {});
+      const started = video.play();
+      if (started && started.catch) {
+        // A browser that blocks sound on arrival must still show the clip: it
+        // plays silently until the visitor taps the speaker
+        started.catch(() => {
+          if (!video.isConnected) return;
+          video.muted = true;
+          video.play().catch(() => {});
+          paintSound();
+        });
+      }
       paintSound();
     }
 
@@ -204,6 +214,15 @@ var ProfileOverlay = (function () {
       video.play().catch(() => {});
     };
     video.addEventListener('ended', again);
+    // A browser in low power or data-saver mode can refuse even a silent clip:
+    // the first tap or key press starts it
+    const nudge = () => {
+      document.removeEventListener('pointerdown', nudge);
+      document.removeEventListener('keydown', nudge);
+      if (video.isConnected && video.paused) video.play().catch(() => {});
+    };
+    document.addEventListener('pointerdown', nudge);
+    document.addEventListener('keydown', nudge);
     // A visitor decides the volume themselves, so the clip never turns its own
     // sound on behind their back
     if (options && options.sound) {
