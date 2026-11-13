@@ -534,37 +534,80 @@ Posts.mount = function (listEl, opts) {
   }
 
   // ---------- Comment spotlight ----------
-  // Comments are highlighted one at a time in a loop, so a comment buried at
-  // the end of a long thread still gets seen. Each one stays up for 10 seconds,
-  // then the next takes its turn and the loop starts over.
+  // Only the post on screen gets the spotlight: its comments are highlighted
+  // one at a time in a loop, 10 seconds each. A post without comments shows
+  // nothing, and scrolling onto another post hands it the turn.
+  const SPOTLIGHT_TOP_BAR = 72; // height of the sticky top bar
   let spotlightTimer = 0;
+  let spotlightScrollTimer = 0;
+  let spotlightIgnoreScrollUntil = 0;
+  let spotlightPost = null; // the post on screen that owns the highlight
   let spotlightIndex = 0;
+
+  // The post being viewed: the first one starting in the upper part of the
+  // screen. When none starts there (only the tail of a previous post shows),
+  // the post at the middle of the screen wins.
+  function focusedPost() {
+    const cards = Array.from(listEl.querySelectorAll('.fb-post-card[data-post]'));
+    const line = SPOTLIGHT_TOP_BAR + (window.innerHeight - SPOTLIGHT_TOP_BAR) * 0.35;
+    const starting = cards.find(card => {
+      const top = card.getBoundingClientRect().top;
+      return top >= SPOTLIGHT_TOP_BAR && top <= line;
+    });
+    if (starting) return starting;
+    const middle = SPOTLIGHT_TOP_BAR + (window.innerHeight - SPOTLIGHT_TOP_BAR) / 2;
+    let best = null;
+    let bestDistance = Infinity;
+    cards.forEach(card => {
+      const rect = card.getBoundingClientRect();
+      if (rect.bottom < SPOTLIGHT_TOP_BAR) return; // scrolled past
+      if (rect.top <= middle && rect.bottom >= middle) {
+        best = card;
+        bestDistance = 0;
+        return;
+      }
+      const distance = rect.top > middle ? rect.top - middle : middle - rect.bottom;
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = card;
+      }
+    });
+    return best;
+  }
+
+  function clearSpotlightMark() {
+    listEl.querySelectorAll('.fb-comment-spotlight')
+      .forEach(el => el.classList.remove('fb-comment-spotlight'));
+  }
 
   function clearSpotlight() {
     clearTimeout(spotlightTimer);
     spotlightTimer = 0;
-    listEl.querySelectorAll('.fb-comment-spotlight')
-      .forEach(el => el.classList.remove('fb-comment-spotlight'));
+    clearSpotlightMark();
   }
 
   function spotlightNext() {
     spotlightTimer = 0;
     // The feed was replaced (tab change), so the loop has nothing left to show
     if (!listEl.isConnected) return clearSpotlight();
-    const comments = Array.from(listEl.querySelectorAll('.fb-comment'));
-    if (!comments.length) return;
     // Stay put while the member is writing, editing or deleting a comment
     const active = document.activeElement;
     if (active && listEl.contains(active) && active.closest('.fb-comment-form, .fb-comment-edit')) {
       spotlightTimer = setTimeout(spotlightNext, COMMENT_SPOTLIGHT_MS);
       return;
     }
+    if (!spotlightPost || !spotlightPost.isConnected) spotlightPost = focusedPost();
+    clearSpotlightMark();
+    // A post without comments has nothing to highlight — just wait
+    const comments = spotlightPost ? Array.from(spotlightPost.querySelectorAll('.fb-comment')) : [];
+    if (!comments.length) return;
     if (spotlightIndex >= comments.length) spotlightIndex = 0;
-    comments.forEach(el => el.classList.remove('fb-comment-spotlight'));
     const comment = comments[spotlightIndex];
     comment.classList.add('fb-comment-spotlight');
     // Bring the comment near its post into the middle of the screen, clear of
-    // the sticky top bar, instead of leaving it buried far below
+    // the sticky top bar, instead of leaving it buried far below. The scroll it
+    // causes must not be mistaken for the member choosing another post.
+    spotlightIgnoreScrollUntil = Date.now() + 1200;
     comment.scrollIntoView({ behavior: 'smooth', block: 'center' });
     spotlightIndex = (spotlightIndex + 1) % comments.length;
     spotlightTimer = setTimeout(spotlightNext, COMMENT_SPOTLIGHT_MS);
@@ -572,8 +615,25 @@ Posts.mount = function (listEl, opts) {
 
   function startCommentSpotlight() {
     clearSpotlight();
-    if (!listEl.querySelector('.fb-comment')) return;
     spotlightTimer = setTimeout(spotlightNext, 600);
+  }
+
+  // Scrolling onto another post hands it the spotlight right away
+  if (!listEl.dataset.spotlightScroll) {
+    listEl.dataset.spotlightScroll = '1';
+    window.addEventListener('scroll', () => {
+      if (!listEl.isConnected) return;
+      if (Date.now() < spotlightIgnoreScrollUntil) return;
+      clearTimeout(spotlightScrollTimer);
+      spotlightScrollTimer = setTimeout(() => {
+        const post = focusedPost();
+        if (post === spotlightPost) return;
+        spotlightPost = post;
+        spotlightIndex = 0;
+        clearSpotlight();
+        spotlightNext();
+      }, 150);
+    }, { passive: true });
   }
 
   function renderAll() {
