@@ -23,6 +23,7 @@ Run each file in `migrations/` once in the Supabase dashboard (SQL Editor > New 
 12. `012_create_posts.sql` — member posts with photo/video, reactions and comments (comment edit/delete, comment reactions)
 13. `013_add_post_sharing.sql` / `014_create_reaction_media.sql` — shared posts and uploaded face reactions
 14. `015_add_page_background.sql` — account background picture that shows behind every page (and the `set_page_background` write function)
+15. `017_add_gallery_privacy.sql` — remembers whether a member locked their photo and video gallery
 
 After running `008`, open `#/Admin` while signed in. If no admin exists yet, the panel offers
 "Make me the first admin" once; otherwise set the role in SQL:
