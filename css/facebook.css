@@ -1538,9 +1538,9 @@ a.fb-person-img:hover { filter: brightness(1.1); }
 /* The visitor's own sound control for that clip: a small player chip that sits
    above the layer and keeps the page underneath readable and clickable. */
 .fb-overlay-sound {
-  position: fixed;
-  top: calc(56px + 0.6rem); left: 50%;
-  transform: translateX(-50%);
+  position: absolute;
+  right: 1.5rem;
+  bottom: calc(100% + 0.35rem);
   z-index: 151;
   display: flex; align-items: center; gap: 0.4rem;
   padding: 0.35rem 0.6rem;
@@ -1565,7 +1565,7 @@ a.fb-person-img:hover { filter: brightness(1.1); }
   cursor: pointer;
 }
 @media (max-width: 640px) {
-  .fb-overlay-sound { top: calc(56px + 0.45rem); padding: 0.3rem 0.5rem; }
+  .fb-overlay-sound { right: 0.85rem; bottom: calc(100% + 0.55rem); padding: 0.3rem 0.5rem; }
   .fb-overlay-sound-range { width: 62px; }
 }
 
