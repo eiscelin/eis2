@@ -79,7 +79,7 @@ function postAvatar(member, name, cls) {
   const inner = url
     ? (postIsVideo(url)
       ? `<video class="fb-avatar-img" src="${fbEscape(url)}" autoplay muted loop playsinline></video>`
-      : `<img class="fb-avatar-img" src="${fbEscape(url)}" alt="">`)
+      : `<img class="fb-avatar-img" src="${fbEscape(url)}" alt="" loading="lazy" decoding="async">`)
     : fbEscape((label[0] || '?').toUpperCase());
   return `<span class="fb-avatar ${cls || ''}">${inner}</span>`;
 }
@@ -205,8 +205,8 @@ function postReactionPicker(media) {
 function postMediaHtml(post) {
   if (!post.media_url) return '';
   return `<div class="fb-post-media">${post.media_type === 'video'
-    ? `<video class="fb-post-media-el" src="${fbEscape(post.media_url)}" controls playsinline preload="metadata"></video>`
-    : `<img class="fb-post-media-el" src="${fbEscape(post.media_url)}" alt="">`}</div>`;
+    ? `<video class="fb-post-media-el" src="${fbEscape(post.media_url)}" controls playsinline preload="none"></video>`
+    : `<img class="fb-post-media-el" src="${fbEscape(post.media_url)}" alt="" loading="lazy" decoding="async">`}</div>`;
 }
 
 const POST_AUDIENCES = {
@@ -828,12 +828,16 @@ Posts.mount = function (listEl, opts) {
     state.comments = new Map();
     state.commentReactions = new Map();
     state.shared = new Map();
-    state.friendIds = await loadFriendIds();
-    state.faces = await loadReactionMedia();
+    // Friends and reaction faces are only needed to paint, so they load next to
+    // the posts instead of costing extra round trips before the feed shows
+    const friendsPromise = loadFriendIds();
+    const facesPromise = loadReactionMedia();
 
     let query = sb.from('posts').select('*').order('created_at', { ascending: false }).limit(options.limit || 30);
     if (options.authorId) query = query.eq('user_id', options.authorId);
     const { data: rows, error } = await query;
+    state.friendIds = await friendsPromise;
+    state.faces = await facesPromise;
     if (error) {
       state.posts = [];
       listEl.innerHTML = options.emptyHtml || '';
@@ -845,20 +849,26 @@ Posts.mount = function (listEl, opts) {
       return;
     }
 
-    // The posts behind a share may sit outside this list, so load them for the preview
+    // The posts behind a share may sit outside this list, so load them for the
+    // preview. Comments, reactions and those originals are independent reads,
+    // so they go out together rather than one round trip after another.
     const loadedIds = new Set(state.posts.map(p => String(p.id)));
     const sharedIds = Array.from(new Set(
       state.posts.map(p => p.shared_post_id).filter(Boolean).map(String)
     )).filter(id => !loadedIds.has(id));
-    if (sharedIds.length) {
-      const { data: originals } = await sb.from('posts').select('*').in('id', sharedIds);
-      (originals || []).forEach(p => state.shared.set(String(p.id), p));
-    }
 
     const postIds = state.posts.map(p => p.id);
-    const { data: comments } = await sb.from('post_comments')
-      .select('*').in('post_id', postIds).order('created_at', { ascending: true });
+    const [commentsRes, reactionsRes, originalsRes] = await Promise.all([
+      sb.from('post_comments').select('*').in('post_id', postIds).order('created_at', { ascending: true }),
+      sb.from('post_reactions').select('*').in('post_id', postIds),
+      sharedIds.length
+        ? sb.from('posts').select('*').in('id', sharedIds)
+        : Promise.resolve({ data: [] })
+    ]);
+    const comments = commentsRes.data;
+    (originalsRes.data || []).forEach(p => state.shared.set(String(p.id), p));
     (comments || []).forEach(c => mapPush(state.comments, String(c.post_id), c));
+    (reactionsRes.data || []).forEach(r => mapPush(state.reactions, String(r.post_id), r));
 
     const peopleIds = Array.from(new Set(
       state.posts.map(p => p.user_id)
@@ -866,21 +876,18 @@ Posts.mount = function (listEl, opts) {
         .concat((comments || []).map(c => c.user_id))
         .filter(Boolean)
     ));
-    if (peopleIds.length) {
-      const { data: people } = await sb.from('users')
-        .select('id, username, full_name, avatar_url').in('id', peopleIds);
-      (people || []).forEach(p => state.users.set(String(p.id), p));
-    }
-
-    const { data: reactions } = await sb.from('post_reactions').select('*').in('post_id', postIds);
-    (reactions || []).forEach(r => mapPush(state.reactions, String(r.post_id), r));
-
     const commentIds = (comments || []).map(c => c.id);
-    if (commentIds.length) {
-      const { data: commentReactions } = await sb.from('comment_reactions')
-        .select('*').in('comment_id', commentIds);
-      (commentReactions || []).forEach(r => mapPush(state.commentReactions, String(r.comment_id), r));
-    }
+    // The writers and the comment reactions are independent too
+    const [peopleRes, commentReactionsRes] = await Promise.all([
+      peopleIds.length
+        ? sb.from('users').select('id, username, full_name, avatar_url').in('id', peopleIds)
+        : Promise.resolve({ data: [] }),
+      commentIds.length
+        ? sb.from('comment_reactions').select('*').in('comment_id', commentIds)
+        : Promise.resolve({ data: [] })
+    ]);
+    (peopleRes.data || []).forEach(p => state.users.set(String(p.id), p));
+    (commentReactionsRes.data || []).forEach(r => mapPush(state.commentReactions, String(r.comment_id), r));
 
     renderAll();
   }
@@ -890,9 +897,13 @@ Posts.mount = function (listEl, opts) {
     const post = findPost(postId);
     if (!post) return;
     const key = String(postId);
-    const { data: reactions } = await sb.from('post_reactions').select('*').eq('post_id', postId);
-    const { data: comments } = await sb.from('post_comments')
-      .select('*').eq('post_id', postId).order('created_at', { ascending: true });
+    // One request pair instead of a queue, so a tapped button settles quickly
+    const [reactionsRes, commentsRes] = await Promise.all([
+      sb.from('post_reactions').select('*').eq('post_id', postId),
+      sb.from('post_comments').select('*').eq('post_id', postId).order('created_at', { ascending: true })
+    ]);
+    const reactions = reactionsRes.data;
+    const comments = commentsRes.data;
     state.reactions.set(key, reactions || []);
     state.comments.set(key, comments || []);
     (comments || []).forEach(c => state.commentReactions.delete(String(c.id)));

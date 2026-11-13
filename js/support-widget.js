@@ -492,6 +492,8 @@
     function startPolling() {
       stopPolling();
       timer = setInterval(async () => {
+        // A phone in the background has nothing to show, so it stops asking
+        if (document.hidden) return;
         syncChatOffset();
         syncDock();
         if (!panel.hidden && active) await loadThread();

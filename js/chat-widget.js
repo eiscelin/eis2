@@ -113,7 +113,7 @@ window.ChatWidget = function(container, currentUser) {
   }
 
   async function loadMessages() {
-    if (!activeChat) return;
+    if (!activeChat || document.hidden) return;
     try {
       const { data, error } = await sb.from('chat_messages').select('*')
         .or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${activeChat.id}),and(sender_id.eq.${activeChat.id},receiver_id.eq.${currentUser.id})`)
