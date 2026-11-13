@@ -18,12 +18,20 @@
     return String(fd.get(key) || '').trim();
   }
 
-  function hintFor(err) {
+  // True when the database function that saves this has not been created yet
+  function setupMissing(err) {
     const message = String((err && err.message) || err || '');
-    return /set_profile_details|set_user_password|could not find the function|does not exist|schema cache/i.test(message)
-      ? 'Run 009_add_profile_details.sql in Supabase, then try again'
-      : 'Could not save: ' + message;
+    return /set_profile_details|set_user_password|could not find the function|does not exist|schema cache/i.test(message);
   }
+
+  function hintFor(err) {
+    return setupMissing(err)
+      ? 'Run 009_add_profile_details.sql in Supabase, then try again'
+      : 'Could not save: ' + String((err && err.message) || err || '');
+  }
+
+  const SETUP_NOTICE = 'Password saving is not switched on in your database yet. In Supabase open SQL Editor and run '
+    + 'supabase/migrations/009_add_profile_details.sql once — then this button works for every member.';
 
   function render(container, user, opts) {
     const options = opts || {};
@@ -52,6 +60,7 @@
           <label class="pi-field">New password<input name="new_password" type="text" maxlength="60" placeholder="At least 6 characters" autocomplete="new-password"></label>
           <label class="pi-field">Repeat new password<input name="confirm_password" type="text" maxlength="60" placeholder="Type it again" autocomplete="new-password"></label>
           <button class="pi-save" type="submit">Change password</button>
+          <p class="pi-setup" hidden></p>
         </form>
       </section>
 
@@ -73,6 +82,7 @@
     const details = container.querySelector('.pi-details');
     details.addEventListener('submit', async (e) => {
       e.preventDefault();
+      if (ReadOnlyMode.block('Saving your details')) return;
       const fd = new FormData(details);
       const ageRaw = fieldValue(fd, 'age');
       const age = ageRaw ? Number(ageRaw) : null;
@@ -127,8 +137,10 @@
         return;
       }
       const btn = passwordForm.querySelector('button[type=submit]');
+      const notice = passwordForm.querySelector('.pi-setup');
       btn.disabled = true;
       btn.textContent = 'Saving…';
+      notice.hidden = true;
       try {
         const { error } = await sb.rpc('set_user_password', { p_user_id: user.id, p_password: next });
         if (error) throw error;
@@ -142,7 +154,13 @@
         }
         showToast(isSelf ? 'Your password is changed' : `${user.full_name || user.username || 'Member'}'s password is changed`, 'success');
       } catch (err) {
-        showToast(hintFor(err), 'error', 6000);
+        if (setupMissing(err)) {
+          notice.textContent = SETUP_NOTICE;
+          notice.hidden = false;
+          showToast('Password saving is not set up in your database yet', 'error', 8000);
+        } else {
+          showToast('Could not change the password: ' + String((err && err.message) || err || ''), 'error', 8000);
+        }
       } finally {
         btn.disabled = false;
         btn.textContent = 'Change password';
@@ -198,6 +216,7 @@
         const file = backgroundFile.files[0];
         backgroundFile.value = '';
         if (!file) return;
+        if (ReadOnlyMode.block('Uploading a picture')) return;
         if (file.type && file.type.indexOf('image/') !== 0) {
           showToast('Choose an image file', 'error');
           return;

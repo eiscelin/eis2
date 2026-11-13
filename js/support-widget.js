@@ -86,12 +86,29 @@
     });
   }
 
-  // Where the button lives: the vacant stretch of the top bar, or the top center
-  // of the profile cover on pages without one
+  // Sits the button just above a profile cover — in the empty strip between the
+  // page top and the photo — so the cover itself stays clear for the visitor
+  function dockAboveCover(cover) {
+    const rect = cover.getBoundingClientRect();
+    if (!rect.height) return false;
+    const fab = root.querySelector('.fb-support-fab');
+    const height = (fab && fab.offsetHeight) || 36;
+    const top = rect.top + window.scrollY - height - 8;
+    // Nowhere to sit above the cover (it starts at the very top of the page)
+    if (top < 4) return false;
+    root.classList.add('dock-cover');
+    root.style.setProperty('--sup-left', Math.round(rect.left + window.scrollX + rect.width / 2) + 'px');
+    root.style.setProperty('--sup-top', Math.round(top) + 'px');
+    return true;
+  }
+
+  // Where the button lives: the vacant stretch of the top bar, or above the
+  // profile cover on pages without one
   function syncDock() {
     if (!root) return;
     const fab = root.querySelector('.fb-support-fab');
     const bar = document.querySelector('.fb-topbar');
+    const cover = document.querySelector('.fb-cover');
     const rect = bar ? bar.getBoundingClientRect() : null;
     if (rect && rect.height) {
       const narrow = window.innerWidth <= 900;
@@ -113,18 +130,10 @@
       return;
     }
     root.classList.remove('dock-bar', 'dock-compact');
-    const cover = document.querySelector('.fb-cover');
-    const coverRect = cover ? cover.getBoundingClientRect() : null;
-    if (!coverRect || !coverRect.height) {
-      root.classList.remove('dock-cover');
-      root.style.removeProperty('--sup-top');
-      root.style.removeProperty('--sup-left');
-      return;
-    }
-    const centerX = coverRect.left + window.scrollX + coverRect.width / 2;
-    root.style.setProperty('--sup-left', Math.round(centerX) + 'px');
-    root.style.setProperty('--sup-top', Math.round(coverRect.top + window.scrollY + 10) + 'px');
-    root.classList.add('dock-cover');
+    if (cover && dockAboveCover(cover)) return;
+    root.classList.remove('dock-cover');
+    root.style.removeProperty('--sup-top');
+    root.style.removeProperty('--sup-left');
   }
 
   // Layout keeps moving for a moment after a render or a resize — measure again
@@ -492,6 +501,8 @@
     function startPolling() {
       stopPolling();
       timer = setInterval(async () => {
+        // A phone in the background has nothing to show, so it stops asking
+        if (document.hidden) return;
         syncChatOffset();
         syncDock();
         if (!panel.hidden && active) await loadThread();

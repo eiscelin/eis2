@@ -113,7 +113,7 @@ window.ChatWidget = function(container, currentUser) {
   }
 
   async function loadMessages() {
-    if (!activeChat) return;
+    if (!activeChat || document.hidden) return;
     try {
       const { data, error } = await sb.from('chat_messages').select('*')
         .or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${activeChat.id}),and(sender_id.eq.${activeChat.id},receiver_id.eq.${currentUser.id})`)
@@ -144,6 +144,7 @@ window.ChatWidget = function(container, currentUser) {
   async function sendMessage() {
     const text = input.value.trim();
     if (!text || !activeChat) return;
+    if (ReadOnlyMode.block('Sending messages')) return;
     input.value = '';
     try {
       await sb.from('chat_messages').insert([{ sender_id: currentUser.id, receiver_id: activeChat.id, message: text }]);

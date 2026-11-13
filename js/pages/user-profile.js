@@ -79,11 +79,12 @@ Pages.userProfile = async function (el, username) {
     person = null;
   }
 
-  // Age is optional: the profile still loads before 009_add_profile_details.sql runs
-  let age = null;
+  // Age is optional: the profile still loads before 009_add_profile_details.sql runs.
+  // Its query runs alongside the friend state so the page (and the overlay clip)
+  // paints a round trip sooner.
+  let ageReady = null;
   if (person && sb) {
-    const { data: ageRows } = await sb.from('users').select('id, age').eq('id', person.id).limit(1);
-    if (ageRows && ageRows[0]) age = ageRows[0].age;
+    ageReady = sb.from('users').select('id, age').eq('id', person.id).limit(1);
   }
 
   if (!person) {
@@ -101,6 +102,12 @@ Pages.userProfile = async function (el, username) {
   if (viewer && window.Friends) {
     try { await Friends.load(viewer); } catch { /* friend requests are optional */ }
     friendState = Friends.statusWith(person.id);
+  }
+
+  let age = null;
+  if (ageReady) {
+    const { data: ageRows } = await ageReady;
+    if (ageRows && ageRows[0]) age = ageRows[0].age;
   }
 
   const name = person.full_name || person.username || 'Member';
@@ -206,7 +213,7 @@ Pages.userProfile = async function (el, username) {
       emptyHtml: '<div class="empty-state" style="padding:1.5rem;">No posts yet.</div>'
     });
   }
-  ProfileOverlay.paint(el.querySelector('.fb-profile'), person);
+  ProfileOverlay.paint(el.querySelector('.fb-profile'), person, { sound: true });
   // The account's own picture is the page background, signed in or not
   fbPaintPageBackground(person.background_url || '');
 };

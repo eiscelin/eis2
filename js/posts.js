@@ -18,6 +18,9 @@ const REACTION_ORDER = ['like', 'love', 'haha', 'wow', 'sad', 'angry'];
 // saved as "face:<image url>" or "vid:<video url>"
 const REACTION_VIDEO_MAX = 5; // seconds
 
+// Each comment in the feed gets its own turn in a looping spotlight
+const COMMENT_SPOTLIGHT_MS = 10000; // 10 seconds per comment
+
 function postFaceUrl(type) {
   const match = /^face:(.+)$/.exec(String(type || ''));
   return match ? match[1] : '';
@@ -76,7 +79,7 @@ function postAvatar(member, name, cls) {
   const inner = url
     ? (postIsVideo(url)
       ? `<video class="fb-avatar-img" src="${fbEscape(url)}" autoplay muted loop playsinline></video>`
-      : `<img class="fb-avatar-img" src="${fbEscape(url)}" alt="">`)
+      : `<img class="fb-avatar-img" src="${fbEscape(url)}" alt="" loading="lazy" decoding="async">`)
     : fbEscape((label[0] || '?').toUpperCase());
   return `<span class="fb-avatar ${cls || ''}">${inner}</span>`;
 }
@@ -128,30 +131,42 @@ function postFaceAnimSwitch(postId, off) {
   </label>`;
 }
 
-// A member can also silence the video reactions on one post; kept in this browser
-function rxSoundOffKey(postId) {
-  return 'meday.rxSoundOff.' + postId;
+// Video reactions are silent by default. A member can switch the sound on for
+// one post; that choice is kept in this browser.
+function rxSoundOnKey(postId) {
+  return 'meday.rxSoundOn.' + postId;
 }
 
-function rxSoundOff(postId) {
+function rxSoundOn(postId) {
   try {
-    return localStorage.getItem(rxSoundOffKey(postId)) === '1';
+    return localStorage.getItem(rxSoundOnKey(postId)) === '1';
   } catch (err) {
     return false;
   }
 }
 
-function setRxSoundOff(postId, off) {
+function setRxSoundOn(postId, on) {
   try {
-    if (off) localStorage.setItem(rxSoundOffKey(postId), '1');
-    else localStorage.removeItem(rxSoundOffKey(postId));
+    if (on) localStorage.setItem(rxSoundOnKey(postId), '1');
+    else localStorage.removeItem(rxSoundOnKey(postId));
   } catch (err) { /* a blocked store only loses the preference */ }
 }
 
-function postRxSoundSwitch(postId, off) {
+// One place that decides whether a post's reaction videos can be heard, so the
+// switch and the play loop can never disagree. Volume 0 as well, so a video
+// that was already playing falls silent the instant the switch goes off.
+function applyRxSound(root, on) {
+  if (!root) return;
+  root.querySelectorAll('.fb-rx-video video').forEach(video => {
+    video.muted = !on;
+    video.volume = on ? 1 : 0;
+  });
+}
+
+function postRxSoundSwitch(postId, on) {
   return `<label class="fb-face-anim-switch" title="Reaction sound">
-    <input type="checkbox" data-act="toggle-rx-sound"${off ? '' : ' checked'} aria-label="Reaction sound">
-    <span class="fb-rx-sound-icon" aria-hidden="true">${off ? '🔇' : '🔊'}</span>
+    <input type="checkbox" data-act="toggle-rx-sound"${on ? ' checked' : ''} aria-label="Reaction sound">
+    <span class="fb-rx-sound-icon" aria-hidden="true">${on ? '🔊' : '🔇'}</span>
   </label>`;
 }
 
@@ -160,11 +175,13 @@ function postRxSoundSwitch(postId, off) {
 function postFaceSlots(groups) {
   const ownCount = groups.filter(g => postOwnReaction(g.type)).length;
   let slot = 0;
-  return groups.map(g => {
+  // One stack: a post with uploads shows the standard emoji in a stack of their
+  // own, so an uploaded face never hides an emoji beside it
+  return `<span class="fb-reaction-group">${groups.map(g => {
     const own = postOwnReaction(g.type);
     const icon = Posts.reactionIcon(g.type, own ? slot++ : 0, ownCount);
     return `<span${own ? ' class="fb-rx-face-slot"' : ''} title="${g.label}">${icon}</span>`;
-  }).join('');
+  }).join('')}</span>`;
 }
 
 function postReactionPicker(media) {
@@ -191,7 +208,7 @@ function postMediaHtml(post) {
   if (!post.media_url) return '';
   return `<div class="fb-post-media">${post.media_type === 'video'
     ? `<video class="fb-post-media-el" src="${fbEscape(post.media_url)}" controls playsinline preload="metadata"></video>`
-    : `<img class="fb-post-media-el" src="${fbEscape(post.media_url)}" alt="">`}</div>`;
+    : `<img class="fb-post-media-el" src="${fbEscape(post.media_url)}" alt="" loading="lazy" decoding="async">`}</div>`;
 }
 
 const POST_AUDIENCES = {
@@ -232,6 +249,10 @@ function postCommentHtml(comment, ctx) {
   const groups = postReactionGroups(rows);
   const mine = rows.find(r => String(r.user_id) === String(viewer.id));
   const own = String(comment.user_id) === String(viewer.id);
+  // The comment's writer, the member who posted it, or an admin can remove it
+  const admin = typeof AdminModerate !== 'undefined' && AdminModerate.can();
+  const canDelete = own || admin || (ctx.postOwnerId !== undefined
+    && String(ctx.postOwnerId) === String(viewer.id));
 
   return `<div class="fb-comment" data-comment="${fbEscape(comment.id)}">
     <a class="fb-comment-avatar" href="${postProfileHref(username)}" aria-label="${fbEscape(name)}">${postAvatar(member, name, 'fb-avatar-xs')}</a>
@@ -251,10 +272,8 @@ function postCommentHtml(comment, ctx) {
         </div>
         <span class="fb-comment-time">${fbEscape(postTimeAgo(comment.created_at))}</span>
         ${comment.edited_at ? '<span class="fb-comment-edited">Edited</span>' : ''}
-        ${own
-          ? `<button class="fb-comment-act" type="button" data-act="edit-comment">Edit</button>
-             <button class="fb-comment-act" type="button" data-act="delete-comment">Delete</button>`
-          : ''}
+        ${own ? `<button class="fb-comment-act" type="button" data-act="edit-comment">Edit</button>` : ''}
+        ${canDelete ? `<button class="fb-comment-act" type="button" data-act="delete-comment">Delete</button>` : ''}
       </div>
     </div>
   </div>`;
@@ -276,6 +295,10 @@ Posts.card = function (post, ctx) {
   const audience = postAudience(post);
   const hasFaces = groups.some(g => postOwnReaction(g.type));
   const faceOff = hasFaces && faceAnimOff(post.id);
+  // When a post carries uploaded reactions, the standard emoji leave the pile
+  // and sit in the free space between the reactions and the comment count
+  const faceGroups = groups.filter(g => postOwnReaction(g.type));
+  const emojiGroups = groups.filter(g => !postOwnReaction(g.type));
 
   return `<article class="fb-card fb-post-card" data-post="${fbEscape(post.id)}">
     <div class="fb-post-head">
@@ -284,7 +307,7 @@ Posts.card = function (post, ctx) {
         <a class="fb-post-name" href="${postProfileHref(authorUsername)}">${fbEscape(authorName)}</a>
         <div class="fb-post-time">${fbEscape(postTimeAgo(post.created_at))} · <span title="${audience.label}" aria-label="${audience.label}">${audience.icon}</span></div>
       </div>
-      ${hasFaces ? `<span class="fb-post-toggles">${postFaceAnimSwitch(post.id, faceOff)}${postRxSoundSwitch(post.id, rxSoundOff(post.id))}</span>` : ''}
+      ${hasFaces ? `<span class="fb-post-toggles">${postFaceAnimSwitch(post.id, faceOff)}${postRxSoundSwitch(post.id, rxSoundOn(post.id))}</span>` : ''}
     </div>
     ${post.content ? `<div class="fb-post-text">${fbEscape(post.content)}</div>` : ''}
     ${ctx.shared ? postSharedHtml(ctx.shared, ctx.users) : ''}
@@ -292,8 +315,11 @@ Posts.card = function (post, ctx) {
     ${totalReactions || comments.length || shares
       ? `<div class="fb-post-stats">
           <span class="fb-post-summary">${totalReactions
-            ? `<span class="fb-reaction-icons${faceOff ? ' fb-face-anim-off' : ''}">${postFaceSlots(groups)}</span>${postCount(totalReactions)}`
+            ? `<span class="fb-reaction-icons${faceOff ? ' fb-face-anim-off' : ''}">${postFaceSlots(faceGroups.length ? faceGroups : groups)}</span>${postCount(totalReactions)}`
             : ''}</span>
+          ${faceGroups.length && emojiGroups.length
+            ? `<span class="fb-post-emoji fb-reaction-icons">${postFaceSlots(emojiGroups)}</span>`
+            : ''}
           <span class="fb-post-counts">
             ${comments.length ? `<button type="button" data-act="focus-comment">${postCount(comments.length)} comment${comments.length === 1 ? '' : 's'}</button>` : ''}
             ${shares ? `<span>${postCount(shares)} share${shares === 1 ? '' : 's'}</span>` : ''}
@@ -313,13 +339,15 @@ Posts.card = function (post, ctx) {
     </div>
     <div class="fb-comments">
       ${comments.map(c => postCommentHtml(c, ctx)).join('')}
-      <div class="fb-comment-form">
+      ${ctx.locked
+        ? `<div class="fb-composer-locked"><span aria-hidden="true">🔒</span><span>Commenting unlocks once an admin approves your profile picture or video.</span></div>`
+        : `<div class="fb-comment-form">
         ${postAvatar(viewer, viewerName, 'fb-avatar-xs')}
         <div class="fb-comment-box">
           <input class="fb-comment-input" type="text" data-comment-input placeholder="Write a comment…" aria-label="Write a comment">
           <button class="fb-comment-send" type="button" data-act="send-comment" aria-label="Send comment">➤</button>
         </div>
-      </div>
+      </div>`}
     </div>
   </article>`;
 };
@@ -327,12 +355,20 @@ Posts.card = function (post, ctx) {
 // Composer: text plus one photo or video
 Posts.composerMarkup = function (viewer, placeholder) {
   const name = (viewer && (viewer.full_name || viewer.username)) || 'Member';
+  // A member waiting for approval reads the feed but cannot upload or post yet
+  if (ReadOnlyMode.active()) {
+    return `<div class="fb-composer-locked"><span aria-hidden="true">🔒</span><span>Uploading and posting unlock once an admin approves your profile picture or video.</span></div>`;
+  }
   return `<div class="fb-posts-composer" data-composer>
     <div class="fb-composer">
       ${postAvatar(viewer, name, 'fb-avatar-sm')}
       <input type="text" data-post-text placeholder="${fbEscape(placeholder || "What's on your mind?")}" aria-label="Write a post">
     </div>
     <div class="fb-composer-preview" data-preview hidden></div>
+    <div class="fb-composer-upload" data-upload hidden>
+      <div class="fb-composer-upload-track"><i data-upload-bar></i></div>
+      <span class="fb-composer-upload-label" data-upload-label></span>
+    </div>
     <div class="fb-composer-foot">
       <div class="fb-composer-tools">
         <button class="fb-composer-tool" type="button" data-pick="image"><span aria-hidden="true">🖼️</span> Photo</button>
@@ -351,8 +387,39 @@ Posts.composer = function (root, opts) {
   const textEl = wrap.querySelector('[data-post-text]');
   const preview = wrap.querySelector('[data-preview]');
   const submit = wrap.querySelector('[data-post-submit]');
+  const uploadEl = wrap.querySelector('[data-upload]');
+  const uploadBar = wrap.querySelector('[data-upload-bar]');
+  const uploadLabel = wrap.querySelector('[data-upload-label]');
   let file = null;
   let busy = false;
+
+  // The line that fills while the file travels, so a big video answers the
+  // moment it is picked instead of looking stuck until it lands
+  function beginUpload(kind) {
+    const noun = kind === 'video' ? 'video' : 'photo';
+    uploadEl.hidden = false;
+    uploadBar.style.width = '0%';
+    uploadLabel.textContent = 'Uploading ' + noun + '…';
+    submit.textContent = 'Uploading…';
+    return {
+      progress(fraction) {
+        const pct = Math.max(0, Math.min(100, Math.round(fraction * 100)));
+        uploadBar.style.width = pct + '%';
+        // The last chunk is still being processed by the host after it arrives
+        if (pct >= 100) {
+          uploadLabel.textContent = 'Finishing ' + noun + '…';
+          submit.textContent = 'Posting…';
+          return;
+        }
+        uploadLabel.textContent = 'Uploading ' + noun + ' ' + pct + '%';
+        submit.textContent = pct + '%';
+      },
+      done() {
+        uploadEl.hidden = true;
+        submit.textContent = 'Post';
+      }
+    };
+  }
 
   function paintPreview() {
     if (!file) {
@@ -403,14 +470,15 @@ Posts.composer = function (root, opts) {
     if (!sb) return showToast('Posting needs a connected database', 'error');
     busy = true;
     submit.disabled = true;
+    let upload = null;
     try {
       let mediaUrl = '';
       let mediaType = '';
       if (file) {
         const isVideo = String(file.type || '').startsWith('video/');
-        showToast(isVideo ? 'Uploading your video…' : 'Uploading your photo…', '', 6000);
+        upload = beginUpload(isVideo ? 'video' : 'photo');
         const payload = isVideo ? file : await shrinkImage(file, 1600).catch(() => file);
-        mediaUrl = await cloudinaryUpload(payload);
+        mediaUrl = await cloudinaryUpload(payload, fraction => upload.progress(fraction));
         if (!mediaUrl) throw new Error('image hosting is not connected');
         mediaType = isVideo ? 'video' : 'image';
       }
@@ -434,6 +502,7 @@ Posts.composer = function (root, opts) {
         ? 'Run supabase/migrations/012_create_posts.sql in Supabase first'
         : 'Could not post: ' + message, 'error', 6000);
     } finally {
+      if (upload) upload.done();
       busy = false;
       submit.disabled = false;
     }
@@ -514,7 +583,9 @@ Posts.mount = function (listEl, opts) {
       commentReactions: state.commentReactions,
       faces: state.faces || [],
       openPicker: state.openPicker,
-      postId: String(post.id)
+      postId: String(post.id),
+      postOwnerId: String(post.user_id),
+      locked: ReadOnlyMode.active()
     };
   }
 
@@ -530,14 +601,204 @@ Posts.mount = function (listEl, opts) {
     return false;
   }
 
+  // ---------- Comment spotlight ----------
+  // Only the post on screen gets the spotlight: its comments are highlighted
+  // one at a time in a loop, 10 seconds each. A post without comments shows
+  // nothing, and scrolling onto another post hands it the turn.
+  const SPOTLIGHT_TOP_BAR = 72; // height of the sticky top bar
+  let spotlightTimer = 0;
+  let spotlightScrollTimer = 0;
+  let spotlightIgnoreScrollUntil = 0;
+  let spotlightPost = null; // the post on screen that owns the highlight
+  let spotlightIndex = 0;
+  let spotlightCommentId = ''; // the comment lit right now
+  let spotlightEndsAt = 0;     // when its turn ends
+  // The page never pans by itself before the visitor scrolls: arriving on a
+  // profile keeps the bar, the logo and the cover on screen
+  let spotlightUserScrolled = false;
+  ['wheel', 'touchmove', 'keydown'].forEach(type => {
+    window.addEventListener(type, () => { spotlightUserScrolled = true; }, { passive: true });
+  });
+
+  // The post being viewed: the first one starting in the upper part of the
+  // screen. When none starts there (only the tail of a previous post shows),
+  // the post at the middle of the screen wins.
+  function focusedPost() {
+    const cards = Array.from(listEl.querySelectorAll('.fb-post-card[data-post]'));
+    const line = SPOTLIGHT_TOP_BAR + (window.innerHeight - SPOTLIGHT_TOP_BAR) * 0.35;
+    const starting = cards.find(card => {
+      const top = card.getBoundingClientRect().top;
+      return top >= SPOTLIGHT_TOP_BAR && top <= line;
+    });
+    if (starting) return starting;
+    const middle = SPOTLIGHT_TOP_BAR + (window.innerHeight - SPOTLIGHT_TOP_BAR) / 2;
+    let best = null;
+    let bestDistance = Infinity;
+    cards.forEach(card => {
+      const rect = card.getBoundingClientRect();
+      if (rect.bottom < SPOTLIGHT_TOP_BAR) return; // scrolled past
+      if (rect.top <= middle && rect.bottom >= middle) {
+        best = card;
+        bestDistance = 0;
+        return;
+      }
+      const distance = rect.top > middle ? rect.top - middle : middle - rect.bottom;
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = card;
+      }
+    });
+    return best;
+  }
+
+  // The spotlit comment is lifted to the first line of its thread so it never
+  // stays buried; it drops back into its own place when its turn is over.
+  let spotlightLifted = null; // { el, homePrev }
+
+  function lowerSpotlightComment() {
+    if (!spotlightLifted) return;
+    const { el, homePrev } = spotlightLifted;
+    spotlightLifted = null;
+    if (!el.isConnected || !el.parentNode) return;
+    if (homePrev && homePrev.isConnected && homePrev.parentNode === el.parentNode) {
+      homePrev.after(el);
+    } else {
+      el.parentNode.prepend(el);
+    }
+  }
+
+  function liftSpotlightComment(comment) {
+    const thread = comment.parentNode;
+    const firstComment = thread ? thread.querySelector('.fb-comment') : null;
+    if (!firstComment || firstComment === comment) return;
+    spotlightLifted = { el: comment, homePrev: comment.previousElementSibling };
+    thread.insertBefore(comment, firstComment);
+  }
+
+  function clearSpotlightMark() {
+    listEl.querySelectorAll('.fb-comment-spotlight')
+      .forEach(el => el.classList.remove('fb-comment-spotlight'));
+    lowerSpotlightComment();
+  }
+
+  // The page only moves when the lit comment is actually out of view, and a
+  // downward scroll stops as soon as the post's own top reaches the top bar —
+  // so the author, the text and the action buttons stay put on screen.
+  function keepSpotlightVisible(comment) {
+    const card = comment.closest('.fb-post-card') || spotlightPost;
+    const topLimit = SPOTLIGHT_TOP_BAR + 8;
+    const bottomLimit = window.innerHeight - 8;
+    const rect = comment.getBoundingClientRect();
+    // Already in view: leave the page completely still
+    if (rect.top >= topLimit && rect.bottom <= bottomLimit) return;
+    let delta = rect.bottom > bottomLimit ? rect.bottom - bottomLimit : rect.top - topLimit;
+    if (delta > 0 && card) {
+      // Never shove the post's own top — and the member who wrote it — away
+      const room = card.getBoundingClientRect().top - topLimit;
+      delta = Math.min(delta, Math.max(0, room));
+    }
+    if (delta) window.scrollBy({ top: delta, behavior: 'smooth' });
+  }
+
+  function clearSpotlight() {
+    clearTimeout(spotlightTimer);
+    spotlightTimer = 0;
+    spotlightCommentId = '';
+    spotlightEndsAt = 0;
+    clearSpotlightMark();
+  }
+
+  function spotlightNext() {
+    spotlightTimer = 0;
+    // The feed was replaced (tab change), so the loop has nothing left to show
+    if (!listEl.isConnected) return clearSpotlight();
+    // The turns keep coming while the member is writing or editing a comment —
+    // only the automatic scroll waits, so the page never jumps under them
+    const active = document.activeElement;
+    const typing = !!(active && listEl.contains(active)
+      && active.closest('.fb-comment-form, .fb-comment-edit'));
+    if (!spotlightPost || !spotlightPost.isConnected) spotlightPost = focusedPost();
+    clearSpotlightMark();
+    // A post without comments has nothing to highlight — just wait for one
+    const comments = spotlightPost ? Array.from(spotlightPost.querySelectorAll('.fb-comment')) : [];
+    if (!comments.length) {
+      spotlightTimer = setTimeout(spotlightNext, COMMENT_SPOTLIGHT_MS);
+      return;
+    }
+    if (spotlightIndex >= comments.length) spotlightIndex = 0;
+    const comment = comments[spotlightIndex];
+    comment.classList.add('fb-comment-spotlight');
+    // Move it to the first line of the thread while it is lit
+    liftSpotlightComment(comment);
+    spotlightCommentId = String(comment.dataset.comment);
+    spotlightEndsAt = Date.now() + COMMENT_SPOTLIGHT_MS;
+    // Keep the lit comment readable without scrolling the post away: the page
+    // only moves if the comment is out of view. The scroll it causes must not
+    // be mistaken for the member choosing another post.
+    if (!typing && spotlightUserScrolled) {
+      spotlightIgnoreScrollUntil = Date.now() + 1200;
+      keepSpotlightVisible(comment);
+    }
+    spotlightIndex = (spotlightIndex + 1) % comments.length;
+    spotlightTimer = setTimeout(spotlightNext, COMMENT_SPOTLIGHT_MS);
+  }
+
+  // Called after the feed repaints (a new comment, a reaction). A card that was
+  // rebuilt must not interrupt the lit comment's turn: it is put back on the
+  // repainted card and keeps the time it has left.
+  function startCommentSpotlight() {
+    clearTimeout(spotlightTimer);
+    spotlightTimer = 0;
+    const left = spotlightEndsAt - Date.now();
+    const lit = spotlightCommentId && left > 0
+      ? listEl.querySelector('.fb-comment[data-comment="' + spotlightCommentId + '"]')
+      : null;
+    if (lit) {
+      listEl.querySelectorAll('.fb-comment-spotlight').forEach(el => {
+        if (el !== lit) el.classList.remove('fb-comment-spotlight');
+      });
+      lit.classList.add('fb-comment-spotlight');
+      // Its old node is gone with the repaint, so the lift starts over
+      if (spotlightLifted && !spotlightLifted.el.isConnected) spotlightLifted = null;
+      liftSpotlightComment(lit);
+      spotlightPost = lit.closest('[data-post]') || spotlightPost;
+      spotlightTimer = setTimeout(spotlightNext, left);
+      return;
+    }
+    clearSpotlight();
+    spotlightTimer = setTimeout(spotlightNext, 600);
+  }
+
+  // Scrolling onto another post hands it the spotlight right away
+  if (!listEl.dataset.spotlightScroll) {
+    listEl.dataset.spotlightScroll = '1';
+    window.addEventListener('scroll', () => {
+      if (!listEl.isConnected) return;
+      if (Date.now() < spotlightIgnoreScrollUntil) return;
+      clearTimeout(spotlightScrollTimer);
+      spotlightScrollTimer = setTimeout(() => {
+        const post = focusedPost();
+        if (post === spotlightPost) return;
+        spotlightPost = post;
+        spotlightIndex = 0;
+        clearSpotlight();
+        spotlightNext();
+      }, 150);
+    }, { passive: true });
+  }
+
   function renderAll() {
     const q = state.query.trim().toLowerCase();
     const shown = state.posts.filter(visibleToViewer).filter(p => !q
       || `${p.content || ''} ${p.author_name || ''}`.toLowerCase().includes(q));
+    // Stop the videos of the cards being replaced: a detached video keeps
+    // playing its sound until it is paused by name
+    stopVideoReactions();
     listEl.innerHTML = shown.length
       ? shown.map(p => Posts.card(p, ctxFor(p))).join('')
       : (options.emptyHtml || '');
     startVideoReactions();
+    startCommentSpotlight();
   }
 
   // A video reaction plays with its own sound while the one-by-one loop gives
@@ -563,15 +824,14 @@ Posts.mount = function (listEl, opts) {
     video.pause();
     if (video.currentTime) video.currentTime = 0;
     const card = holder.closest('[data-post]');
-    const silent = card ? rxSoundOff(card.dataset.post) : false;
-    // The reaction plays with its own sound unless this browser silenced the
-    // post; a browser that blocks sound still shows the video, played muted
-    video.muted = silent;
-    video.volume = 1;
+    // Silent unless the member switched this post's sound on
+    const soundOn = card ? rxSoundOn(card.dataset.post) : false;
+    video.muted = !soundOn;
+    video.volume = soundOn ? 1 : 0;
     holder.rxPlaying = true;
     const attempt = video.play();
     if (attempt && attempt.catch) attempt.catch(() => {
-      if (silent) return;
+      // A browser that blocks sound still shows the video, played silently
       video.muted = true;
       video.play().catch(() => {});
     });
@@ -620,12 +880,16 @@ Posts.mount = function (listEl, opts) {
     state.comments = new Map();
     state.commentReactions = new Map();
     state.shared = new Map();
-    state.friendIds = await loadFriendIds();
-    state.faces = await loadReactionMedia();
+    // Friends and reaction faces are only needed to paint, so they load next to
+    // the posts instead of costing extra round trips before the feed shows
+    const friendsPromise = loadFriendIds();
+    const facesPromise = loadReactionMedia();
 
     let query = sb.from('posts').select('*').order('created_at', { ascending: false }).limit(options.limit || 30);
     if (options.authorId) query = query.eq('user_id', options.authorId);
     const { data: rows, error } = await query;
+    state.friendIds = await friendsPromise;
+    state.faces = await facesPromise;
     if (error) {
       state.posts = [];
       listEl.innerHTML = options.emptyHtml || '';
@@ -637,20 +901,26 @@ Posts.mount = function (listEl, opts) {
       return;
     }
 
-    // The posts behind a share may sit outside this list, so load them for the preview
+    // The posts behind a share may sit outside this list, so load them for the
+    // preview. Comments, reactions and those originals are independent reads,
+    // so they go out together rather than one round trip after another.
     const loadedIds = new Set(state.posts.map(p => String(p.id)));
     const sharedIds = Array.from(new Set(
       state.posts.map(p => p.shared_post_id).filter(Boolean).map(String)
     )).filter(id => !loadedIds.has(id));
-    if (sharedIds.length) {
-      const { data: originals } = await sb.from('posts').select('*').in('id', sharedIds);
-      (originals || []).forEach(p => state.shared.set(String(p.id), p));
-    }
 
     const postIds = state.posts.map(p => p.id);
-    const { data: comments } = await sb.from('post_comments')
-      .select('*').in('post_id', postIds).order('created_at', { ascending: true });
+    const [commentsRes, reactionsRes, originalsRes] = await Promise.all([
+      sb.from('post_comments').select('*').in('post_id', postIds).order('created_at', { ascending: true }),
+      sb.from('post_reactions').select('*').in('post_id', postIds),
+      sharedIds.length
+        ? sb.from('posts').select('*').in('id', sharedIds)
+        : Promise.resolve({ data: [] })
+    ]);
+    const comments = commentsRes.data;
+    (originalsRes.data || []).forEach(p => state.shared.set(String(p.id), p));
     (comments || []).forEach(c => mapPush(state.comments, String(c.post_id), c));
+    (reactionsRes.data || []).forEach(r => mapPush(state.reactions, String(r.post_id), r));
 
     const peopleIds = Array.from(new Set(
       state.posts.map(p => p.user_id)
@@ -658,21 +928,18 @@ Posts.mount = function (listEl, opts) {
         .concat((comments || []).map(c => c.user_id))
         .filter(Boolean)
     ));
-    if (peopleIds.length) {
-      const { data: people } = await sb.from('users')
-        .select('id, username, full_name, avatar_url').in('id', peopleIds);
-      (people || []).forEach(p => state.users.set(String(p.id), p));
-    }
-
-    const { data: reactions } = await sb.from('post_reactions').select('*').in('post_id', postIds);
-    (reactions || []).forEach(r => mapPush(state.reactions, String(r.post_id), r));
-
     const commentIds = (comments || []).map(c => c.id);
-    if (commentIds.length) {
-      const { data: commentReactions } = await sb.from('comment_reactions')
-        .select('*').in('comment_id', commentIds);
-      (commentReactions || []).forEach(r => mapPush(state.commentReactions, String(r.comment_id), r));
-    }
+    // The writers and the comment reactions are independent too
+    const [peopleRes, commentReactionsRes] = await Promise.all([
+      peopleIds.length
+        ? sb.from('users').select('id, username, full_name, avatar_url').in('id', peopleIds)
+        : Promise.resolve({ data: [] }),
+      commentIds.length
+        ? sb.from('comment_reactions').select('*').in('comment_id', commentIds)
+        : Promise.resolve({ data: [] })
+    ]);
+    (peopleRes.data || []).forEach(p => state.users.set(String(p.id), p));
+    (commentReactionsRes.data || []).forEach(r => mapPush(state.commentReactions, String(r.comment_id), r));
 
     renderAll();
   }
@@ -682,9 +949,13 @@ Posts.mount = function (listEl, opts) {
     const post = findPost(postId);
     if (!post) return;
     const key = String(postId);
-    const { data: reactions } = await sb.from('post_reactions').select('*').eq('post_id', postId);
-    const { data: comments } = await sb.from('post_comments')
-      .select('*').eq('post_id', postId).order('created_at', { ascending: true });
+    // One request pair instead of a queue, so a tapped button settles quickly
+    const [reactionsRes, commentsRes] = await Promise.all([
+      sb.from('post_reactions').select('*').eq('post_id', postId),
+      sb.from('post_comments').select('*').eq('post_id', postId).order('created_at', { ascending: true })
+    ]);
+    const reactions = reactionsRes.data;
+    const comments = commentsRes.data;
     state.reactions.set(key, reactions || []);
     state.comments.set(key, comments || []);
     (comments || []).forEach(c => state.commentReactions.delete(String(c.id)));
@@ -696,6 +967,7 @@ Posts.mount = function (listEl, opts) {
     const el = listEl.querySelector(`[data-post="${key}"]`);
     if (el) el.outerHTML = Posts.card(post, ctxFor(post));
     startVideoReactions();
+    startCommentSpotlight();
   }
 
   async function setReaction(postId, type) {
@@ -1047,14 +1319,12 @@ Posts.mount = function (listEl, opts) {
     if (!sound) return;
     const postEl = sound.closest('[data-post]');
     if (!postEl) return;
-    const off = !sound.checked;
-    setRxSoundOff(postEl.dataset.post, off);
+    const on = sound.checked;
+    setRxSoundOn(postEl.dataset.post, on);
     const icon = sound.parentElement.querySelector('.fb-rx-sound-icon');
-    if (icon) icon.textContent = off ? '🔇' : '🔊';
-    postEl.querySelectorAll('.fb-rx-video video').forEach(video => {
-      video.muted = off;
-      if (!off) video.volume = 1;
-    });
+    if (icon) icon.textContent = on ? '🔊' : '🔇';
+    // Applies to every video of this post, playing or about to play
+    applyRxSound(postEl, on);
   });
 
   listEl.addEventListener('click', async e => {
@@ -1064,6 +1334,14 @@ Posts.mount = function (listEl, opts) {
     if (!viewer.id && guarded && !/^toggle-/.test(guarded.dataset.act || '')) {
       e.preventDefault();
       showToast('Log in to react and comment', '', 4000);
+      return;
+    }
+    // A member waiting for approval reads the feed, but cannot react, comment or share
+    const actName = guarded ? (guarded.dataset.act || '') : '';
+    const readOnlyAct = guarded && !guarded.classList.contains('fb-reaction-option')
+      && (/^toggle-/.test(actName) || actName === 'focus-comment' || actName === 'react-picker');
+    if (guarded && !readOnlyAct && ReadOnlyMode.block('Reacting, commenting and sharing')) {
+      e.preventDefault();
       return;
     }
     const option = e.target.closest('.fb-reaction-option');

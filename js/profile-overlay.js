@@ -59,6 +59,127 @@ var ProfileOverlay = (function () {
     video.play().catch(silently);
   }
 
+  // A visitor sets the floating clip's sound for themselves and the level is kept
+  // in this browser. Every visit still arrives with sound on: muting only lasts
+  // for the clip in view, so a silent visit can never make the next one silent
+  const VOLUME_KEY = 'meday.overlayVolume';
+
+  function visitorVolume(fallback) {
+    try {
+      const raw = localStorage.getItem(VOLUME_KEY);
+      if (raw !== null && raw !== '') {
+        const level = clampVolume(raw);
+        // A level left at zero must not start the next visit silent
+        if (level > 0) return level;
+      }
+    } catch (err) { /* a blocked store only loses the preference */ }
+    return clampVolume(fallback);
+  }
+
+  function setVisitorVolume(value) {
+    try {
+      localStorage.setItem(VOLUME_KEY, String(clampVolume(value)));
+    } catch (err) { /* a blocked store only loses the preference */ }
+  }
+
+  // The visitor's own control over the floating clip: a small chip beside the
+  // page with a speaker switch and a volume slider, like a post's sound switch
+  function mountSound(host, video, profile) {
+    const ownerVolume = clampVolume(profile.overlay_volume);
+    let last = ownerVolume;
+    let soundOn = true; // the clip always arrives with sound
+    const control = document.createElement('div');
+    control.className = 'fb-overlay-sound';
+    control.setAttribute('role', 'group');
+    control.setAttribute('aria-label', 'Overlay video sound');
+    control.innerHTML = `
+      <button class="fb-overlay-sound-btn" type="button" data-overlay-mute aria-pressed="true">🔊</button>
+      <input class="fb-overlay-sound-range" type="range" min="0" max="100" step="1" aria-label="Overlay video volume">`;
+    // Sits in the vacant strip just above the profile's buttons, beside the
+    // name, where a visitor looking for "Copy link" can't miss it
+    (host.querySelector('.fb-profile-actions') || host).appendChild(control);
+    const button = control.querySelector('[data-overlay-mute]');
+    const range = control.querySelector('.fb-overlay-sound-range');
+
+    // The icon always shows what the clip is doing right now
+    function paintSound() {
+      const on = !video.muted && video.volume > 0;
+      button.textContent = on ? '🔊' : '🔇';
+      button.setAttribute('aria-pressed', on ? 'true' : 'false');
+      button.setAttribute('aria-label', on ? 'Mute overlay video' : 'Unmute overlay video');
+      button.title = on ? 'Mute overlay video' : 'Unmute overlay video';
+    }
+
+    function apply(level, on) {
+      video.volume = clampVolume(level) / 100;
+      video.muted = !on || video.volume === 0;
+      const started = video.play();
+      if (started && started.catch) {
+        started.catch(err => {
+          if (!video.isConnected) return;
+          paintSound();
+          // Only a browser holding sound back until the visitor touches the page
+          // needs the silent start; anything else is a start that got interrupted
+          if (err && err.name === 'NotAllowedError') {
+            video.muted = true;
+            video.play().catch(() => {});
+          } else {
+            video.play().catch(() => {});
+          }
+          paintSound();
+        });
+      }
+      paintSound();
+    }
+
+    const savedVolume = visitorVolume(ownerVolume);
+    if (savedVolume > 0) last = savedVolume;
+    range.value = savedVolume;
+    apply(savedVolume, true);
+
+    // Browsers hold sound back until the visitor touches the page: the first tap
+    // or key press outside this control brings the saved volume in
+    const resume = e => {
+      if (control.contains(e.target)) return;
+      document.removeEventListener('pointerdown', resume);
+      document.removeEventListener('keydown', resume);
+      if (!video.isConnected || !soundOn) return;
+      if (!video.muted && video.volume > 0) return;
+      apply(clampVolume(range.value), true);
+    };
+    document.addEventListener('pointerdown', resume);
+    document.addEventListener('keydown', resume);
+
+    button.addEventListener('click', () => {
+      if (!video.muted && video.volume > 0) {
+        soundOn = false;
+        apply(range.value, false);
+        return;
+      }
+      // Unmuting with the slider left at zero returns sound at the last level
+      let level = clampVolume(range.value);
+      if (level === 0) {
+        level = last || ownerVolume || 60;
+        range.value = level;
+      }
+      soundOn = true;
+      setVisitorVolume(level);
+      apply(level, true);
+    });
+
+    range.addEventListener('input', () => {
+      const level = clampVolume(range.value);
+      if (level > 0) last = level;
+      soundOn = level > 0;
+      apply(level, soundOn);
+    });
+    // The choice is only written down once the visitor settles on a level
+    range.addEventListener('change', () => {
+      setVisitorVolume(clampVolume(range.value));
+      paintSound();
+    });
+  }
+
   // What the owner chose to show, when that media is actually stored
   function shown(profile) {
     const media = profile && profile.overlay_media;
@@ -70,23 +191,27 @@ var ProfileOverlay = (function () {
     return url ? { url, video: isVideo(url) } : null;
   }
 
-  function layerHTML(profile) {
+  function layerHTML(profile, options) {
     const item = shown(profile);
     if (!item) return '';
-    const still = reducesMotion();
-    // The clip loops for as long as the page is open, so it starts muted and
-    // autoplaying; the saved volume comes in on the first tap (see playWithSound)
+    // The clip loops for as long as the page is open and buffers as soon as the
+    // page paints, so the first frame shows quickly. A visitor's clip is not
+    // started here: it plays with sound from the visitor's switch (see mountSound)
+    // so nothing races it into silent playback first.
+    const visitor = !!(options && options.sound);
     const asset = item.video
-      ? `<video class="fb-overlay-asset" src="${fbEscape(item.url)}" autoplay muted loop playsinline preload="${still ? 'auto' : 'metadata'}"></video>`
+      ? `<video class="fb-overlay-asset" src="${fbEscape(item.url)}"${visitor ? '' : ' autoplay'} muted loop playsinline preload="auto"></video>`
       : `<img class="fb-overlay-asset" src="${fbEscape(item.url)}" alt="">`;
     return `<div class="fb-overlay-media" aria-hidden="true" style="opacity:${clampOpacity(profile.overlay_opacity) / 100}">${asset}</div>`;
   }
 
-  // Draws (or clears) the layer inside a rendered profile page
-  function paint(host, profile) {
+  // Draws (or clears) the layer inside a rendered profile page. `options.sound`
+  // gives the visitor their own sound control instead of the visitor tap-unmute.
+  function paint(host, profile, options) {
     if (!host) return;
     host.querySelector('.fb-overlay-media')?.remove();
-    const markup = layerHTML(profile);
+    host.querySelector('.fb-overlay-sound')?.remove();
+    const markup = layerHTML(profile, options);
     if (!markup) return;
     host.insertAdjacentHTML('afterbegin', markup);
     const video = host.querySelector('.fb-overlay-media video');
@@ -100,6 +225,21 @@ var ProfileOverlay = (function () {
       video.play().catch(() => {});
     };
     video.addEventListener('ended', again);
+    // A browser in low power or data-saver mode can refuse even a silent clip:
+    // the first tap or key press starts it
+    const nudge = () => {
+      document.removeEventListener('pointerdown', nudge);
+      document.removeEventListener('keydown', nudge);
+      if (video.isConnected && video.paused) video.play().catch(() => {});
+    };
+    document.addEventListener('pointerdown', nudge);
+    document.addEventListener('keydown', nudge);
+    // A visitor's profile clip plays with sound and carries its own switch so
+    // they can mute it right away
+    if (options && options.sound) {
+      mountSound(host, video, profile);
+      return;
+    }
     if (!reducesMotion()) playWithSound(video, profile.overlay_volume);
   }
 

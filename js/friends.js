@@ -95,6 +95,7 @@ window.Friends = (function () {
 
   async function send(targetId) {
     if (!sb || meId == null) throw new Error('Log in to add friends');
+    if (ReadOnlyMode.block('Adding friends')) return statusWith(targetId);
     const state = statusWith(targetId);
     if (state === 'outgoing' || state === 'friends') return state;
     const { data, error } = await sb.from('friend_requests')
@@ -109,6 +110,7 @@ window.Friends = (function () {
 
   async function respond(requestId, accept) {
     if (!sb) throw new Error('the database is not connected');
+    if (ReadOnlyMode.block('Answering friend requests')) return;
     if (accept) {
       const { error } = await sb.from('friend_requests')
         .update({ status: 'accepted', responded_at: new Date().toISOString() })

@@ -73,6 +73,7 @@ Pages.profileTab = function(main, user) {
       <nav class="fb-profile-tabs" aria-label="Profile sections">
         <button class="fb-profile-tab active" data-ptab="all" type="button">All</button>
         <button class="fb-profile-tab" data-ptab="about" type="button">About</button>
+        <button class="fb-profile-tab" data-ptab="photos" type="button">Photos</button>
         <button class="fb-profile-tab" data-ptab="info" type="button">My Information</button>
         <button class="fb-profile-tab" data-ptab="friends" type="button">Friends</button>
         <button class="fb-profile-tab" data-ptab="posts" type="button">Posts</button>
@@ -89,6 +90,8 @@ Pages.profileTab = function(main, user) {
               <li><span class="ico" aria-hidden="true">🌐</span><span class="k">App:</span> ${fbEscape(brand.name)}</li>
             </ul>
           </section>
+
+          <div id="pfGallery" data-section="photos"></div>
 
           <div id="pfPersonal" data-section="info"></div>
 
@@ -123,6 +126,7 @@ Pages.profileTab = function(main, user) {
   const sectionMap = {
     all: null,
     about: ['about'],
+    photos: ['photos'],
     info: ['info'],
     friends: ['friends', 'people'],
     posts: ['posts']
@@ -140,7 +144,10 @@ Pages.profileTab = function(main, user) {
     });
     // My Information is a full-width form, so it spans both columns
     const cols = main.querySelector('.fb-profile-cols');
-    if (cols) cols.classList.toggle('fb-cols-single', tab === 'info');
+    if (cols) cols.classList.toggle('fb-cols-single', tab === 'info' || tab === 'photos');
+    // The Photos tab shows the whole gallery, not just the first nine
+    const galleryCard = main.querySelector('.fb-gallery-card');
+    if (galleryCard) galleryCard.classList.toggle('is-expanded', tab === 'photos');
     main.querySelectorAll('.fb-profile-tab').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.ptab === tab);
     });
@@ -415,6 +422,7 @@ Pages.profileTab = function(main, user) {
 
   async function saveMedia(kind, file, crop, cropSize) {
     if (!file) return;
+    if (ReadOnlyMode.block('Uploading photos and videos')) return;
     const label = kind === 'avatar' ? 'profile picture' : 'cover';
     const video = String(file.type || '').startsWith('video/');
     const previous = kind === 'avatar' ? avatarUrl : coverUrl;
@@ -628,9 +636,17 @@ Pages.profileTab = function(main, user) {
     emptyHtml: '<div class="empty-state" style="padding:1.5rem;">No posts yet — share something above.</div>'
   });
 
+  // Photo and video gallery, with the lock that hides it for privacy
+  const gallery = window.ProfileGallery
+    ? ProfileGallery.render(main.querySelector('#pfGallery'), user)
+    : null;
+
   Posts.composer(main.querySelector('#pfComposer'), {
     viewer: user,
-    onPosted: () => profilePosts.reload()
+    onPosted: () => {
+      profilePosts.reload();
+      if (gallery) gallery.reload();
+    }
   });
 
   showTab('all');
