@@ -543,6 +543,8 @@ Posts.mount = function (listEl, opts) {
   let spotlightIgnoreScrollUntil = 0;
   let spotlightPost = null; // the post on screen that owns the highlight
   let spotlightIndex = 0;
+  let spotlightCommentId = ''; // the comment lit right now
+  let spotlightEndsAt = 0;     // when its turn ends
 
   // The post being viewed: the first one starting in the upper part of the
   // screen. When none starts there (only the tail of a previous post shows),
@@ -591,6 +593,14 @@ Posts.mount = function (listEl, opts) {
     }
   }
 
+  function liftSpotlightComment(comment) {
+    const thread = comment.parentNode;
+    const firstComment = thread ? thread.querySelector('.fb-comment') : null;
+    if (!firstComment || firstComment === comment) return;
+    spotlightLifted = { el: comment, homePrev: comment.previousElementSibling };
+    thread.insertBefore(comment, firstComment);
+  }
+
   function clearSpotlightMark() {
     listEl.querySelectorAll('.fb-comment-spotlight')
       .forEach(el => el.classList.remove('fb-comment-spotlight'));
@@ -600,6 +610,8 @@ Posts.mount = function (listEl, opts) {
   function clearSpotlight() {
     clearTimeout(spotlightTimer);
     spotlightTimer = 0;
+    spotlightCommentId = '';
+    spotlightEndsAt = 0;
     clearSpotlightMark();
   }
 
@@ -610,6 +622,7 @@ Posts.mount = function (listEl, opts) {
     // Stay put while the member is writing, editing or deleting a comment
     const active = document.activeElement;
     if (active && listEl.contains(active) && active.closest('.fb-comment-form, .fb-comment-edit')) {
+      spotlightEndsAt = Date.now() + COMMENT_SPOTLIGHT_MS;
       spotlightTimer = setTimeout(spotlightNext, COMMENT_SPOTLIGHT_MS);
       return;
     }
@@ -622,12 +635,9 @@ Posts.mount = function (listEl, opts) {
     const comment = comments[spotlightIndex];
     comment.classList.add('fb-comment-spotlight');
     // Move it to the first line of the thread while it is lit
-    const thread = comment.parentNode;
-    const firstComment = thread ? thread.querySelector('.fb-comment') : null;
-    if (firstComment && firstComment !== comment) {
-      spotlightLifted = { el: comment, homePrev: comment.previousElementSibling };
-      thread.insertBefore(comment, firstComment);
-    }
+    liftSpotlightComment(comment);
+    spotlightCommentId = String(comment.dataset.comment);
+    spotlightEndsAt = Date.now() + COMMENT_SPOTLIGHT_MS;
     // Bring the comment near its post into the middle of the screen, clear of
     // the sticky top bar, instead of leaving it buried far below. The scroll it
     // causes must not be mistaken for the member choosing another post.
@@ -637,7 +647,28 @@ Posts.mount = function (listEl, opts) {
     spotlightTimer = setTimeout(spotlightNext, COMMENT_SPOTLIGHT_MS);
   }
 
+  // Called after the feed repaints (a new comment, a reaction). A card that was
+  // rebuilt must not interrupt the lit comment's turn: it is put back on the
+  // repainted card and keeps the time it has left.
   function startCommentSpotlight() {
+    clearTimeout(spotlightTimer);
+    spotlightTimer = 0;
+    const left = spotlightEndsAt - Date.now();
+    const lit = spotlightCommentId && left > 0
+      ? listEl.querySelector('.fb-comment[data-comment="' + spotlightCommentId + '"]')
+      : null;
+    if (lit) {
+      listEl.querySelectorAll('.fb-comment-spotlight').forEach(el => {
+        if (el !== lit) el.classList.remove('fb-comment-spotlight');
+      });
+      lit.classList.add('fb-comment-spotlight');
+      // Its old node is gone with the repaint, so the lift starts over
+      if (spotlightLifted && !spotlightLifted.el.isConnected) spotlightLifted = null;
+      liftSpotlightComment(lit);
+      spotlightPost = lit.closest('[data-post]') || spotlightPost;
+      spotlightTimer = setTimeout(spotlightNext, left);
+      return;
+    }
     clearSpotlight();
     spotlightTimer = setTimeout(spotlightNext, 600);
   }
