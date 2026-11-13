@@ -235,6 +235,9 @@ function postCommentHtml(comment, ctx) {
   const groups = postReactionGroups(rows);
   const mine = rows.find(r => String(r.user_id) === String(viewer.id));
   const own = String(comment.user_id) === String(viewer.id);
+  // The comment's writer and the member who posted it can remove it
+  const canDelete = own || (ctx.postOwnerId !== undefined
+    && String(ctx.postOwnerId) === String(viewer.id));
 
   return `<div class="fb-comment" data-comment="${fbEscape(comment.id)}">
     <a class="fb-comment-avatar" href="${postProfileHref(username)}" aria-label="${fbEscape(name)}">${postAvatar(member, name, 'fb-avatar-xs')}</a>
@@ -254,10 +257,8 @@ function postCommentHtml(comment, ctx) {
         </div>
         <span class="fb-comment-time">${fbEscape(postTimeAgo(comment.created_at))}</span>
         ${comment.edited_at ? '<span class="fb-comment-edited">Edited</span>' : ''}
-        ${own
-          ? `<button class="fb-comment-act" type="button" data-act="edit-comment">Edit</button>
-             <button class="fb-comment-act" type="button" data-act="delete-comment">Delete</button>`
-          : ''}
+        ${own ? `<button class="fb-comment-act" type="button" data-act="edit-comment">Edit</button>` : ''}
+        ${canDelete ? `<button class="fb-comment-act" type="button" data-act="delete-comment">Delete</button>` : ''}
       </div>
     </div>
   </div>`;
@@ -517,7 +518,8 @@ Posts.mount = function (listEl, opts) {
       commentReactions: state.commentReactions,
       faces: state.faces || [],
       openPicker: state.openPicker,
-      postId: String(post.id)
+      postId: String(post.id),
+      postOwnerId: String(post.user_id)
     };
   }
 
