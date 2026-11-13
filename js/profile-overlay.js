@@ -194,13 +194,14 @@ var ProfileOverlay = (function () {
   function layerHTML(profile, options) {
     const item = shown(profile);
     if (!item) return '';
-    // The clip loops for as long as the page is open and buffers as soon as the
-    // page paints, so the first frame shows quickly. A visitor's clip is not
-    // started here: it plays with sound from the visitor's switch (see mountSound)
-    // so nothing races it into silent playback first.
+    // The clip loops for as long as the page is open. Only the first frames are
+    // fetched up front — an overlay clip can be minutes long, and pulling the
+    // whole file into a phone before it is needed makes the page slow to settle.
+    // A visitor's clip is not started here: it plays with sound from the
+    // visitor's switch (see mountSound) so nothing races it into silent playback.
     const visitor = !!(options && options.sound);
     const asset = item.video
-      ? `<video class="fb-overlay-asset" src="${fbEscape(item.url)}"${visitor ? '' : ' autoplay'} muted loop playsinline preload="auto"></video>`
+      ? `<video class="fb-overlay-asset" src="${fbEscape(item.url)}"${visitor ? '' : ' autoplay'} muted loop playsinline preload="metadata"></video>`
       : `<img class="fb-overlay-asset" src="${fbEscape(item.url)}" alt="">`;
     return `<div class="fb-overlay-media" aria-hidden="true" style="opacity:${clampOpacity(profile.overlay_opacity) / 100}">${asset}</div>`;
   }
