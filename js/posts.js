@@ -18,6 +18,9 @@ const REACTION_ORDER = ['like', 'love', 'haha', 'wow', 'sad', 'angry'];
 // saved as "face:<image url>" or "vid:<video url>"
 const REACTION_VIDEO_MAX = 5; // seconds
 
+// Each comment in the feed gets its own turn in a looping spotlight
+const COMMENT_SPOTLIGHT_MS = 10000; // 10 seconds per comment
+
 function postFaceUrl(type) {
   const match = /^face:(.+)$/.exec(String(type || ''));
   return match ? match[1] : '';
@@ -530,6 +533,49 @@ Posts.mount = function (listEl, opts) {
     return false;
   }
 
+  // ---------- Comment spotlight ----------
+  // Comments are highlighted one at a time in a loop, so a comment buried at
+  // the end of a long thread still gets seen. Each one stays up for 10 seconds,
+  // then the next takes its turn and the loop starts over.
+  let spotlightTimer = 0;
+  let spotlightIndex = 0;
+
+  function clearSpotlight() {
+    clearTimeout(spotlightTimer);
+    spotlightTimer = 0;
+    listEl.querySelectorAll('.fb-comment-spotlight')
+      .forEach(el => el.classList.remove('fb-comment-spotlight'));
+  }
+
+  function spotlightNext() {
+    spotlightTimer = 0;
+    // The feed was replaced (tab change), so the loop has nothing left to show
+    if (!listEl.isConnected) return clearSpotlight();
+    const comments = Array.from(listEl.querySelectorAll('.fb-comment'));
+    if (!comments.length) return;
+    // Stay put while the member is writing, editing or deleting a comment
+    const active = document.activeElement;
+    if (active && listEl.contains(active) && active.closest('.fb-comment-form, .fb-comment-edit')) {
+      spotlightTimer = setTimeout(spotlightNext, COMMENT_SPOTLIGHT_MS);
+      return;
+    }
+    if (spotlightIndex >= comments.length) spotlightIndex = 0;
+    comments.forEach(el => el.classList.remove('fb-comment-spotlight'));
+    const comment = comments[spotlightIndex];
+    comment.classList.add('fb-comment-spotlight');
+    // Bring the comment near its post into the middle of the screen, clear of
+    // the sticky top bar, instead of leaving it buried far below
+    comment.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    spotlightIndex = (spotlightIndex + 1) % comments.length;
+    spotlightTimer = setTimeout(spotlightNext, COMMENT_SPOTLIGHT_MS);
+  }
+
+  function startCommentSpotlight() {
+    clearSpotlight();
+    if (!listEl.querySelector('.fb-comment')) return;
+    spotlightTimer = setTimeout(spotlightNext, 600);
+  }
+
   function renderAll() {
     const q = state.query.trim().toLowerCase();
     const shown = state.posts.filter(visibleToViewer).filter(p => !q
@@ -538,6 +584,7 @@ Posts.mount = function (listEl, opts) {
       ? shown.map(p => Posts.card(p, ctxFor(p))).join('')
       : (options.emptyHtml || '');
     startVideoReactions();
+    startCommentSpotlight();
   }
 
   // A video reaction plays with its own sound while the one-by-one loop gives
@@ -696,6 +743,7 @@ Posts.mount = function (listEl, opts) {
     const el = listEl.querySelector(`[data-post="${key}"]`);
     if (el) el.outerHTML = Posts.card(post, ctxFor(post));
     startVideoReactions();
+    startCommentSpotlight();
   }
 
   async function setReaction(postId, type) {

@@ -2280,6 +2280,32 @@ a.fb-post-name:hover { text-decoration: underline; }
 .fb-comment-name { display: block; font-size: 0.8rem; font-weight: 700; color: var(--fb-text); text-decoration: none; }
 .fb-comment-name:hover { text-decoration: underline; }
 .fb-comment-body { font-size: 0.9rem; line-height: 1.35; color: var(--fb-text); white-space: pre-wrap; overflow-wrap: anywhere; }
+/* One comment at a time is spotlit — red with white text — so a comment buried
+   deep in a long thread is still easy to read. It stays up for 10 seconds. */
+.fb-comment.fb-comment-spotlight .fb-comment-bubble {
+  display: block; width: 100%; max-width: 100%;
+  padding: 0.7rem 0.95rem; border-radius: 14px;
+  background: #c62828; color: #fff;
+  box-shadow: 0 8px 24px rgba(198, 40, 40, 0.45);
+  animation: fbCommentSpotlight 10s ease-in-out;
+}
+.fb-comment.fb-comment-spotlight .fb-comment-name,
+.fb-comment.fb-comment-spotlight .fb-comment-body { color: #fff; }
+.fb-comment.fb-comment-spotlight .fb-comment-body {
+  font-size: 0.95rem; line-height: 1.45;
+  white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;
+  max-height: none; overflow: visible;
+}
+.fb-comment.fb-comment-spotlight .fb-comment-reactions {
+  background: rgba(0, 0, 0, 0.24); color: #fff; box-shadow: none;
+}
+@keyframes fbCommentSpotlight {
+  0%, 100% { box-shadow: 0 8px 24px rgba(198, 40, 40, 0.45); }
+  6% { box-shadow: 0 8px 28px rgba(198, 40, 40, 0.6), 0 0 0 4px rgba(220, 38, 38, 0.35); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fb-comment.fb-comment-spotlight .fb-comment-bubble { animation: none; }
+}
 .fb-comment-reactions {
   display: inline-flex; align-items: center; gap: 0.3rem; margin-top: 0.3rem;
   padding: 0.05rem 0.4rem; border-radius: 999px;
