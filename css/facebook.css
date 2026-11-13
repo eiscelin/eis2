@@ -2081,6 +2081,13 @@ a.admin-tool { text-decoration: none; display: inline-flex; align-items: center;
 /* The saved password is shown for reference, not edited in place */
 .pi-field input[readonly] { background: #e4e6eb; color: #1c1e21; cursor: default; }
 .pi-private { margin: 0; color: var(--fb-muted); font-size: .82rem; line-height: 1.5; }
+/* Shown when the password / details database function has not been created yet */
+.pi-setup {
+  margin: 0; padding: .7rem .85rem; border-radius: 10px;
+  background: rgba(255, 196, 0, .14); border: 1px solid rgba(255, 196, 0, .45);
+  color: #ffd98a; font-size: .82rem; line-height: 1.5;
+}
+.pi-setup[hidden] { display: none; }
 
 /* ===================== Account background picture ===================== */
 /* The member's picture sits behind every page; a scrim keeps the text readable */
