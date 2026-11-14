@@ -2621,8 +2621,13 @@ a.fb-post-name:hover { text-decoration: underline; }
 .fb-comment.fb-comment-spotlight > .fb-comment-main > .fb-comment-bubble {
   display: block; width: 100%; max-width: 100%;
   padding: 0.7rem 0.95rem; border-radius: 14px;
-  background: #9acd32; color: #1b2a00;
-  box-shadow: 0 8px 24px rgba(154, 205, 50, 0.45);
+  background-color: rgba(163, 214, 62, 0.5);
+  background-image: var(--fb-glass-sheen);
+  border: 1px solid rgba(214, 245, 140, 0.65);
+  -webkit-backdrop-filter: var(--fb-glass-blur);
+  backdrop-filter: var(--fb-glass-blur);
+  color: #1b2a00;
+  box-shadow: var(--fb-glass-rim), 0 8px 24px rgba(154, 205, 50, 0.35);
   /* A single short pulse when the comment lights up: a long running shadow
      animation repaints on every frame and makes phones stutter */
   animation: fbCommentSpotlight 0.7s ease-out;
