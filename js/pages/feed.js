@@ -286,11 +286,11 @@ Pages.feedTab = function (main, user) {
             </div>
             ${window.AdminModerate ? AdminModerate.postButton(p.id) : ''}
           </div>
-          <div class="fb-post-text">
-            ${p.priority === 'high' ? '<span class="fb-post-tag">IMPORTANT</span>' : ''}
-            <strong>${fbEscape(p.title || 'Post')}</strong>
-            ${fbEscape((p.content || '').trim())}
-          </div>
+          <div class="fb-post-text">${[
+            p.priority === 'high' ? '<span class="fb-post-tag">IMPORTANT</span>' : '',
+            `<strong>${fbEscape(p.title || 'Post')}</strong>`,
+            fbEscape((p.content || '').trim())
+          ].filter(Boolean).join('\n')}</div>
         </article>`).join('');
       if (window.AdminModerate) AdminModerate.wire(announcementsList, { post: () => loadAnnouncements(query) });
     } catch {
