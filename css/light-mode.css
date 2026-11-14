@@ -17,6 +17,13 @@ html[data-theme="light"] {
   --fb-blue-soft: rgba(24, 119, 242, 0.1);
 
   /* The base app tokens follow the light shell */
+  /* Frosted glass, light flavour: translucent white panels with a fine dark rim */
+  --fb-glass: rgba(255, 255, 255, 0.78);
+  --fb-glass-strong: rgba(255, 255, 255, 0.88);
+  --fb-glass-edge: rgba(15, 23, 42, 0.12);
+  --fb-glass-shadow: 0 12px 32px rgba(15, 23, 42, 0.14);
+  --fb-stage: var(--fb-bg);
+
   --dark-bg: #f0f2f5;
   --dark-card: #ffffff;
   --light-bg: #f0f2f5;

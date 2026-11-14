@@ -19,6 +19,18 @@
   --fb-green: #45bd62;
   --fb-radius: 10px;
 
+  /* Frosted glass: the dark panels that carry text let the background through,
+     a wide blur keeps the words crisp, and a hairline rim keeps the edge */
+  --fb-glass: rgba(40, 42, 46, 0.50);
+  --fb-glass-strong: rgba(26, 27, 30, 0.75);
+  --fb-glass-edge: rgba(255, 255, 255, 0.15);
+  --fb-glass-blur: blur(20px) saturate(150%);
+  --fb-glass-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  --fb-stage:
+    radial-gradient(1100px 560px at 10% -8%, rgba(45, 136, 255, 0.14), transparent 62%),
+    radial-gradient(900px 520px at 100% 0%, rgba(242, 101, 34, 0.08), transparent 58%),
+    var(--fb-bg);
+
   /* Re-point the app's brand tokens at the Facebook look */
   --orange: #1877f2;
   --orange-dark: #2d88ff;
@@ -2790,3 +2802,62 @@ a.fb-share-embed-name:hover { text-decoration: underline; }
   .fb-share-main { padding: 0.85rem; }
   .fb-share-menu { width: 220px; }
 }
+
+/* ===================== Transparent text surfaces ===================== */
+/* The black panels that carry text become frosted glass: the account
+   background shows through, the wide blur keeps every word crisp over a photo,
+   and a hairline light rim + inner highlight give each panel its edge.
+   Buttons, chips and inputs keep their solid fill so details stay noticeable. */
+.fb-card,
+.table-card,
+.dash-stat-card,
+.modal,
+.fm-card,
+.fm-section,
+.fm-stat,
+.fb-notif-panel,
+.fb-search-panel,
+.fb-share-modal,
+.fb-share-menu,
+.fb-share-embed,
+.fb-menu-panel,
+.fb-support-panel,
+.fb-person,
+.fb-gallery-card,
+.fb-stories-card,
+.fb-more-sheet,
+.chat-panel,
+.cover-editor-box,
+.fb-reaction-picker,
+.admin-card,
+.admin-stat,
+.stat-card,
+.feature-card,
+.pi-card {
+  background: var(--fb-glass);
+  border-color: var(--fb-glass-edge);
+  -webkit-backdrop-filter: var(--fb-glass-blur);
+  backdrop-filter: var(--fb-glass-blur);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), var(--fb-glass-shadow);
+}
+.pi-card { border: 1px solid var(--fb-glass-edge); }
+
+/* Bars the text scrolls under: a touch deeper than the cards so labels stay legible */
+.fb-topbar,
+.fb-menu-head,
+.fb-menu-search,
+.fb-bottom-nav {
+  background: var(--fb-glass-strong);
+  border-color: var(--fb-glass-edge);
+  -webkit-backdrop-filter: var(--fb-glass-blur);
+  backdrop-filter: var(--fb-glass-blur);
+}
+.fb-topbar { box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06), 0 10px 28px rgba(0, 0, 0, 0.35); }
+.fb-bottom-nav { box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.05), 0 -8px 24px rgba(0, 0, 0, 0.3); }
+
+/* A soft ambient wash sits behind the glass, so the panels read as glass even
+   before the member picks an account background picture. Their picture wins:
+   body.has-page-bg makes these surfaces transparent. */
+.fb-shell,
+.fb-account,
+.landing { background: var(--fb-stage); }
