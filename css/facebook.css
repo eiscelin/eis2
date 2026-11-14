@@ -2905,3 +2905,49 @@ a.fb-share-embed-name:hover { text-decoration: underline; }
 .fb-shell,
 .fb-account,
 .landing { background: var(--fb-stage); }
+
+/* ===== Mobile performance =====
+   Small rules that keep a low-end phone responsive: taps answer at once,
+   scroll containers keep their own momentum, and the screens arrive quickly. */
+button,
+a,
+[role="button"],
+input,
+select,
+textarea,
+label {
+  /* No 300 ms wait before a tap counts, and no grey flash over every control */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* A list that is scrolled to its end does not drag the page behind it along */
+.fb-support-log,
+.chat-messages,
+.fb-people-scroll,
+.fb-more-sheet,
+.fb-support-list {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* End of the feed: older posts arrive when the member gets here */
+.fb-feed-more { display: flex; justify-content: center; padding: 0.9rem 0 1.6rem; }
+.fb-feed-more[hidden] { display: none; }
+.fb-feed-more-btn {
+  padding: 0.55rem 1.1rem;
+  border-radius: 999px;
+  background: var(--fb-elevated);
+  color: var(--fb-text);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+.fb-feed-more-btn:hover { background: var(--fb-hover); }
+.fb-feed-more-text { color: var(--fb-muted); font-size: 0.85rem; }
+
+@media (max-width: 900px) {
+  /* The same screen transition, kept short so the first frame of a page shows
+     straight away on a phone */
+  #app > * { animation-duration: 0.3s; }
+  .fb-main.fb-tab-enter { animation-duration: 0.26s; }
+}

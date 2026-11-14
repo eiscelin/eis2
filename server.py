@@ -5,12 +5,62 @@ import uuid
 import hashlib
 import hmac
 import datetime
+import gzip
+import mimetypes
+import email.utils
 import urllib.request
 import urllib.parse
 import urllib.error
 
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 MAX_VIDEO_BYTES = 100 * 1024 * 1024
+
+# The sandbox preview must always show the file being edited, so there the
+# browser revalidates every asset. Anywhere else (a plain server.py deployment)
+# static files may be reused for a while — phones on slow networks then skip
+# almost every request on the next visit.
+PREVIEW_MODE = os.environ.get('BASE44_PREVIEW_MODE') == '1'
+
+WEBP_SOURCE_SUFFIXES = ('.jpg', '.jpeg', '.png')
+
+# The slim image ships a short mime table, so the types this app serves are set
+# here — a picture served under the wrong type is re-decoded by the browser
+for _ext, _type in (
+    ('.webp', 'image/webp'), ('.css', 'text/css'), ('.js', 'text/javascript'),
+    ('.svg', 'image/svg+xml'), ('.json', 'application/json'), ('.mp4', 'video/mp4'),
+    ('.webmanifest', 'application/manifest+json')
+):
+    mimetypes.add_type(_type, _ext)
+COMPRESSIBLE_TYPES = ('text/', 'application/javascript', 'application/json', 'image/svg+xml')
+
+# Compressed copies are kept in memory so a page's scripts are gzipped once,
+# not on every request
+_compressed = {}
+_COMPRESSED_LIMIT = 8 * 1024 * 1024
+
+
+def content_type_for(path):
+    ctype = mimetypes.guess_type(path)[0] or 'application/octet-stream'
+    if ctype in ('application/javascript', 'application/x-javascript'):
+        return 'text/javascript; charset=utf-8'
+    if ctype.startswith('text/') or ctype in ('application/json', 'image/svg+xml'):
+        return ctype + '; charset=utf-8'
+    return ctype
+
+
+def compressed_body(path, mtime, data):
+    """Return (bytes, gzipped) for a text asset, remembering the packed copy."""
+    key = (path, mtime, len(data))
+    cached = _compressed.get(key)
+    if cached is not None:
+        return cached, True
+    packed = gzip.compress(data, 6)
+    if len(packed) >= len(data):
+        return data, False
+    if sum(len(v) for v in _compressed.values()) + len(packed) > _COMPRESSED_LIMIT:
+        _compressed.clear()
+    _compressed[key] = packed
+    return packed, True
 
 
 def is_video(content_type):
@@ -145,13 +195,113 @@ def r2_presign(cfg, key, content_type):
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
+    # HTTP/1.1 keeps the connection open for every script, style and picture, so
+    # a phone on a slow network opens one connection instead of dozens
+    protocol_version = 'HTTP/1.1'
+
     def send_json(self, status, payload):
         body = json.dumps(payload).encode()
         self.send_response(status)
         self.send_header('Content-Type', 'application/json')
         self.send_header('Content-Length', str(len(body)))
+        self.send_header('Cache-Control', 'no-store')
         self.end_headers()
         self.wfile.write(body)
+
+    def serve_config(self, head=False):
+        config = {
+            'SUPABASE_URL': os.environ.get('SUPABASE_URL', ''),
+            'SUPABASE_ANON_KEY': os.environ.get('SUPABASE_ANON_KEY', ''),
+            # Unsigned upload preset: public by design, so the browser can upload directly
+            'CLOUDINARY_CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME', ''),
+            'CLOUDINARY_UPLOAD_PRESET': os.environ.get('CLOUDINARY_UPLOAD_PRESET', ''),
+            # Backup account, used by the browser when the primary one stops accepting uploads
+            'CLOUDINARY_CLOUD_NAME_BACKUP': os.environ.get('CLOUDINARY_CLOUD_NAME_BACKUP', ''),
+            'CLOUDINARY_UPLOAD_PRESET_BACKUP': os.environ.get('CLOUDINARY_UPLOAD_PRESET_BACKUP', '')
+        }
+        body = f'window.APP_CONFIG = {json.dumps(config)};'.encode()
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/javascript; charset=utf-8')
+        self.send_header('Content-Length', str(len(body)))
+        self.send_header('Cache-Control', 'no-cache')
+        self.end_headers()
+        if not head:
+            self.wfile.write(body)
+
+    def serve_static(self, head=False):
+        request_path = self.path.split('?')[0]
+        target = self.translate_path(request_path)
+        if os.path.isdir(target):
+            index = os.path.join(target, 'index.html')
+            if os.path.isfile(index):
+                target = index
+        if not os.path.isfile(target):
+            # Single-page app: a route without a file extension still loads the
+            # app shell, everything else is a genuine missing file
+            if '.' in os.path.basename(request_path):
+                return self.send_error(404, 'Not found')
+            target = os.path.join(os.getcwd(), 'index.html')
+
+        serve_path = target
+        accept = (self.headers.get('Accept') or '').lower()
+        wants_webp = 'image/webp' in accept
+        if wants_webp and target.lower().endswith(WEBP_SOURCE_SUFFIXES):
+            # Phone-friendly copy of the picture: same image, a fraction of the bytes
+            candidate = os.path.splitext(target)[0] + '.webp'
+            if os.path.isfile(candidate):
+                serve_path = candidate
+
+        try:
+            stat = os.stat(serve_path)
+            with open(serve_path, 'rb') as fh:
+                data = fh.read()
+        except OSError:
+            return self.send_error(404, 'Not found')
+
+        ctype = content_type_for(serve_path)
+        compressible = any(t in ctype for t in COMPRESSIBLE_TYPES)
+        accept_encoding = self.headers.get('Accept-Encoding') or ''
+        use_gzip = compressible and 'gzip' in accept_encoding and len(data) > 1200
+        if use_gzip:
+            data, use_gzip = compressed_body(serve_path, int(stat.st_mtime), data)
+
+        etag = 'W/"%x-%x%s"' % (int(stat.st_mtime), stat.st_size, '-gz' if use_gzip else '')
+
+        def not_modified():
+            self.send_response(304)
+            self.send_header('ETag', etag)
+            self.send_header('Cache-Control', cache_control)
+            self.end_headers()
+
+        if PREVIEW_MODE or 'text/html' in ctype:
+            cache_control = 'no-cache'
+        else:
+            cache_control = 'public, max-age=3600, must-revalidate'
+
+        if self.headers.get('If-None-Match') == etag:
+            return not_modified()
+        if not self.headers.get('If-None-Match'):
+            since = self.headers.get('If-Modified-Since')
+            if since:
+                try:
+                    if int(stat.st_mtime) <= email.utils.parsedate_to_datetime(since).timestamp():
+                        return not_modified()
+                except (TypeError, ValueError):
+                    pass
+
+        self.send_response(200)
+        self.send_header('Content-Type', ctype)
+        self.send_header('Content-Length', str(len(data)))
+        if use_gzip:
+            self.send_header('Content-Encoding', 'gzip')
+        if compressible or wants_webp:
+            self.send_header('Vary', 'Accept-Encoding, Accept' if wants_webp else 'Accept-Encoding')
+        self.send_header('Cache-Control', cache_control)
+        self.send_header('ETag', etag)
+        self.send_header('Last-Modified', email.utils.formatdate(stat.st_mtime, usegmt=True))
+        self.end_headers()
+        if not head:
+            self.wfile.write(data)
 
     def do_POST(self):
         if self.path.split('?')[0] != '/api/upload':
@@ -177,23 +327,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self.send_json(501, {'error': 'Cloudinary is not connected'})
         return self.send_json(200, {'url': url})
 
+    def do_HEAD(self):
+        path = self.path.split('?')[0]
+        if path == '/config.js':
+            return self.serve_config(head=True)
+        return self.serve_static(head=True)
+
     def do_GET(self):
         if self.path == '/config.js' or self.path.startswith('/config.js?'):
-            config = {
-                'SUPABASE_URL': os.environ.get('SUPABASE_URL', ''),
-                'SUPABASE_ANON_KEY': os.environ.get('SUPABASE_ANON_KEY', ''),
-                # Unsigned upload preset: public by design, so the browser can upload directly
-                'CLOUDINARY_CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME', ''),
-                'CLOUDINARY_UPLOAD_PRESET': os.environ.get('CLOUDINARY_UPLOAD_PRESET', ''),
-                # Backup account, used by the browser when the primary one stops accepting uploads
-                'CLOUDINARY_CLOUD_NAME_BACKUP': os.environ.get('CLOUDINARY_CLOUD_NAME_BACKUP', ''),
-                'CLOUDINARY_UPLOAD_PRESET_BACKUP': os.environ.get('CLOUDINARY_UPLOAD_PRESET_BACKUP', '')
-            }
-            self.send_response(200)
-            self.send_header('Content-Type', 'application/javascript')
-            self.end_headers()
-            self.wfile.write(f'window.APP_CONFIG = {json.dumps(config)};'.encode())
-            return
+            return self.serve_config()
         if self.path.split('?')[0] == '/api/r2-sign':
             cfg = r2_settings()
             if not cfg:
@@ -205,16 +347,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 'uploadUrl': r2_presign(cfg, key, content_type),
                 'publicUrl': cfg['public'] + '/' + urllib.parse.quote(key, safe='/')
             })
-        # SPA fallback: serve index.html for paths without a file extension
-        clean_path = self.path.split('?')[0]
-        basename = os.path.basename(clean_path)
-        if '.' not in basename:
-            self.path = '/index.html'
-        return super().do_GET()
-
-    def end_headers(self):
-        self.send_header('Cache-Control', 'no-cache')
-        super().end_headers()
+        return self.serve_static()
 
 
 if __name__ == '__main__':

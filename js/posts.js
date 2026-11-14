@@ -79,7 +79,7 @@ function postAvatar(member, name, cls) {
   const inner = url
     ? (postIsVideo(url)
       ? `<video class="fb-avatar-img" src="${fbEscape(url)}" autoplay muted loop playsinline></video>`
-      : `<img class="fb-avatar-img" src="${fbEscape(url)}" alt="" loading="lazy" decoding="async">`)
+      : `<img class="fb-avatar-img" src="${fbEscape(fbImageUrl(url, 96))}" alt="" loading="lazy" decoding="async">`)
     : fbEscape((label[0] || '?').toUpperCase());
   return `<span class="fb-avatar ${cls || ''}">${inner}</span>`;
 }
@@ -208,7 +208,7 @@ function postMediaHtml(post) {
   if (!post.media_url) return '';
   return `<div class="fb-post-media">${post.media_type === 'video'
     ? `<video class="fb-post-media-el" src="${fbEscape(post.media_url)}" controls playsinline preload="metadata"></video>`
-    : `<img class="fb-post-media-el" src="${fbEscape(post.media_url)}" alt="" loading="lazy" decoding="async">`}</div>`;
+    : `<img class="fb-post-media-el" src="${fbEscape(fbImageUrl(post.media_url, 720))}" alt="" loading="lazy" decoding="async">`}</div>`;
 }
 
 const POST_AUDIENCES = {
@@ -674,8 +674,17 @@ Posts.mount = function (listEl, opts) {
   // The page never pans by itself before the visitor scrolls: arriving on a
   // profile keeps the bar, the logo and the cover on screen
   let spotlightUserScrolled = false;
+  // These listeners drop themselves once this feed is off the page, so a long
+  // session never piles up handlers behind the scrolling
   ['wheel', 'touchmove', 'keydown'].forEach(type => {
-    window.addEventListener(type, () => { spotlightUserScrolled = true; }, { passive: true });
+    const markScrolled = () => {
+      if (!listEl.isConnected) {
+        window.removeEventListener(type, markScrolled);
+        return;
+      }
+      spotlightUserScrolled = true;
+    };
+    window.addEventListener(type, markScrolled, { passive: true });
   });
 
   // The post being viewed: the first one starting in the upper part of the
@@ -770,6 +779,12 @@ Posts.mount = function (listEl, opts) {
     spotlightTimer = 0;
     // The feed was replaced (tab change), so the loop has nothing left to show
     if (!listEl.isConnected) return clearSpotlight();
+    // A phone showing another app has nothing to highlight: the loop waits
+    // until the member comes back instead of working in the background
+    if (document.hidden) {
+      clearSpotlightMark();
+      return;
+    }
     // The turns keep coming while the member is writing or editing a comment —
     // only the automatic scroll waits, so the page never jumps under them
     const active = document.activeElement;
@@ -789,14 +804,16 @@ Posts.mount = function (listEl, opts) {
     if (spotlightIndex >= comments.length) spotlightIndex = 0;
     const comment = comments[spotlightIndex];
     comment.classList.add('fb-comment-spotlight');
-    // Move it to the first line of the thread while it is lit
-    liftSpotlightComment(comment);
+    // On a phone the comment is highlighted where it sits: lifting it and
+    // scrolling the page every 10 seconds is what made the feed feel heavy
+    const compact = window.innerWidth <= 900;
+    if (!compact) liftSpotlightComment(comment);
     spotlightCommentId = String(comment.dataset.comment);
     spotlightEndsAt = Date.now() + COMMENT_SPOTLIGHT_MS;
     // Keep the lit comment readable without scrolling the post away: the page
     // only moves if the comment is out of view. The scroll it causes must not
     // be mistaken for the member choosing another post.
-    if (!typing && spotlightUserScrolled) {
+    if (!typing && spotlightUserScrolled && !compact) {
       spotlightIgnoreScrollUntil = Date.now() + 1200;
       keepSpotlightVisible(comment);
     }
@@ -821,7 +838,7 @@ Posts.mount = function (listEl, opts) {
       lit.classList.add('fb-comment-spotlight');
       // Its old node is gone with the repaint, so the lift starts over
       if (spotlightLifted && !spotlightLifted.el.isConnected) spotlightLifted = null;
-      liftSpotlightComment(lit);
+      if (window.innerWidth > 900) liftSpotlightComment(lit);
       spotlightPost = lit.closest('[data-post]') || spotlightPost;
       spotlightTimer = setTimeout(spotlightNext, left);
       return;
@@ -833,8 +850,21 @@ Posts.mount = function (listEl, opts) {
   // Scrolling onto another post hands it the spotlight right away
   if (!listEl.dataset.spotlightScroll) {
     listEl.dataset.spotlightScroll = '1';
-    window.addEventListener('scroll', () => {
-      if (!listEl.isConnected) return;
+    // Coming back to the app picks the highlight loop up where it paused
+    const onVisible = () => {
+      if (!listEl.isConnected) {
+        document.removeEventListener('visibilitychange', onVisible);
+        return;
+      }
+      if (!document.hidden && !spotlightTimer) spotlightNext();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    const onScroll = () => {
+      // A feed that has been swapped out takes its listener with it
+      if (!listEl.isConnected) {
+        window.removeEventListener('scroll', onScroll);
+        return;
+      }
       if (Date.now() < spotlightIgnoreScrollUntil) return;
       clearTimeout(spotlightScrollTimer);
       spotlightScrollTimer = setTimeout(() => {
@@ -845,7 +875,8 @@ Posts.mount = function (listEl, opts) {
         clearSpotlight();
         spotlightNext();
       }, 150);
-    }, { passive: true });
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
   }
 
   // ---------- Hiding and restoring a friend's posts ----------
@@ -899,7 +930,11 @@ Posts.mount = function (listEl, opts) {
     stopVideoReactions();
     listEl.innerHTML = hiddenStrip() + (shown.length
       ? shown.map(p => Posts.card(p, ctxFor(p))).join('')
-      : (options.emptyHtml || emptyFeedHtml));
+      : (options.emptyHtml || emptyFeedHtml))
+      + '<div class="fb-feed-more" data-feed-more hidden></div>';
+    moreEl = listEl.querySelector('[data-feed-more]');
+    paintMore();
+    watchMore();
     startVideoReactions();
     startCommentSpotlight();
   }
@@ -972,49 +1007,34 @@ Posts.mount = function (listEl, opts) {
     });
   }
 
-  async function load() {
-    if (!sb) {
-      state.posts = [];
-      renderAll();
-      return;
-    }
-    state.users = new Map();
-    state.reactions = new Map();
-    state.comments = new Map();
-    state.commentReactions = new Map();
-    state.shared = new Map();
-    // Friends and reaction faces are only needed to paint, so they load next to
-    // the posts instead of costing extra round trips before the feed shows
-    const friendsPromise = loadFriendIds();
-    const facesPromise = loadReactionMedia();
+  // The feed arrives a page at a time: the first screen paints after one small
+  // read, and older posts come when the member scrolls towards them
+  const PAGE_SIZE = options.pageSize || (options.authorId ? 6 : (options.friendsOnly ? 10 : 8));
+  let loadingMore = false;
+  let exhausted = false;
+  let moreEl = null;
 
-    // The home feed drops non-friends' posts, so it reads a little deeper
-    let query = sb.from('posts').select('*').order('created_at', { ascending: false })
-      .limit(options.limit || (options.friendsOnly ? 60 : 30));
+  function postQuery(offset) {
+    let query = sb.from('posts').select('*')
+      .order('created_at', { ascending: false })
+      .range(offset, offset + PAGE_SIZE - 1);
     if (options.authorId) query = query.eq('user_id', options.authorId);
-    const { data: rows, error } = await query;
-    state.friendIds = await friendsPromise;
-    state.faces = await facesPromise;
-    if (error) {
-      state.posts = [];
-      listEl.innerHTML = options.emptyHtml || '';
-      return;
-    }
-    state.posts = rows || [];
-    if (!state.posts.length) {
-      renderAll();
-      return;
-    }
+    return query;
+  }
 
-    // The posts behind a share may sit outside this list, so load them for the
+  // Loads everything a page of posts needs to paint: their comments, reactions,
+  // the posts they share and the people who wrote them
+  async function hydrate(rows) {
+    if (!rows.length) return;
+    // The posts behind a share may sit outside this page, so load them for the
     // preview. Comments, reactions and those originals are independent reads,
     // so they go out together rather than one round trip after another.
     const loadedIds = new Set(state.posts.map(p => String(p.id)));
     const sharedIds = Array.from(new Set(
-      state.posts.map(p => p.shared_post_id).filter(Boolean).map(String)
-    )).filter(id => !loadedIds.has(id));
+      rows.map(p => p.shared_post_id).filter(Boolean).map(String)
+    )).filter(id => !loadedIds.has(id) && !state.shared.has(id));
 
-    const postIds = state.posts.map(p => p.id);
+    const postIds = rows.map(p => p.id);
     const [commentsRes, reactionsRes, originalsRes] = await Promise.all([
       sb.from('post_comments').select('*').in('post_id', postIds).order('created_at', { ascending: true }),
       sb.from('post_reactions').select('*').in('post_id', postIds),
@@ -1022,18 +1042,18 @@ Posts.mount = function (listEl, opts) {
         ? sb.from('posts').select('*').in('id', sharedIds)
         : Promise.resolve({ data: [] })
     ]);
-    const comments = commentsRes.data;
+    const comments = commentsRes.data || [];
     (originalsRes.data || []).forEach(p => state.shared.set(String(p.id), p));
-    (comments || []).forEach(c => mapPush(state.comments, String(c.post_id), c));
+    comments.forEach(c => mapPush(state.comments, String(c.post_id), c));
     (reactionsRes.data || []).forEach(r => mapPush(state.reactions, String(r.post_id), r));
 
     const peopleIds = Array.from(new Set(
-      state.posts.map(p => p.user_id)
-        .concat(Array.from(state.shared.values()).map(p => p.user_id))
-        .concat((comments || []).map(c => c.user_id))
+      rows.map(p => p.user_id)
+        .concat((originalsRes.data || []).map(p => p.user_id))
+        .concat(comments.map(c => c.user_id))
         .filter(Boolean)
     ));
-    const commentIds = (comments || []).map(c => c.id);
+    const commentIds = comments.map(c => c.id);
     // The writers and the comment reactions are independent too
     const [peopleRes, commentReactionsRes] = await Promise.all([
       peopleIds.length
@@ -1045,8 +1065,97 @@ Posts.mount = function (listEl, opts) {
     ]);
     (peopleRes.data || []).forEach(p => state.users.set(String(p.id), p));
     (commentReactionsRes.data || []).forEach(r => mapPush(state.commentReactions, String(r.comment_id), r));
+  }
 
+  async function load() {
+    if (!sb) {
+      state.posts = [];
+      renderAll();
+      return;
+    }
+    state.users = new Map();
+    state.reactions = new Map();
+    state.comments = new Map();
+    state.commentReactions = new Map();
+    state.shared = new Map();
+    loadingMore = false;
+    exhausted = false;
+    // Friends and reaction faces are only needed to paint, so they load next to
+    // the posts instead of costing extra round trips before the feed shows
+    const friendsPromise = loadFriendIds();
+    const facesPromise = loadReactionMedia();
+
+    const { data: rows, error } = await postQuery(0);
+    state.friendIds = await friendsPromise;
+    state.faces = await facesPromise;
+    if (error) {
+      state.posts = [];
+      listEl.innerHTML = options.emptyHtml || '';
+      return;
+    }
+    state.posts = rows || [];
+    if (state.posts.length < PAGE_SIZE) exhausted = true;
+    if (!state.posts.length) {
+      renderAll();
+      return;
+    }
+    await hydrate(state.posts);
     renderAll();
+  }
+
+  // The next page of older posts, appended under the ones already on screen
+  async function loadMore() {
+    if (!sb || loadingMore || exhausted) return;
+    loadingMore = true;
+    paintMore();
+    const { data, error } = await postQuery(state.posts.length);
+    loadingMore = false;
+    if (error || !data || !data.length) {
+      exhausted = true;
+      paintMore();
+      return;
+    }
+    if (data.length < PAGE_SIZE) exhausted = true;
+    const fresh = data.filter(post => !state.posts.some(p => String(p.id) === String(post.id)));
+    state.posts = state.posts.concat(fresh);
+    await hydrate(fresh);
+    appendPosts(fresh);
+    paintMore();
+  }
+
+  // Says how the loading of older posts is going, at the end of the feed
+  function paintMore() {
+    if (!moreEl) return;
+    if (exhausted) {
+      moreEl.hidden = true;
+      moreEl.innerHTML = '';
+      return;
+    }
+    moreEl.hidden = false;
+    moreEl.innerHTML = loadingMore
+      ? '<span class="fb-feed-more-text">Loading older posts…</span>'
+      : '<button class="fb-feed-more-btn" type="button" data-act="load-more">Load older posts</button>';
+  }
+
+  // Older posts only load when the member reaches the end of the feed, so a
+  // phone never downloads a long history it will not read
+  const moreObserver = 'IntersectionObserver' in window ? new IntersectionObserver(entries => {
+    if (entries.some(entry => entry.isIntersecting)) loadMore();
+  }, { rootMargin: '800px 0px' }) : null;
+
+  function watchMore() {
+    if (moreObserver && moreEl) moreObserver.observe(moreEl);
+  }
+
+  function appendPosts(rows) {
+    if (!rows.length || !moreEl) return;
+    const q = state.query.trim().toLowerCase();
+    const shown = rows.filter(visibleToViewer).filter(p => !q
+      || `${p.content || ''} ${p.author_name || ''}`.toLowerCase().includes(q));
+    if (!shown.length) return;
+    moreEl.insertAdjacentHTML('beforebegin', shown.map(p => Posts.card(p, ctxFor(p))).join(''));
+    startVideoReactions();
+    startCommentSpotlight();
   }
 
   // Reloads one post's reactions and comments, then repaints just that card
@@ -1075,9 +1184,23 @@ Posts.mount = function (listEl, opts) {
     startCommentSpotlight();
   }
 
+  // The tapped button answers straight away: it shows the state the saved
+  // reaction will show, so a slow connection never looks like a dead button
+  function paintPendingReaction(postId, type) {
+    const card = listEl.querySelector(`[data-post="${postId}"]`);
+    const button = card && card.querySelector('.fb-post-act[data-act="react"]');
+    if (!button) return;
+    const mine = (state.reactions.get(String(postId)) || []).find(r => String(r.user_id) === String(viewer.id));
+    const next = mine && mine.type === type ? '' : type;
+    button.classList.toggle('active', !!next);
+    button.style.color = next ? postReactionColor(next) : '';
+    button.innerHTML = `${Posts.reactionIcon(next || 'like')}<span>${next ? postReactionLabel(next) : 'Like'}</span>`;
+  }
+
   async function setReaction(postId, type) {
     const key = String(postId);
     const existing = (state.reactions.get(key) || []).find(r => String(r.user_id) === String(viewer.id));
+    paintPendingReaction(postId, type);
     let error = null;
     if (existing && existing.type === type) {
       ({ error } = await sb.from('post_reactions').delete().eq('id', existing.id));
@@ -1091,7 +1214,10 @@ Posts.mount = function (listEl, opts) {
         type
       }]));
     }
-    if (error) return showToast('Could not save your reaction', 'error');
+    if (error) {
+      showToast('Could not save your reaction', 'error');
+      return refreshCard(postId);
+    }
     await refreshCard(postId);
   }
 
@@ -1197,19 +1323,11 @@ Posts.mount = function (listEl, opts) {
     await refreshCard(postId);
   }
 
-  // Accepted friends of the signed-in member, used for the "Friends" audience
+  // Accepted friends of the signed-in member, used for the "Friends" audience.
+  // The stories row asks for the same list, so it is fetched once per page load
   async function loadFriendIds() {
     if (!sb || !viewer.id) return null;
-    const { data, error } = await sb.from('friend_requests')
-      .select('sender_id, receiver_id')
-      .eq('status', 'accepted')
-      .or(`sender_id.eq.${viewer.id},receiver_id.eq.${viewer.id}`);
-    if (error) return null;
-    const ids = new Set();
-    (data || []).forEach(row => {
-      ids.add(String(String(row.sender_id) === String(viewer.id) ? row.receiver_id : row.sender_id));
-    });
-    return ids;
+    return fbFriendIds(viewer.id);
   }
 
   // Faces and videos this member has uploaded, so they can reuse them.
@@ -1417,17 +1535,24 @@ Posts.mount = function (listEl, opts) {
   // off it, or presses Escape
   if (!listEl.dataset.pickerDismiss) {
     listEl.dataset.pickerDismiss = '1';
-    document.addEventListener('click', e => {
+    // Each of these hands itself back once this feed leaves the page
+    const onDocClick = e => {
+      if (!listEl.isConnected) return document.removeEventListener('click', onDocClick);
       if (!state.openPicker) return;
       if (e.target.closest('.fb-react-wrap.open')) return;
       closePickers();
-    });
-    document.addEventListener('keydown', e => {
+    };
+    const onDocKey = e => {
+      if (!listEl.isConnected) return document.removeEventListener('keydown', onDocKey);
       if (e.key === 'Escape') closePickers();
-    });
-    window.addEventListener('scroll', () => {
+    };
+    const onDocScroll = () => {
+      if (!listEl.isConnected) return window.removeEventListener('scroll', onDocScroll, true);
       if (state.openPicker) closePickers();
-    }, { passive: true, capture: true });
+    };
+    document.addEventListener('click', onDocClick);
+    document.addEventListener('keydown', onDocKey);
+    window.addEventListener('scroll', onDocScroll, { passive: true, capture: true });
   }
 
   listEl.addEventListener('change', e => {
@@ -1459,7 +1584,8 @@ Posts.mount = function (listEl, opts) {
     // Visitors who are not signed in can read posts and their reactions, not add to them.
     // The grow/sound switches are local display settings, so they keep working.
     const guarded = e.target.closest('[data-act], .fb-reaction-option');
-    if (!viewer.id && guarded && !/^toggle-/.test(guarded.dataset.act || '')) {
+    if (!viewer.id && guarded && !/^toggle-/.test(guarded.dataset.act || '')
+      && guarded.dataset.act !== 'load-more') {
       e.preventDefault();
       showToast('Log in to react and comment', '', 4000);
       return;
@@ -1467,7 +1593,8 @@ Posts.mount = function (listEl, opts) {
     // A member waiting for approval reads the feed, but cannot react, comment or share
     const actName = guarded ? (guarded.dataset.act || '') : '';
     const readOnlyAct = guarded && !guarded.classList.contains('fb-reaction-option')
-      && (/^toggle-/.test(actName) || actName === 'focus-comment' || actName === 'show-author');
+      && (/^toggle-/.test(actName) || actName === 'focus-comment' || actName === 'show-author'
+        || actName === 'load-more');
     if (guarded && !readOnlyAct && ReadOnlyMode.block('Reacting, commenting and sharing')) {
       e.preventDefault();
       return;
@@ -1488,6 +1615,8 @@ Posts.mount = function (listEl, opts) {
     if (!act) return;
     // The restore list lives above the posts, outside any post card
     if (act.dataset.act === 'show-author') return showAuthorPosts(act.dataset.author);
+    // Older posts load from the end of the feed, outside any post card
+    if (act.dataset.act === 'load-more') return loadMore();
     const postEl = act.closest('[data-post]');
     if (!postEl) return;
     const postId = postEl.dataset.post;

@@ -84,6 +84,60 @@ function fbPaintPageBackground(url) {
   document.body.classList.add('has-page-bg');
 }
 
+// Cloudinary can hand out a smaller copy of the same picture, so a feed on a
+// phone downloads a fraction of the bytes and still looks right on screen
+function fbImageUrl(url, width) {
+  const src = String(url || '');
+  if (!width || !/res\.cloudinary\.com\/[^/]+\/image\/upload\//.test(src)) return src;
+  if (/\/image\/upload\/[^/]*(f_auto|q_auto|w_\d)/.test(src)) return src;
+  return src.replace('/image/upload/', '/image/upload/f_auto,q_auto,c_limit,w_' + width + '/');
+}
+
+// Loads a page script the first time that page is opened, so members who never
+// visit it never download it
+const fbLoadedScripts = {};
+function fbLoadScript(src) {
+  if (!fbLoadedScripts[src]) {
+    fbLoadedScripts[src] = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = src;
+      script.async = true;
+      script.onload = () => resolve();
+      script.onerror = () => {
+        delete fbLoadedScripts[src];
+        reject(new Error('Could not load ' + src));
+      };
+      document.head.appendChild(script);
+    });
+  }
+  return fbLoadedScripts[src];
+}
+
+// The accepted friends of one member, asked for once per page load: the feed,
+// the stories row and the posts all need the same list
+let fbFriendIdsCache = null;
+document.addEventListener('friends:changed', () => { fbFriendIdsCache = null; });
+function fbFriendIds(userId) {
+  const id = String(userId || '');
+  if (!sb || !id) return Promise.resolve(null);
+  if (fbFriendIdsCache && fbFriendIdsCache.id === id) return fbFriendIdsCache.promise;
+  const promise = sb.from('friend_requests')
+    .select('sender_id, receiver_id')
+    .eq('status', 'accepted')
+    .or(`sender_id.eq.${id},receiver_id.eq.${id}`)
+    .then(({ data, error }) => {
+      if (error) return null;
+      const ids = new Set();
+      (data || []).forEach(row => {
+        ids.add(String(String(row.sender_id) === id ? row.receiver_id : row.sender_id));
+      });
+      return ids;
+    })
+    .catch(() => null);
+  fbFriendIdsCache = { id, promise };
+  return promise;
+}
+
 function showToast(msg, type = '', ms = 3000) {
   const t = document.createElement('div');
   t.className = `toast ${type}`;

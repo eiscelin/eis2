@@ -35,7 +35,7 @@ Pages.profileTab = function(main, user) {
     if (!avatarUrl) return fbBrandMark();
     return isVid
       ? `<video class="fb-avatar-img" src="${fbEscape(avatarUrl)}" autoplay muted loop playsinline></video>`
-      : `<img class="fb-avatar-img" src="${fbEscape(avatarUrl)}" alt="${fbEscape(name)}">`;
+      : `<img class="fb-avatar-img" src="${fbEscape(fbImageUrl(avatarUrl, 200))}" alt="${fbEscape(name)}" decoding="async">`;
   }
 
   main.innerHTML = `
@@ -44,8 +44,8 @@ Pages.profileTab = function(main, user) {
         ${coverUrl
           ? isVideo(coverUrl)
             ? `<video class="fb-cover-media" src="${fbEscape(coverUrl)}" autoplay muted loop playsinline></video>`
-            : `<img class="fb-cover-media" src="${fbEscape(coverUrl)}" alt="">`
-          : `<img class="fb-cover-media" src="${FB_DEFAULT_COVER}" alt="">`}
+            : `<img class="fb-cover-media" src="${fbEscape(fbImageUrl(coverUrl, 1200))}" alt="" decoding="async">`
+          : `<img class="fb-cover-media" src="${FB_DEFAULT_COVER}" alt="" decoding="async">`}
         ${coverUrl && isVideo(coverUrl)
           ? `<button class="fb-cover-expand" id="pfCoverExpand" type="button" aria-label="Play the whole video with sound" title="Play the whole video with sound">⤢</button>`
           : ''}

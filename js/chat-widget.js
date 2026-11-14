@@ -92,7 +92,7 @@ window.ChatWidget = function(container, currentUser) {
       const avatar = url
         ? (isVideo
           ? `<video class="chat-user-avatar chat-user-media" src="${escapeHtml(url)}" autoplay muted loop playsinline></video>`
-          : `<img class="chat-user-avatar chat-user-media" src="${escapeHtml(url)}" alt="">`)
+          : `<img class="chat-user-avatar chat-user-media" src="${escapeHtml(fbImageUrl(url, 96))}" alt="" loading="lazy" decoding="async">`)
         : `<div class="chat-user-avatar" style="background:#bbb">${initial}</div>`;
       return `<div class="chat-user-item" data-uid="${u.id}">
         ${avatar}
@@ -119,14 +119,36 @@ window.ChatWidget = function(container, currentUser) {
     startPolling();
   }
 
-  async function loadMessages() {
+  // Only the columns a bubble shows travel on every refresh
+  const MESSAGE_COLUMNS = 'id, sender_id, receiver_id, message, created_at';
+  let loadedThread = null;
+  let lastMessageAt = '';
+
+  async function loadMessages(force) {
     if (!activeChat || document.hidden) return;
+    const thread = String(activeChat.id);
+    const full = !!force || loadedThread !== thread;
     try {
-      const { data, error } = await sb.from('chat_messages').select('*')
+      let query = sb.from('chat_messages').select(MESSAGE_COLUMNS)
         .or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${activeChat.id}),and(sender_id.eq.${activeChat.id},receiver_id.eq.${currentUser.id})`)
         .order('created_at', { ascending: true });
+      // After the first read only messages that arrived since reach the phone,
+      // and nothing is repainted when there is nothing new
+      if (!full && lastMessageAt) query = query.gt('created_at', lastMessageAt);
+      const { data, error } = await query;
       if (error) throw error;
-      messages = data || [];
+      if (full) {
+        messages = data || [];
+        loadedThread = thread;
+      } else {
+        if (!data || !data.length) return;
+        const known = new Set(messages.map(m => String(m.id)));
+        data.forEach(m => {
+          if (!known.has(String(m.id))) messages.push(m);
+        });
+      }
+      const newest = messages[messages.length - 1];
+      if (newest && newest.created_at) lastMessageAt = newest.created_at;
       renderMessages();
     } catch (e) {
       messagesEl.innerHTML = '<div class="chat-empty">Chat not set up yet. Run the SQL migration in Supabase.</div>';
@@ -153,10 +175,13 @@ window.ChatWidget = function(container, currentUser) {
     if (!text || !activeChat) return;
     if (ReadOnlyMode.block('Sending messages')) return;
     input.value = '';
+    // The message shows the moment it is sent, before the save comes back
+    messages.push({ sender_id: currentUser.id, receiver_id: activeChat.id, message: text, created_at: new Date().toISOString() });
+    renderMessages();
     try {
       await sb.from('chat_messages').insert([{ sender_id: currentUser.id, receiver_id: activeChat.id, message: text }]);
-      messages.push({ sender_id: currentUser.id, receiver_id: activeChat.id, message: text, created_at: new Date().toISOString() });
-      renderMessages();
+      // One read of the thread keeps the sent message and its saved id in step
+      await loadMessages(true);
     } catch (e) {
       showToast('Failed to send message', 'error');
     }

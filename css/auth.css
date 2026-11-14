@@ -9,11 +9,16 @@
   background: #0a3ec4;
 }
 
-/* Full-page artwork (1599x984) — cover, centred */
+/* Full-page artwork (1599x984) — cover, centred. Phones get the WebP copy,
+   which is a tenth of the size of the original picture */
 .auth-art {
   position: absolute;
   inset: 0;
-  background: url('/img/auth-cover.png') center center / cover no-repeat;
+  background: url('/img/auth-cover.jpg') center center / cover no-repeat;
+  background-image: image-set(
+    url('/img/auth-cover.webp') type('image/webp'),
+    url('/img/auth-cover.jpg') type('image/jpeg')
+  );
 }
 
 .auth-panel { position: absolute; inset: 0; }

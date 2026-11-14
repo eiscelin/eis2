@@ -7,50 +7,54 @@
   <title>MeDay — Share, connect and chat</title>
   <link rel="icon" type="image/png" href="/img/meday-logo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://res.cloudinary.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- The font loads in the background: the page paints with the fallback first,
+       so a slow phone connection never waits on Google Fonts to show anything -->
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" onload="this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"></noscript>
   <link rel="stylesheet" href="/css/styles.css">
   <link rel="stylesheet" href="/css/facebook.css">
   <link rel="stylesheet" href="/css/light-mode.css">
   <link rel="stylesheet" href="/css/auth.css">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="/config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script src="/config.js" defer></script>
 </head>
 <body>
   <div id="app"></div>
-  <script src="/js/theme.js"></script>
-  <script src="/js/brand.js"></script>
-  <script src="/js/supabase.js"></script>
-  <script src="/js/r2.js"></script>
-  <script src="/js/cloudinary.js"></script>
-  <script src="/js/login-vault.js"></script>
-  <script src="/js/auth.js"></script>
-  <script src="/js/read-only.js"></script>
-  <script src="/js/chat-widget.js"></script>
-  <script src="/js/pages/shared.js"></script>
-  <script src="/js/reactions.js"></script>
-  <script src="/js/posts.js"></script>
-  <script src="/js/share-modal.js"></script>
-  <script src="/js/friends.js"></script>
-  <script src="/js/comment-notifications.js"></script>
-  <script src="/js/search.js"></script>
-  <script src="/js/admin-moderate.js"></script>
-  <script src="/js/pages/personal-info.js"></script>
-  <script src="/js/profile-overlay.js"></script>
-  <script src="/js/pages/menu.js"></script>
-  <script src="/js/cover-player.js"></script>
-  <script src="/js/pages/gallery.js"></script>
-  <script src="/js/pages/profile.js"></script>
-  <script src="/js/pages/user-profile.js"></script>
-  <script src="/js/pages/feed.js"></script>
-  <script src="/js/pages/people.js"></script>
-  <script src="/js/admin-member-picker.js"></script>
-  <script src="/js/pages/admin.js"></script>
-  <script src="/js/pages/landing.js"></script>
-  <script src="/js/pages/auth.js"></script>
-  <script src="/js/pages/app.js"></script>
-  <script src="/js/router.js"></script>
-  <script src="/js/support-widget.js"></script>
-  <script src="/js/app.js"></script>
+  <!-- Every script is deferred: the browser downloads them in parallel while the
+       page paints, then runs them in this order once the HTML is parsed -->
+  <script src="/js/theme.js" defer></script>
+  <script src="/js/brand.js" defer></script>
+  <script src="/js/supabase.js" defer></script>
+  <script src="/js/r2.js" defer></script>
+  <script src="/js/cloudinary.js" defer></script>
+  <script src="/js/login-vault.js" defer></script>
+  <script src="/js/auth.js" defer></script>
+  <script src="/js/read-only.js" defer></script>
+  <script src="/js/chat-widget.js" defer></script>
+  <script src="/js/pages/shared.js" defer></script>
+  <script src="/js/reactions.js" defer></script>
+  <script src="/js/posts.js" defer></script>
+  <script src="/js/share-modal.js" defer></script>
+  <script src="/js/friends.js" defer></script>
+  <script src="/js/comment-notifications.js" defer></script>
+  <script src="/js/search.js" defer></script>
+  <script src="/js/admin-moderate.js" defer></script>
+  <script src="/js/pages/personal-info.js" defer></script>
+  <script src="/js/profile-overlay.js" defer></script>
+  <script src="/js/pages/menu.js" defer></script>
+  <script src="/js/cover-player.js" defer></script>
+  <script src="/js/pages/gallery.js" defer></script>
+  <script src="/js/pages/profile.js" defer></script>
+  <script src="/js/pages/user-profile.js" defer></script>
+  <script src="/js/pages/feed.js" defer></script>
+  <script src="/js/pages/people.js" defer></script>
+  <script src="/js/pages/landing.js" defer></script>
+  <script src="/js/pages/auth.js" defer></script>
+  <script src="/js/pages/app.js" defer></script>
+  <script src="/js/router.js" defer></script>
+  <script src="/js/support-widget.js" defer></script>
+  <script src="/js/app.js" defer></script>
 </body>
 </html>
