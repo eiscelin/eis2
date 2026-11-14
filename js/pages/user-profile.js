@@ -124,12 +124,12 @@ Pages.userProfile = async function (el, username) {
   el.innerHTML = `<div class="fb-public">
     ${bar}
     <div class="fb-profile">
-      <div class="fb-cover${cover ? ' fb-cover--media' : ' fb-cover--empty'}" id="upCover">
+      <div class="fb-cover${cover ? ' fb-cover--media' : ' fb-cover--default'}" id="upCover">
         ${cover
           ? coverIsVideo
             ? `<video class="fb-cover-media" src="${fbEscape(cover)}" autoplay muted loop playsinline></video>`
             : `<img class="fb-cover-media" src="${fbEscape(cover)}" alt="">`
-          : ''}
+          : `<img class="fb-cover-media" src="${FB_DEFAULT_COVER}" alt="">`}
         ${coverIsVideo
           ? '<button class="fb-cover-expand" id="upExpand" type="button" aria-label="Play the whole video with sound" title="Play the whole video with sound">⤢</button>'
           : ''}
