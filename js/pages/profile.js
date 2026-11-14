@@ -538,7 +538,8 @@ Pages.profileTab = function(main, user) {
   if (framedRect(coverUrl)) paintCover();
 
   // The follower count beside the name: friends count as followers, and below
-  // 10,000 followers only the range is shown, never the exact number
+  // 10,000 followers only the range is shown; from 10,000 up the exact number
+  // is shown with thousands separators
   async function paintFollowerCount() {
     const labelEl = main.querySelector('#pfFollowerCount');
     if (!labelEl) return;
