@@ -150,7 +150,7 @@ Pages.userProfile = async function (el, username) {
           : fbBrandMark()}${avatar && window.AdminModerate ? AdminModerate.mediaButton('avatar', person.id) : ''}</div>
         <div class="fb-profile-id">
           <h1 class="fb-profile-name">${fbEscape(name)}</h1>
-          <div class="fb-profile-meta">${fbEscape(fbRoleLabel(person.role))} · @${fbEscape(person.username)} · <span id="upFollowerCount">${fbEscape(fbFollowerLabel(followerCount))}</span></div>
+          <div class="fb-profile-meta">@${fbEscape(person.username)} · <span id="upFollowerCount" class="fb-followers">${fbEscape(fbFollowerLabel(followerCount))}</span></div>
         </div>
         <div class="fb-profile-actions">
           ${viewer && window.Friends
@@ -171,7 +171,6 @@ Pages.userProfile = async function (el, username) {
           <ul class="fb-detail-list">
             <li><span class="ico" aria-hidden="true">📛</span><span class="k">Name:</span> ${fbEscape(name)}</li>
             <li><span class="ico" aria-hidden="true">👤</span><span class="k">Username:</span> @${fbEscape(person.username)}</li>
-            <li><span class="ico" aria-hidden="true">🏷️</span><span class="k">Role:</span> ${fbEscape(fbRoleLabel(person.role))}</li>
             ${age ? `<li><span class="ico" aria-hidden="true">🎂</span><span class="k">Age:</span> ${fbEscape(age)}</li>` : ''}
             ${joined ? `<li><span class="ico" aria-hidden="true">📅</span><span class="k">Joined:</span> ${fbEscape(joined)}</li>` : ''}
           </ul>

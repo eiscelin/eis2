@@ -746,6 +746,8 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
 .fb-profile-id { padding-bottom: 0.6rem; min-width: 0; }
 .fb-profile-name { font-size: 2rem; font-weight: 800; line-height: 1.15; color: var(--fb-text); }
 .fb-profile-meta { color: var(--fb-muted); font-size: 0.92rem; margin-top: 0.2rem; }
+/* The follower count beside the name stands out in vivid white */
+.fb-profile-meta .fb-followers { color: #fff; font-weight: 700; }
 .fb-profile-actions { position: relative; display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .fb-profile-head > .fb-profile-actions { margin-left: auto; padding-bottom: 0.7rem; }
 

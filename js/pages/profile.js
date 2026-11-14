@@ -11,7 +11,6 @@ function fbRoleLabel(role) {
 Pages.profileTab = function(main, user) {
   const name = user.full_name || user.username || 'Member';
 
-  const role = fbRoleLabel(user.role);
   const brand = fbBrand();
   let avatarUrl = user.avatar_url || '';
   let coverUrl = user.cover_url || '';
@@ -58,7 +57,7 @@ Pages.profileTab = function(main, user) {
         <div class="fb-profile-id">
           <h1 class="fb-profile-name">${fbEscape(name)}</h1>
           <div class="fb-profile-meta">
-            ${fbEscape(role)} · @${fbEscape(user.username)} · <span id="pfFollowerCount">…</span>
+            @${fbEscape(user.username)} · <span id="pfFollowerCount" class="fb-followers">…</span>
           </div>
           <div class="fb-media-note" id="pfMediaNote" hidden></div>
         </div>
@@ -84,7 +83,6 @@ Pages.profileTab = function(main, user) {
           <section class="fb-card" data-section="about" id="pfAbout">
             <div class="fb-card-head"><h3>Personal details</h3><span aria-hidden="true">🔒</span></div>
             <ul class="fb-detail-list">
-              <li><span class="ico" aria-hidden="true">🏷️</span><span class="k">Role:</span> ${fbEscape(role)}</li>
               <li><span class="ico" aria-hidden="true">👤</span><span class="k">Username:</span> @${fbEscape(user.username)}</li>
               <li><span class="ico" aria-hidden="true">🔗</span><span class="k">Profile link:</span> <a href="#/u/${fbEscape(user.username)}">#/u/${fbEscape(user.username)}</a></li>
               <li><span class="ico" aria-hidden="true">🌐</span><span class="k">App:</span> ${fbEscape(brand.name)}</li>
