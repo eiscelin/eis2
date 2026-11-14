@@ -580,7 +580,6 @@ Pages.profileTab = function(main, user) {
             </a>
             <div class="fb-person-body">
               <div class="fb-person-name">${fbEscape(pname)}</div>
-              <div class="fb-person-meta">${fbEscape(fbRoleLabel(p.role))}</div>
               <button class="fb-person-btn" type="button" data-friend="${fbEscape(p.id)}"${window.Friends && Friends.isLocked(state) ? ' disabled' : ''}>${window.Friends ? fbEscape(Friends.label(state)) : 'Add Friend'}</button>
             </div>
           </div>`;
@@ -638,7 +637,6 @@ Pages.profileTab = function(main, user) {
           return `<a class="fb-friend" href="#/u/${encodeURIComponent(p.username || '')}" title="Open ${fbEscape(pname)}'s profile">
             <div class="fb-friend-img">${picture}</div>
             <div class="fb-friend-name">${fbEscape(pname)}</div>
-            <div class="fb-friend-meta">${fbEscape(fbRoleLabel(p.role))}</div>
           </a>`;
         }).join('')
         : '<div class="empty-state" style="grid-column:1/-1;padding:1rem;">No friends yet.</div>';

@@ -823,7 +823,6 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
 .fb-friend-img img, .fb-friend-img video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .fb-friend-name { font-size: 0.8rem; font-weight: 600; color: var(--fb-text); margin-top: 0.35rem; line-height: 1.25;
   overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
-.fb-friend-meta { font-size: 0.72rem; color: var(--fb-muted); text-transform: capitalize; }
 
 /* Profile photo and video gallery */
 .fb-gallery-count { color: var(--fb-muted); font-weight: 500; font-size: 0.85rem; }
@@ -935,9 +934,8 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
   background: linear-gradient(135deg, #2f6fce, #14396f);
 }
 .fb-person-body { padding: 0.5rem 0.6rem 0.7rem; }
-.fb-person-name { font-size: 0.85rem; font-weight: 700; color: var(--fb-text); line-height: 1.25;
+.fb-person-name { font-size: 0.85rem; font-weight: 700; color: var(--fb-text); line-height: 1.25; margin-bottom: 0.5rem;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fb-person-meta { font-size: 0.73rem; color: var(--fb-muted); margin-bottom: 0.5rem; text-transform: capitalize; }
 .fb-person-btn { width: 100%; padding: 0.4rem; border-radius: 6px; background: var(--fb-blue); color: #fff; font-size: 0.8rem; font-weight: 600; }
 .fb-person-btn:hover { background: var(--fb-blue-hover); }
 /* A member's picture (photo or video) fills the card and opens their profile */
