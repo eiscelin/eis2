@@ -2601,7 +2601,18 @@ a.fb-post-name:hover { text-decoration: underline; }
 .fb-comment { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
 .fb-comment-avatar { flex-shrink: 0; text-decoration: none; }
 .fb-comment-main { min-width: 0; flex: 1; }
-.fb-comment-bubble { display: inline-block; max-width: 100%; padding: 0.45rem 0.75rem; border-radius: 16px; background: var(--fb-elevated); }
+.fb-comment-bubble {
+  display: inline-block;
+  max-width: 100%;
+  padding: 0.45rem 0.75rem;
+  border-radius: 16px;
+  background-color: var(--fb-glass-strong);
+  background-image: var(--fb-glass-sheen);
+  border: 1px solid var(--fb-glass-edge);
+  -webkit-backdrop-filter: var(--fb-glass-blur);
+  backdrop-filter: var(--fb-glass-blur);
+  box-shadow: var(--fb-glass-rim);
+}
 .fb-comment-name { display: block; font-size: 0.8rem; font-weight: 700; color: var(--fb-text); text-decoration: none; }
 .fb-comment-name:hover { text-decoration: underline; }
 .fb-comment-body { font-size: 0.9rem; line-height: 1.35; color: var(--fb-text); white-space: pre-wrap; overflow-wrap: anywhere; }
