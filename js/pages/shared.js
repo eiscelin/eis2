@@ -287,8 +287,9 @@ function appShell(el, user, navItems, renderContent, startTab) {
     }
   }
 
-  // Friend requests arrive in the bell of the top bar
+  // Friend requests and replies to my comments arrive in the bell of the top bar
   if (window.Friends) window.Friends.mountBell(el.querySelector('.fb-shell'), user);
+  if (window.CommentNotif) window.CommentNotif.mount(el.querySelector('.fb-shell'), user);
 }
 
 window.Pages = Pages;

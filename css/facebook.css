@@ -1003,6 +1003,28 @@ a.fb-person-img:hover { filter: brightness(1.1); }
 .fb-request-actions { display: flex; gap: 0.4rem; }
 .fb-request-actions .fb-btn { padding: 0.35rem 0.8rem; font-size: 0.8rem; }
 
+/* Replies to my comments, listed under the friend requests in the same bell */
+.fb-notif-replies {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  border-top: 1px solid var(--fb-line-soft); padding-bottom: 0.4rem;
+}
+.fb-notif-subhead {
+  padding: 0.6rem 0.9rem 0.35rem;
+  font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--fb-muted);
+}
+.fb-reply-notif { display: flex; gap: 0.6rem; padding: 0.55rem 0.9rem; text-decoration: none; color: inherit; }
+.fb-reply-notif:hover { background: var(--fb-elevated); }
+.fb-reply-notif .fb-avatar-xs { flex-shrink: 0; }
+.fb-reply-notif-body { min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+.fb-reply-notif-name { font-size: 0.9rem; font-weight: 700; color: var(--fb-text); }
+.fb-reply-notif-meta { font-size: 0.74rem; color: var(--fb-muted); }
+.fb-reply-notif-text { font-size: 0.84rem; color: var(--fb-text); overflow-wrap: anywhere; }
+.fb-reply-notif-parent {
+  font-size: 0.76rem; color: var(--fb-muted); overflow-wrap: anywhere;
+  border-left: 2px solid var(--fb-line); padding-left: 0.4rem; margin-top: 0.1rem;
+}
+
 @media (max-width: 900px) {
   .fb-notif-panel { top: 54px; right: 8px; }
 }
@@ -2566,6 +2588,8 @@ a.fb-post-name:hover { text-decoration: underline; }
    in the highlight loop */
 .fb-comment-replies { margin-top: 0.45rem; padding-left: 0.65rem; border-left: 2px solid var(--fb-line); }
 .fb-comment-replies .fb-comment { margin-top: 0.4rem; }
+/* Deeper turns of a thread indent a little less, so the text keeps its room */
+.fb-comment-replies .fb-comment-replies { padding-left: 0.45rem; }
 .fb-comment-reply-form { margin-top: 0.5rem; }
 .fb-comment-replies .fb-comment-body { font-size: 0.86rem; }
 .fb-comment-reactions {

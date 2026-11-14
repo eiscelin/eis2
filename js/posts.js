@@ -240,9 +240,20 @@ function postSharedHtml(shared, users) {
   </div>`;
 }
 
-// A comment paints its own replies indented underneath it. Replies never paint
-// more replies, so a thread stays one level deep.
-function postCommentHtml(comment, ctx, replies, isReply) {
+// Replies are keyed by the comment they answer, so a thread can be painted to
+// any depth: every comment carries its own Reply button.
+function postCommentChildren(comments) {
+  const map = new Map();
+  comments.forEach(c => {
+    if (!c.parent_id) return;
+    const key = String(c.parent_id);
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(c);
+  });
+  return id => map.get(String(id)) || [];
+}
+
+function postCommentHtml(comment, ctx, childrenOf) {
   const viewer = ctx.viewer || {};
   const member = ctx.users ? ctx.users.get(String(comment.user_id)) : null;
   const name = (member && (member.full_name || member.username)) || comment.user_name || 'Member';
@@ -276,10 +287,11 @@ function postCommentHtml(comment, ctx, replies, isReply) {
         ${comment.edited_at ? '<span class="fb-comment-edited">Edited</span>' : ''}
         ${own ? `<button class="fb-comment-act" type="button" data-act="edit-comment">Edit</button>` : ''}
         ${canDelete ? `<button class="fb-comment-act" type="button" data-act="delete-comment">Delete</button>` : ''}
-        ${isReply ? '' : '<button class="fb-comment-act" type="button" data-act="reply-comment">Reply</button>'}
+        <button class="fb-comment-act" type="button" data-act="reply-comment">Reply</button>
       </div>
-      ${replies && replies.length
-        ? `<div class="fb-comment-replies">${replies.map(r => postCommentHtml(r, ctx, null, true)).join('')}</div>`
+      ${childrenOf && childrenOf(comment.id).length
+        ? `<div class="fb-comment-replies">${childrenOf(comment.id)
+          .map(r => postCommentHtml(r, ctx, childrenOf)).join('')}</div>`
         : ''}
     </div>
   </div>`;
@@ -305,6 +317,7 @@ Posts.card = function (post, ctx) {
   // and sit in the free space between the reactions and the comment count
   const faceGroups = groups.filter(g => postOwnReaction(g.type));
   const emojiGroups = groups.filter(g => !postOwnReaction(g.type));
+  const children = postCommentChildren(comments);
   // A friend's post on the home feed can be hidden, and restored later
   const canHideAuthor = !!ctx.friendsOnly && !!viewer.id
     && String(post.user_id) !== String(viewer.id)
@@ -351,8 +364,7 @@ Posts.card = function (post, ctx) {
       <button class="fb-post-act" type="button" data-act="share"><span aria-hidden="true">↗</span><span>Share</span></button>
     </div>
     <div class="fb-comments">
-      ${comments.filter(c => !c.parent_id).map(c => postCommentHtml(c, ctx,
-        comments.filter(r => String(r.parent_id) === String(c.id)))).join('')}
+      ${comments.filter(c => !c.parent_id).map(c => postCommentHtml(c, ctx, children)).join('')}
       ${ctx.locked
         ? `<div class="fb-composer-locked"><span aria-hidden="true">🔒</span><span>Commenting unlocks once an admin approves your profile picture or video.</span></div>`
         : `<div class="fb-comment-form">
@@ -1103,9 +1115,12 @@ Posts.mount = function (listEl, opts) {
     await refreshCard(postId);
   }
 
+  // The reply box of one comment, never one belonging to a reply inside it
+  const REPLY_BOX = ':scope > .fb-comment-main > .fb-comment-reply-form';
+
   // Opens a small reply box under the comment the member answered
   function openReplyBox(commentEl) {
-    const open = commentEl.querySelector('.fb-comment-reply-form');
+    const open = commentEl.querySelector(REPLY_BOX);
     if (open) {
       open.querySelector('input').focus();
       return;
@@ -1514,7 +1529,7 @@ Posts.mount = function (listEl, opts) {
     }
     if (kind === 'reply-comment' && commentEl) return openReplyBox(commentEl);
     if (kind === 'send-reply' && commentEl) {
-      const input = commentEl.querySelector('[data-reply-input]');
+      const input = commentEl.querySelector(REPLY_BOX + ' [data-reply-input]');
       if (input) await addComment(postId, input, commentEl.dataset.comment);
       return;
     }

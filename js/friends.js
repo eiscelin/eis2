@@ -188,15 +188,18 @@ window.Friends = (function () {
     const head = panel.querySelector('.fb-notif-head h3');
     const body = panel.querySelector('.fb-notif-body');
 
+    // The badge counts the friend requests plus the unread replies to my comments
     function paint() {
       const count = incoming().length;
-      badge.textContent = count > 99 ? '99+' : String(count);
-      badge.hidden = !count;
+      const total = count + (window.CommentNotif ? window.CommentNotif.unread() : 0);
+      badge.textContent = total > 99 ? '99+' : String(total);
+      badge.hidden = !total;
       head.textContent = count ? `Friend requests (${count})` : 'Friend requests';
       body.innerHTML = requestRowsHTML();
     }
 
     document.addEventListener('friends:changed', paint);
+    document.addEventListener('comment-notif:changed', paint);
     badge.hidden = true;
     body.innerHTML = requestRowsHTML();
 
