@@ -58,7 +58,7 @@ Pages.profileTab = function(main, user) {
         <div class="fb-profile-id">
           <h1 class="fb-profile-name">${fbEscape(name)}</h1>
           <div class="fb-profile-meta">
-            ${fbEscape(role)} · @${fbEscape(user.username)} · <span id="pfFriendCount">…</span> friends
+            ${fbEscape(role)} · @${fbEscape(user.username)} · <span id="pfFollowerCount">…</span>
           </div>
           <div class="fb-media-note" id="pfMediaNote" hidden></div>
         </div>
@@ -541,6 +541,18 @@ Pages.profileTab = function(main, user) {
   // a cover saved with framing shows that framing straight away
   if (framedRect(coverUrl)) paintCover();
 
+  // The follower count beside the name: friends count as followers, and below
+  // 10,000 followers only the range is shown, never the exact number
+  async function paintFollowerCount() {
+    const labelEl = main.querySelector('#pfFollowerCount');
+    if (!labelEl) return;
+    let count = 0;
+    if (window.Friends) {
+      try { count = await Friends.countFollowers(user.id); } catch { /* count stays 0 */ }
+    }
+    if (labelEl.isConnected) labelEl.textContent = fbFollowerLabel(count);
+  }
+
   // People / friends (team directory)
   const loadPeople = async () => {
     const friendsGrid = main.querySelector('#pfFriendsGrid');
@@ -548,7 +560,6 @@ Pages.profileTab = function(main, user) {
     if (!sb) {
       friendsGrid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;padding:1rem;">No team members to show.</div>';
       peopleList.innerHTML = '<div class="empty-state" style="padding:1rem;">No suggestions right now.</div>';
-      main.querySelector('#pfFriendCount').textContent = '0';
       return;
     }
 
@@ -625,7 +636,6 @@ Pages.profileTab = function(main, user) {
         u.status !== 'deleted' &&
         u.status !== 'suspended'
       );
-      main.querySelector('#pfFriendCount').textContent = people.length;
 
       friendsGrid.innerHTML = people.length
         ? people.map(p => {
@@ -645,7 +655,6 @@ Pages.profileTab = function(main, user) {
     } catch {
       friendsGrid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;padding:1rem;">Could not load friends.</div>';
       peopleList.innerHTML = '<div class="empty-state" style="padding:1rem;">Could not load suggestions.</div>';
-      main.querySelector('#pfFriendCount').textContent = '0';
     }
   };
 
@@ -672,6 +681,7 @@ Pages.profileTab = function(main, user) {
 
   showTab('all');
   paintMediaNote();
+  paintFollowerCount();
   loadPeople();
 };
 

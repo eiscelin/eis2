@@ -91,6 +91,19 @@ window.Friends = (function () {
     emit();
   }
 
+  // Followers: a member's friends are their followers, so the count is simply
+  // how many accepted friend requests involve them. Nobody can follow without
+  // being a friend, and there is no follow button.
+  async function countFollowers(userId) {
+    if (!sb || userId == null) return 0;
+    const { data, error } = await sb.from('friend_requests')
+      .select('id')
+      .eq('status', 'accepted')
+      .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`);
+    if (error) return 0;
+    return (data || []).length;
+  }
+
   // ---------- Sending and answering ----------
 
   async function send(targetId) {
@@ -255,6 +268,7 @@ window.Friends = (function () {
     act,
     incoming,
     statusWith,
+    countFollowers,
     label,
     isLocked,
     media,

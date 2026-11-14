@@ -104,6 +104,12 @@ Pages.userProfile = async function (el, username) {
     friendState = Friends.statusWith(person.id);
   }
 
+  // Friends are followers: the count beside the name is the accepted requests
+  let followerCount = 0;
+  if (window.Friends) {
+    try { followerCount = await Friends.countFollowers(person.id); } catch { /* count stays 0 */ }
+  }
+
   let age = null;
   if (ageReady) {
     const { data: ageRows } = await ageReady;
@@ -144,7 +150,7 @@ Pages.userProfile = async function (el, username) {
           : fbBrandMark()}${avatar && window.AdminModerate ? AdminModerate.mediaButton('avatar', person.id) : ''}</div>
         <div class="fb-profile-id">
           <h1 class="fb-profile-name">${fbEscape(name)}</h1>
-          <div class="fb-profile-meta">${fbEscape(fbRoleLabel(person.role))} · @${fbEscape(person.username)}</div>
+          <div class="fb-profile-meta">${fbEscape(fbRoleLabel(person.role))} · @${fbEscape(person.username)} · <span id="upFollowerCount">${fbEscape(fbFollowerLabel(followerCount))}</span></div>
         </div>
         <div class="fb-profile-actions">
           ${viewer && window.Friends

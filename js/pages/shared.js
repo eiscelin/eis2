@@ -7,6 +7,16 @@ function fbEscape(value) {
   }[c]));
 }
 
+// Followers are the member's friends — an accepted friend request is a follow,
+// so there is no follow button and no separate follower list. Under 10,000 the
+// exact number stays private and only the range is shown.
+function fbFollowerLabel(count) {
+  const n = Number(count) || 0;
+  if (n < 10000) return 'within 10,000 followers';
+  if (n >= 1000000) return (n / 1000000).toFixed(1).replace(/\.0$/, '') + 'M followers';
+  return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K followers';
+}
+
 // The landing page cover, used as the cover of members who have not picked one
 var FB_DEFAULT_COVER = '/img/landing-cover.jpg';
 
