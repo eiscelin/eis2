@@ -48,7 +48,8 @@ const Auth = {
     this.currentUser = null;
     localStorage.removeItem('chookee_user');
     if (typeof fbPaintPageBackground === 'function') fbPaintPageBackground('');
-    location.hash = '#/';
+    // Logging out always lands on the log-in page, never the public landing page
+    location.hash = '#/Login';
   },
 
   isLoggedIn() { return !!this.currentUser; },

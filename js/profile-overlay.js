@@ -72,22 +72,35 @@ var ProfileOverlay = (function () {
     const level = clampVolume(volume);
     video.volume = level / 100;
     video.muted = level === 0;
+    let armed = false;
+    function disarm() {
+      armed = false;
+      document.removeEventListener('pointerdown', resume);
+      document.removeEventListener('keydown', resume);
+    }
+    function arm() {
+      if (armed) return;
+      armed = true;
+      document.addEventListener('pointerdown', resume);
+      document.addEventListener('keydown', resume);
+    }
+    function resume() {
+      disarm();
+      if (!video.isConnected) return;
+      video.volume = level / 100;
+      video.muted = level === 0;
+      const started = video.play();
+      // A phone that still holds the sound back keeps the next touch armed
+      if (started && started.catch) started.catch(() => { if (video.isConnected) arm(); });
+    }
     const silently = () => {
       if (!video.isConnected) return;
       video.muted = true;
       video.play().catch(() => {});
-      const resume = () => {
-        document.removeEventListener('pointerdown', resume);
-        document.removeEventListener('keydown', resume);
-        if (!video.isConnected) return;
-        video.volume = level / 100;
-        video.muted = level === 0;
-        video.play().catch(() => {});
-      };
-      document.addEventListener('pointerdown', resume);
-      document.addEventListener('keydown', resume);
+      arm();
     };
-    video.play().catch(silently);
+    const first = video.play();
+    if (first && first.catch) first.catch(silently);
   }
 
   // A visitor sets the floating clip's sound for themselves and the level is kept
@@ -144,7 +157,8 @@ var ProfileOverlay = (function () {
     function apply(level, on) {
       video.volume = clampVolume(level) / 100;
       video.muted = !on || video.volume === 0;
-      const started = video.play();
+      let started = null;
+      try { started = video.play(); } catch (err) { started = null; }
       if (started && started.catch) {
         started.catch(err => {
           if (!video.isConnected) return;
@@ -154,6 +168,8 @@ var ProfileOverlay = (function () {
           if (err && err.name === 'NotAllowedError') {
             video.muted = true;
             video.play().catch(() => {});
+            // The touch that got turned down did not count: keep waiting for one
+            armResume();
           } else {
             video.play().catch(() => {});
           }
@@ -166,20 +182,38 @@ var ProfileOverlay = (function () {
     const savedVolume = visitorVolume(ownerVolume);
     if (savedVolume > 0) last = savedVolume;
     range.value = savedVolume;
-    apply(savedVolume, true);
+    if (smallScreen()) {
+      // A phone refuses sound until it is touched, so the clip keeps playing
+      // silently and the first tap or key press brings the saved volume in
+      video.muted = true;
+      try { video.play(); } catch (err) { /* its own autoplay start stands */ }
+      paintSound();
+    } else {
+      apply(savedVolume, true);
+    }
 
     // Browsers hold sound back until the visitor touches the page: the first tap
     // or key press outside this control brings the saved volume in
-    const resume = e => {
-      if (control.contains(e.target)) return;
+    let armed = false;
+    function disarm() {
+      armed = false;
       document.removeEventListener('pointerdown', resume);
       document.removeEventListener('keydown', resume);
+    }
+    function armResume() {
+      if (armed) return;
+      armed = true;
+      document.addEventListener('pointerdown', resume);
+      document.addEventListener('keydown', resume);
+    }
+    function resume(e) {
+      if (control.contains(e.target)) return;
+      disarm();
       if (!video.isConnected || !soundOn) return;
       if (!video.muted && video.volume > 0) return;
       apply(clampVolume(range.value), true);
-    };
-    document.addEventListener('pointerdown', resume);
-    document.addEventListener('keydown', resume);
+    }
+    armResume();
 
     button.addEventListener('click', () => {
       if (!video.muted && video.volume > 0) {
@@ -228,15 +262,19 @@ var ProfileOverlay = (function () {
     // The clip loops for as long as the page is open. Only the first frames are
     // fetched up front — an overlay clip can be minutes long, and pulling the
     // whole file into a phone before it is needed makes the page slow to settle.
-    // A visitor's clip is not started here: it plays with sound from the
-    // visitor's switch (see mountSound) so nothing races it into silent playback.
-    const visitor = !!(options && options.sound);
+    // Every clip arrives muted and inline so a phone starts it on its own; the
+    // sound comes in from the visitor's switch (see mountSound).
+    // The fade goes on the media itself: a phone ignores an opacity set on a
+    // parent of a playing video and would show the clip at full strength
+    const fade = `opacity:${clampOpacity(profile.overlay_opacity) / 100}`;
     const light = item.video ? phoneClip(item.url) : '';
     const full = light ? ` data-full-src="${fbEscape(item.url)}"` : '';
+    // A phone only starts a clip that arrives muted and inline, so every clip
+    // starts that way and the first tap or key press brings the sound in
     const asset = item.video
-      ? `<video class="fb-overlay-asset" src="${fbEscape(light || item.url)}"${full}${visitor ? '' : ' autoplay'} muted loop playsinline preload="metadata"></video>`
-      : `<img class="fb-overlay-asset" src="${fbEscape(item.url)}" alt="">`;
-    return `<div class="fb-overlay-media" aria-hidden="true" style="opacity:${clampOpacity(profile.overlay_opacity) / 100}">${asset}</div>`;
+      ? `<video class="fb-overlay-asset" src="${fbEscape(light || item.url)}"${full} style="${fade}" autoplay muted loop playsinline webkit-playsinline preload="metadata"></video>`
+      : `<img class="fb-overlay-asset" src="${fbEscape(item.url)}" alt="" style="${fade}">`;
+    return `<div class="fb-overlay-media" aria-hidden="true">${asset}</div>`;
   }
 
   // Draws (or clears) the layer inside a rendered profile page. `options.sound`
@@ -291,6 +329,13 @@ var ProfileOverlay = (function () {
       video.play().catch(() => {});
     };
     video.addEventListener('ended', again);
+    // A phone can drop a clip it is not decoding fast enough, or when the page
+    // goes away and comes back: start it again whenever it is in view
+    const revive = () => {
+      if (!video.isConnected || document.hidden || !video.paused) return;
+      video.play().catch(() => {});
+    };
+    ['loadeddata', 'canplay', 'pause', 'stalled', 'suspend'].forEach(ev => video.addEventListener(ev, revive));
     // A browser in low power or data-saver mode can refuse even a silent clip:
     // the first tap or key press starts it
     const nudge = () => {
@@ -396,8 +441,12 @@ var ProfileOverlay = (function () {
       });
     }
 
+    function fadePreview() {
+      const asset = layer.firstElementChild;
+      if (asset) asset.style.opacity = state.opacity / 100;
+    }
+
     function paintPreview() {
-      layer.style.opacity = state.opacity / 100;
       const kind = state.media;
       const url = kind === 'off' ? '' : previews[kind] || state[kind];
       if (!url) {
@@ -405,8 +454,9 @@ var ProfileOverlay = (function () {
         return;
       }
       layer.innerHTML = kind === 'video'
-        ? `<video src="${fbEscape(url)}" loop playsinline></video>`
+        ? `<video src="${fbEscape(url)}" loop playsinline webkit-playsinline autoplay muted></video>`
         : `<img src="${fbEscape(url)}" alt="">`;
+      fadePreview();
       const video = layer.querySelector('video');
       if (video) playWithSound(video, state.volume);
     }
@@ -472,7 +522,7 @@ var ProfileOverlay = (function () {
     // Fade changes only touch the layer so the clip keeps playing while dragging
     overlay.querySelector('#oeOpacity').addEventListener('input', e => {
       state.opacity = clampOpacity(e.target.value);
-      layer.style.opacity = state.opacity / 100;
+      fadePreview();
       overlay.querySelector('#oeOpacityLabel').textContent = state.opacity + '%';
     });
 

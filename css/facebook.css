@@ -587,6 +587,9 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
 /* Empty cover: black until the owner picks a photo or video */
 .fb-cover--empty { background: #000; }
 .fb-cover--empty::before { display: none; }
+/* Default cover: the landing cover, shown at the same size as on the landing page */
+.fb-cover.fb-cover--default { height: auto; aspect-ratio: 2185 / 720; }
+.fb-cover--default::before { display: none; }
 .fb-cover::before {
   content: 'f';
   position: absolute; right: 6%; top: 42%;
@@ -1302,6 +1305,24 @@ a.fb-person-img:hover { filter: brightness(1.1); }
 .auth-error { background: rgba(239, 68, 68, 0.14); border-color: rgba(239, 68, 68, 0.4); color: #ff8b8b; }
 .auth-note.taken { color: #ff8b8b; }
 .auth-note.ok { color: #4ade80; }
+/* Saved log-ins on this device — one tap fills both boxes */
+.auth-vault { margin-bottom: 1.15rem; }
+.auth-vault-title {
+  font-size: 0.7rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--fb-muted); margin-bottom: 0.45rem;
+}
+.auth-vault-list { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.auth-vault-account {
+  display: inline-flex; align-items: center; gap: 0.35rem; max-width: 100%;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--fb-line); border-radius: 999px;
+  background: var(--fb-elevated); color: var(--fb-text);
+  font-size: 0.82rem; font-weight: 600; cursor: pointer;
+}
+.auth-vault-account:hover { border-color: var(--fb-blue-hover); }
+.auth-vault-account.active { border-color: var(--fb-blue); background: rgba(24, 119, 242, 0.22); }
+.auth-vault-account .ico { font-size: 0.85rem; }
+.auth-vault-account .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 11rem; }
 .btn-auth.production { background: var(--fb-blue); }
 
 /* ===================== Landing (dark account look) ===================== */
@@ -1325,6 +1346,9 @@ a.fb-person-img:hover { filter: brightness(1.1); }
 .fb-topbar a.fb-icon-btn { text-decoration: none; font-size: 1.1rem; font-weight: 700; }
 
 .landing-profile { padding-bottom: 1.5rem; }
+/* Landing banner artwork keeps its full frame instead of being cropped */
+.landing-profile .fb-cover { height: auto; aspect-ratio: 2185 / 720; }
+.landing-profile .fb-cover-media { object-fit: cover; }
 .fb-post-card { border-top: none; }
 .fb-post-card .fb-post-head { padding: 0.9rem 1rem 0.2rem; }
 .fb-post-card .fb-post-body { padding: 0.5rem 1rem 1rem; }
@@ -1492,7 +1516,7 @@ a.fb-person-img:hover { filter: brightness(1.1); }
 
   /* Landing account page on the app */
   .landing-profile { padding: 0 0 calc(80px + env(safe-area-inset-bottom)); }
-  .landing-profile .fb-cover { height: 168px; }
+  .landing-profile .fb-cover { height: auto; aspect-ratio: 2185 / 720; }
   .landing-profile .fb-cover-text { font-size: 1.35rem; }
   .landing-profile .fb-profile-name { font-size: 1.4rem; }
   .fb-stats-compact { padding: 0 0.6rem 0.75rem; }

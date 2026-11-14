@@ -41,12 +41,12 @@ Pages.profileTab = function(main, user) {
 
   main.innerHTML = `
     <div class="fb-profile">
-      <div class="fb-cover${coverUrl ? ' fb-cover--media' : ' fb-cover--empty'}" id="pfCover">
+      <div class="fb-cover${coverUrl ? ' fb-cover--media' : ' fb-cover--default'}" id="pfCover">
         ${coverUrl
           ? isVideo(coverUrl)
             ? `<video class="fb-cover-media" src="${fbEscape(coverUrl)}" autoplay muted loop playsinline></video>`
             : `<img class="fb-cover-media" src="${fbEscape(coverUrl)}" alt="">`
-          : ''}
+          : `<img class="fb-cover-media" src="${FB_DEFAULT_COVER}" alt="">`}
         ${coverUrl && isVideo(coverUrl)
           ? `<button class="fb-cover-expand" id="pfCoverExpand" type="button" aria-label="Play the whole video with sound" title="Play the whole video with sound">⤢</button>`
           : ''}
@@ -228,10 +228,13 @@ Pages.profileTab = function(main, user) {
   function paintCover(video) {
     const cover = main.querySelector('#pfCover');
     cover.classList.toggle('fb-cover--media', !!coverUrl);
-    cover.classList.toggle('fb-cover--empty', !coverUrl);
+    cover.classList.toggle('fb-cover--default', !coverUrl);
     cover.querySelector('.fb-cover-media')?.remove();
     cover.querySelector('#pfCoverExpand')?.remove();
-    if (!coverUrl) return;
+    if (!coverUrl) {
+      cover.insertAdjacentHTML('afterbegin', `<img class="fb-cover-media" src="${FB_DEFAULT_COVER}" alt="">`);
+      return;
+    }
     const isVid = video === undefined ? isVideo(coverUrl) : video;
     cover.insertAdjacentHTML('afterbegin', isVid
       ? `<video class="fb-cover-media" src="${fbEscape(coverUrl)}" autoplay muted loop playsinline></video>`

@@ -7,6 +7,9 @@ function fbEscape(value) {
   }[c]));
 }
 
+// The landing page cover, used as the cover of members who have not picked one
+var FB_DEFAULT_COVER = '/img/landing-cover.jpg';
+
 function fbAvatar(name, cls) {
   const initial = ((name || '?').trim()[0] || '?').toUpperCase();
   return `<span class="fb-avatar ${cls || ''}">${initial}</span>`;

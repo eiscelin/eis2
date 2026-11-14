@@ -145,7 +145,10 @@
         const { error } = await sb.rpc('set_user_password', { p_user_id: user.id, p_password: next });
         if (error) throw error;
         Object.assign(user, { password: next });
-        if (isSelf) remember({ password: next });
+        if (isSelf) {
+          remember({ password: next });
+          LoginVault.updatePassword(user.username, next);
+        }
         passwordForm.reset();
         const shown = passwordForm.querySelector('[name=current_password]');
         if (shown) {
