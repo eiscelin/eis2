@@ -299,6 +299,10 @@ Posts.card = function (post, ctx) {
   // and sit in the free space between the reactions and the comment count
   const faceGroups = groups.filter(g => postOwnReaction(g.type));
   const emojiGroups = groups.filter(g => !postOwnReaction(g.type));
+  // A friend's post on the home feed can be hidden, and restored later
+  const canHideAuthor = !!ctx.friendsOnly && !!viewer.id
+    && String(post.user_id) !== String(viewer.id)
+    && !!ctx.friendIds && ctx.friendIds.has(String(post.user_id));
 
   return `<article class="fb-card fb-post-card" data-post="${fbEscape(post.id)}">
     <div class="fb-post-head">
@@ -307,7 +311,10 @@ Posts.card = function (post, ctx) {
         <a class="fb-post-name" href="${postProfileHref(authorUsername)}">${fbEscape(authorName)}</a>
         <div class="fb-post-time">${fbEscape(postTimeAgo(post.created_at))} · <span title="${audience.label}" aria-label="${audience.label}">${audience.icon}</span></div>
       </div>
-      ${hasFaces ? `<span class="fb-post-toggles">${postFaceAnimSwitch(post.id, faceOff)}${postRxSoundSwitch(post.id, rxSoundOn(post.id))}</span>` : ''}
+      ${(canHideAuthor || hasFaces) ? `<span class="fb-post-toggles">
+        ${canHideAuthor ? `<button class="fb-post-hide" type="button" data-act="hide-author" data-author="${fbEscape(post.user_id)}" title="Hide posts from ${fbEscape(authorName)}" aria-label="Hide posts from ${fbEscape(authorName)}">✕</button>` : ''}
+        ${hasFaces ? `${postFaceAnimSwitch(post.id, faceOff)}${postRxSoundSwitch(post.id, rxSoundOn(post.id))}` : ''}
+      </span>` : ''}
     </div>
     ${post.content ? `<div class="fb-post-text">${fbEscape(post.content)}</div>` : ''}
     ${ctx.shared ? postSharedHtml(ctx.shared, ctx.users) : ''}
@@ -521,6 +528,26 @@ Posts.composer = function (root, opts) {
 Posts.mount = function (listEl, opts) {
   const options = opts || {};
   const viewer = options.viewer || (window.Auth && Auth.currentUser) || {};
+
+  // Friends whose posts the member chose to stop seeing on the home feed.
+  // Kept in this browser, so the feed remembers the choice next time.
+  function hiddenFriends() {
+    try {
+      const list = JSON.parse(localStorage.getItem('meday.hiddenFriends.' + (viewer.id || 'guest')) || '[]');
+      return Array.isArray(list) ? list.filter(h => h && h.id) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function saveHiddenFriends(list) {
+    try {
+      localStorage.setItem('meday.hiddenFriends.' + (viewer.id || 'guest'), JSON.stringify(list));
+    } catch { /* a blocked store only loses the choice */ }
+  }
+
+  const hiddenAtStart = hiddenFriends();
+
   const state = {
     posts: [],
     users: new Map(),
@@ -529,6 +556,8 @@ Posts.mount = function (listEl, opts) {
     commentReactions: new Map(),
     shared: new Map(),
     friendIds: null,
+    hidden: hiddenAtStart,
+    hiddenIds: new Set(hiddenAtStart.map(h => String(h.id))),
     faces: [],
     // Which reaction picker stays open until a reaction is clicked
     openPicker: null,
@@ -585,6 +614,8 @@ Posts.mount = function (listEl, opts) {
       openPicker: state.openPicker,
       postId: String(post.id),
       postOwnerId: String(post.user_id),
+      friendsOnly: !!options.friendsOnly,
+      friendIds: state.friendIds,
       locked: ReadOnlyMode.active()
     };
   }
@@ -592,7 +623,15 @@ Posts.mount = function (listEl, opts) {
   // "Only me" stays private, "Friends" shows to accepted friends of the author
   function visibleToViewer(post) {
     const audience = post.audience || 'public';
-    if (audience === 'public' || String(post.user_id) === String(viewer.id)) return true;
+    const authorId = String(post.user_id);
+    const own = !!viewer.id && authorId === String(viewer.id);
+    // The home feed shows the member's own posts and their friends' posts only,
+    // minus the friends whose posts they chose to hide
+    if (options.friendsOnly && viewer.id && !own) {
+      if (!state.friendIds || !state.friendIds.has(authorId)) return false;
+      if (state.hiddenIds.has(authorId)) return false;
+    }
+    if (audience === 'public' || own) return true;
     if (audience === 'friends') {
       // A visitor who is not signed in only sees public posts
       if (!viewer.id) return false;
@@ -787,6 +826,48 @@ Posts.mount = function (listEl, opts) {
     }, { passive: true });
   }
 
+  // ---------- Hiding and restoring a friend's posts ----------
+
+  function hideAuthorPosts(postId) {
+    const post = findPost(postId);
+    if (!post) return;
+    const authorId = String(post.user_id);
+    const member = state.users.get(authorId);
+    const name = (member && (member.full_name || member.username)) || post.author_name || 'this friend';
+    if (!state.hiddenIds.has(authorId)) {
+      state.hiddenIds.add(authorId);
+      state.hidden.push({ id: authorId, name });
+      saveHiddenFriends(state.hidden);
+    }
+    renderAll();
+    showToast(`Hiding ${name}'s posts — restore them at the top of your feed`, 'success', 4000);
+  }
+
+  function showAuthorPosts(authorId) {
+    const id = String(authorId);
+    const row = state.hidden.find(h => String(h.id) === id);
+    state.hidden = state.hidden.filter(h => String(h.id) !== id);
+    state.hiddenIds.delete(id);
+    saveHiddenFriends(state.hidden);
+    renderAll();
+    showToast(`${(row && row.name) || 'That friend'}'s posts are back`, 'success');
+  }
+
+  // The "restore" list that sits at the top of the home feed
+  function hiddenStrip() {
+    if (!options.friendsOnly || !state.hidden.length) return '';
+    return `<div class="fb-card fb-hidden-strip">
+      <span class="fb-hidden-strip-label">Hidden friends (${state.hidden.length})</span>
+      <span class="fb-hidden-strip-list">${state.hidden.map(h => `
+        <button type="button" data-act="show-author" data-author="${fbEscape(h.id)}" title="See ${fbEscape(h.name)}'s posts again">↩ ${fbEscape(h.name)}</button>
+      `).join('')}</span>
+    </div>`;
+  }
+
+  const emptyFeedHtml = options.friendsOnly
+    ? '<div class="fb-card fb-feed-empty">No posts from your friends yet. Add friends from the Friends tab to see their posts here.</div>'
+    : '';
+
   function renderAll() {
     const q = state.query.trim().toLowerCase();
     const shown = state.posts.filter(visibleToViewer).filter(p => !q
@@ -794,9 +875,9 @@ Posts.mount = function (listEl, opts) {
     // Stop the videos of the cards being replaced: a detached video keeps
     // playing its sound until it is paused by name
     stopVideoReactions();
-    listEl.innerHTML = shown.length
+    listEl.innerHTML = hiddenStrip() + (shown.length
       ? shown.map(p => Posts.card(p, ctxFor(p))).join('')
-      : (options.emptyHtml || '');
+      : (options.emptyHtml || emptyFeedHtml));
     startVideoReactions();
     startCommentSpotlight();
   }
@@ -885,7 +966,9 @@ Posts.mount = function (listEl, opts) {
     const friendsPromise = loadFriendIds();
     const facesPromise = loadReactionMedia();
 
-    let query = sb.from('posts').select('*').order('created_at', { ascending: false }).limit(options.limit || 30);
+    // The home feed drops non-friends' posts, so it reads a little deeper
+    let query = sb.from('posts').select('*').order('created_at', { ascending: false })
+      .limit(options.limit || (options.friendsOnly ? 60 : 30));
     if (options.authorId) query = query.eq('user_id', options.authorId);
     const { data: rows, error } = await query;
     state.friendIds = await friendsPromise;
@@ -1339,7 +1422,7 @@ Posts.mount = function (listEl, opts) {
     // A member waiting for approval reads the feed, but cannot react, comment or share
     const actName = guarded ? (guarded.dataset.act || '') : '';
     const readOnlyAct = guarded && !guarded.classList.contains('fb-reaction-option')
-      && (/^toggle-/.test(actName) || actName === 'focus-comment' || actName === 'react-picker');
+      && (/^toggle-/.test(actName) || actName === 'focus-comment' || actName === 'show-author');
     if (guarded && !readOnlyAct && ReadOnlyMode.block('Reacting, commenting and sharing')) {
       e.preventDefault();
       return;
@@ -1358,11 +1441,15 @@ Posts.mount = function (listEl, opts) {
 
     const act = e.target.closest('[data-act]');
     if (!act) return;
+    // The restore list lives above the posts, outside any post card
+    if (act.dataset.act === 'show-author') return showAuthorPosts(act.dataset.author);
     const postEl = act.closest('[data-post]');
     if (!postEl) return;
     const postId = postEl.dataset.post;
     const commentEl = act.closest('[data-comment]');
     const kind = act.dataset.act;
+
+    if (kind === 'hide-author') return hideAuthorPosts(postId);
 
     if (kind === 'add-face') return addOwnReaction(postId, commentEl ? commentEl.dataset.comment : null);
     if (kind === 'remove-face') return removeOwnReaction(act);

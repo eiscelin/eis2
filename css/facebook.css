@@ -1028,6 +1028,26 @@ a.fb-person-img:hover { filter: brightness(1.1); }
 .fb-post-head { display: flex; align-items: center; gap: 0.6rem; }
 /* Grow/sound switches live in the post head, clear of the growing reactions */
 .fb-post-toggles { margin-left: auto; display: inline-flex; align-items: center; gap: 0.1rem; flex-shrink: 0; }
+/* Stop seeing a friend's posts from the home feed */
+.fb-post-hide {
+  width: 28px; height: 28px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%; background: var(--fb-elevated); color: var(--fb-muted);
+  font-size: 0.78rem; font-weight: 700;
+}
+.fb-post-hide:hover { background: rgba(240, 40, 73, 0.18); color: #ff7a8f; }
+
+/* Restore list at the top of the home feed */
+.fb-hidden-strip { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; padding: 0.55rem 0.85rem; }
+.fb-hidden-strip-label { font-size: 0.76rem; font-weight: 700; color: var(--fb-muted); }
+.fb-hidden-strip-list { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.fb-hidden-strip-list button {
+  padding: 0.26rem 0.6rem; border-radius: 999px;
+  background: var(--fb-elevated); color: var(--fb-text);
+  font-size: 0.78rem; font-weight: 600;
+}
+.fb-hidden-strip-list button:hover { background: var(--fb-hover); color: var(--fb-blue-hover); }
+.fb-feed-empty { padding: 1.1rem; text-align: center; color: var(--fb-muted); font-size: 0.9rem; }
 .fb-post-name { font-weight: 700; font-size: 0.93rem; color: var(--fb-text); }
 .fb-post-time { font-size: 0.76rem; color: var(--fb-muted); }
 .fb-post-body { padding: 0.6rem 0 0.7rem; font-size: 0.93rem; line-height: 1.45; color: var(--fb-text); }

@@ -240,7 +240,8 @@ Pages.feedTab = function (main, user) {
 
   // ---------- Posts ----------
 
-  const postsFeed = Posts.mount(list, { viewer: user });
+  // Only the member's friends' posts (and their own) belong on the home page
+  const postsFeed = Posts.mount(list, { viewer: user, friendsOnly: true });
 
   Posts.composer(main.querySelector('#feedComposer'), {
     viewer: user,
