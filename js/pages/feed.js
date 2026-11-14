@@ -8,6 +8,7 @@ Pages.feedTab = function (main, user) {
 
   main.innerHTML = `
     <div class="fb-feed">
+      <div id="feedAnnouncements" hidden></div>
       <section class="fb-card fb-composer-card" id="feedComposer">
         ${Posts.composerMarkup(user, `What's on your mind, ${firstName}?`)}
       </section>
@@ -15,7 +16,6 @@ Pages.feedTab = function (main, user) {
         <div class="fb-stories" id="storyRow"></div>
       </section>
       <div id="feedList"></div>
-      <div id="feedAnnouncements"></div>
     </div>
   `;
 
@@ -247,13 +247,14 @@ Pages.feedTab = function (main, user) {
     onPosted: () => postsFeed.reload()
   });
 
-  // Announcements from the office stay at the end of the feed
+  // Announcements from the office are pinned at the top of every member's home feed
   async function loadAnnouncements(query) {
-    if (!sb) { announcementsList.innerHTML = ''; return; }
+    if (!sb) { announcementsList.innerHTML = ''; announcementsList.hidden = true; return; }
     const q = (query || '').toLowerCase();
     try {
-      const { data } = await sb.from('announcements').select('*').order('created_at', { ascending: false });
+      const { data } = await sb.from('announcements').select('*').eq('is_active', true).order('created_at', { ascending: false });
       const shown = (data || []).filter(p => !q || `${p.title || ''} ${p.content || ''}`.toLowerCase().includes(q));
+      announcementsList.hidden = !shown.length;
       announcementsList.innerHTML = shown.map(p => `
         <article class="fb-card fb-post-card">
           <div class="fb-post-head">
@@ -273,6 +274,7 @@ Pages.feedTab = function (main, user) {
       if (window.AdminModerate) AdminModerate.wire(announcementsList, { post: () => loadAnnouncements(query) });
     } catch {
       announcementsList.innerHTML = '';
+      announcementsList.hidden = true;
     }
   }
 

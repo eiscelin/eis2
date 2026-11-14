@@ -2551,6 +2551,9 @@ a.fb-post-name:hover { text-decoration: underline; }
 
 /* Feed stacks its cards; the profile tab lists posts inside one card */
 .fb-feed #feedList, .fb-feed #feedAnnouncements { display: flex; flex-direction: column; gap: 0.75rem; }
+/* Pinned office announcements sit above the composer on every home page */
+.fb-feed #feedAnnouncements[hidden] { display: none; }
+.fb-feed #feedAnnouncements .fb-post-card { border: 1px solid var(--fb-blue); }
 .fb-profile #pfComposer { border-bottom: 1px solid var(--fb-line); }
 .fb-profile #pfFeed { display: block; }
 .fb-profile #pfFeed .fb-post-card {
