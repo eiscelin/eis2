@@ -1542,11 +1542,13 @@ Posts.mount = function (listEl, opts) {
   });
 
   listEl.addEventListener('keydown', e => {
-    const input = e.target.closest('[data-comment-input]');
+    // A comment or a reply is sent with Enter, the way the send button sends it
+    const input = e.target.closest('[data-comment-input], [data-reply-input]');
     if (!input) return;
     const postEl = input.closest('[data-post]');
     const commentEl = input.closest('[data-comment]');
-    if (e.key === 'Enter') {
+    const isEnter = e.key === 'Enter' || e.keyCode === 13;
+    if (isEnter && !e.isComposing) {
       e.preventDefault();
       if (!postEl) return;
       if (input.hasAttribute('data-reply-input') && commentEl) {
