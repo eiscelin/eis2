@@ -224,6 +224,9 @@ body.fb-searching { overflow: hidden; }
 .fb-search-empty { padding: 0.5rem 1rem 1rem; color: var(--fb-muted); font-size: 0.85rem; }
 
 .fb-topbar-center { display: flex; align-items: center; justify-content: center; gap: 0.45rem; flex: 1 1 0; }
+/* Phones park the Customer Service button in the strip between search and the
+   right-hand icons; wider screens leave the slot empty */
+.fb-topbar-slot { display: none; flex: 1 1 auto; justify-content: center; align-items: center; min-width: 0; }
 
 .fb-tab {
   width: 64px; height: 38px;
@@ -959,6 +962,11 @@ a.fb-person-img:hover { filter: brightness(1.1); }
 
 /* Friend requests: bell in the top bar and the panel it opens */
 .fb-notif-btn { position: relative; }
+/* The bell is a big polished-silver icon instead of a tiny emoji */
+.fb-bell {
+  width: 26px; height: 26px; display: block;
+  filter: drop-shadow(0 0 5px rgba(226, 232, 240, 0.55)) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5));
+}
 .fb-notif-badge {
   position: absolute; top: 1px; right: 1px;
   min-width: 18px; height: 18px; padding: 0 5px;
@@ -2174,6 +2182,12 @@ a.admin-tool { text-decoration: none; display: inline-flex; align-items: center;
     justify-content: center; font-size: 1rem;
   }
   .fb-support.dock-compact .fb-support-label { display: none; }
+  /* Slot mode: the button is a real child of the top bar, centred between the
+     search button and the icons on the right */
+  .fb-topbar-slot { display: flex; }
+  .fb-support.dock-slot { position: relative; top: auto; right: auto; display: flex; align-items: center; }
+  .fb-support.dock-slot .fb-support-panel { top: 64px; }
+  .fb-bell { width: 28px; height: 28px; }
   .fb-support.dock-compact .fb-support-panel {
     position: fixed; left: 0.75rem; right: 0.75rem; width: auto;
     top: calc(var(--sup-top, 0.5rem) + 50px); bottom: auto;
