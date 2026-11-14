@@ -96,8 +96,12 @@ Pages.login = function (el) {
     footer: `<div class="auth-footer">New here? <a href="#/Register">Create an account</a></div>`
   });
   pwToggleScript();
+  LoginVault.attachTo(el);
   bindAuthForm(async (fd) => {
-    await Auth.login(fd.get('username').trim(), fd.get('password'));
+    const username = fd.get('username').trim();
+    const password = fd.get('password');
+    await Auth.login(username, password);
+    LoginVault.remember(username, password);
     Router.navigate('/App');
   });
 };
@@ -160,6 +164,7 @@ Pages.register = function (el) {
     if (takenName) throw new Error('Username already taken — choose another one');
     if (password.length < 6) throw new Error('Password must be at least 6 characters');
     await Auth.register({ username, password, role: 'member' });
+    LoginVault.remember(username, password);
     Router.navigate('/App');
   });
 };
