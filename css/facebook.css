@@ -899,6 +899,18 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
   .fb-gallery-next { right: 0.35rem; }
 }
 
+/* Username search above "People you may know" */
+.fb-people-search { padding: 0 0.9rem 0.55rem; }
+.fb-people-search input {
+  width: 100%;
+  padding: 0.5rem 0.9rem;
+  border: none; outline: none;
+  border-radius: 999px;
+  background: var(--fb-elevated);
+  color: var(--fb-text); font: inherit; font-size: 0.9rem;
+}
+.fb-people-search input::placeholder { color: var(--fb-muted); }
+
 /* "People you may know" grid — scrollable so every suggestion is reachable */
 .fb-people-scroll {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.65rem;

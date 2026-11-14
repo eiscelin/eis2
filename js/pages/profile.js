@@ -106,6 +106,9 @@ Pages.profileTab = function(main, user) {
         <div class="fb-col fb-col-right">
           <section class="fb-card" data-section="people" id="pfPeople">
             <div class="fb-card-head"><h3>People you may know</h3></div>
+            <div class="fb-people-search">
+              <input type="search" id="pfPeopleSearch" placeholder="Search by username…" aria-label="Search people by username" autocomplete="off">
+            </div>
             <div class="fb-people-scroll" id="pfPeopleList">
               <div class="loading" style="padding:1rem;">Loading…</div>
             </div>
@@ -551,9 +554,22 @@ Pages.profileTab = function(main, user) {
 
     let people = [];
 
+    // Search by username (or name) narrows the suggestions below
+    const peopleSearch = main.querySelector('#pfPeopleSearch');
+
+    function matchesQuery(p) {
+      const q = (peopleSearch ? peopleSearch.value : '').trim().toLowerCase();
+      if (!q) return true;
+      return String(p.username || '').toLowerCase().includes(q) ||
+        String(p.full_name || '').toLowerCase().includes(q);
+    }
+
     // "People you may know": their picture or video, and Add Friend underneath
     function paintSuggestions() {
-      const suggestions = people.filter(p => !window.Friends || Friends.statusWith(p.id) !== 'friends');
+      const query = peopleSearch ? peopleSearch.value.trim() : '';
+      const suggestions = people.filter(p =>
+        (!window.Friends || Friends.statusWith(p.id) !== 'friends') && matchesQuery(p)
+      );
       peopleList.innerHTML = suggestions.length
         ? suggestions.map(p => {
           const pname = p.full_name || p.username || 'Member';
@@ -569,8 +585,12 @@ Pages.profileTab = function(main, user) {
             </div>
           </div>`;
         }).join('')
-        : '<div class="empty-state" style="padding:1rem;">No suggestions right now.</div>';
+        : `<div class="empty-state" style="padding:1rem;">${query
+            ? 'No username matches “' + fbEscape(query) + '”.'
+            : 'No suggestions right now.'}</div>`;
     }
+
+    if (peopleSearch) peopleSearch.addEventListener('input', paintSuggestions);
 
     // Add Friend sends a request; Confirm accepts the one they sent you
     peopleList.addEventListener('click', async e => {
