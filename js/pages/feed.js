@@ -78,12 +78,32 @@ Pages.feedTab = function (main, user) {
     `;
   }
 
+  // My Day is private: a member sees their own stories and their friends'
+  async function storyFriendIds() {
+    const ids = new Set([String(user.id)]);
+    if (!sb) return ids;
+    try {
+      const { data } = await sb.from('friend_requests')
+        .select('sender_id, receiver_id')
+        .eq('status', 'accepted')
+        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`);
+      (data || []).forEach(row => {
+        ids.add(String(String(row.sender_id) === String(user.id) ? row.receiver_id : row.sender_id));
+      });
+    } catch {
+      // Without the friend list, only the member's own stories are shown
+    }
+    return ids;
+  }
+
   async function loadStories() {
     if (!sb) return;
     try {
       const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const allowed = await storyFriendIds();
       const { data } = await sb.from('stories').select('*').gte('created_at', since).order('created_at', { ascending: false });
-      renderStories(groupStories(data || []));
+      const mine = (data || []).filter(s => allowed.has(String(s.user_id)));
+      renderStories(groupStories(mine));
     } catch {
       renderStories([]);
     }
