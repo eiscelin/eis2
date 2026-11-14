@@ -18,33 +18,11 @@ function authShell(el, opts) {
   const brand = fbBrand();
   el.innerHTML = `
     <div class="auth-split">
-      <aside class="auth-hero">
-        <div class="auth-hero-glow" aria-hidden="true"></div>
-        <div class="auth-hero-grid" aria-hidden="true"></div>
-        <div class="auth-brand">
-          <div class="auth-brand-logo">${fbBrandMark()}</div>
-          <div class="auth-brand-name">${fbEscape(brand.name)}</div>
-          <p class="auth-brand-line">Connect • Share • Enjoy</p>
-          <p class="auth-brand-tag"><span>A Better Social Experience for Everyone!</span></p>
-          <ul class="auth-perks">
-            <li><span class="ico" aria-hidden="true">👥</span><span>Connect with Friends</span></li>
-            <li><span class="ico" aria-hidden="true">💬</span><span>Share What You Love</span></li>
-            <li><span class="ico" aria-hidden="true">👍</span><span>Chat Instantly</span></li>
-          </ul>
-        </div>
-        <svg class="auth-skyline" viewBox="0 0 1440 240" preserveAspectRatio="none" aria-hidden="true">
-          <path fill="rgba(3,15,60,.34)" d="M0 240V150h40v-40h30v40h25V90h35v60h20v-30h45v30h30V70h40v80h25v-25h50v25h30V100h35v50h25v-20h40v20h30V60h45v90h25v-35h40v35h30V110h35v40h25v-25h45v25h30V80h40v70h25v-30h40v30h30V140h45v-20h40v20h30V95h40v55h30v-15h50v15H1440V240Z"/>
-        </svg>
-      </aside>
-
+      <div class="auth-art" role="img" aria-label="${fbEscape(brand.name)} — connect, share, enjoy"></div>
       <div class="auth-panel">
         ${opts.backLink ? `<a class="auth-back" href="#${opts.backLink}">← ${opts.backText}</a>` : ''}
         <div class="auth-card">
           <div class="auth-header">
-            <svg class="auth-head-waves" viewBox="0 0 400 120" preserveAspectRatio="none" aria-hidden="true">
-              <path d="M0 78c58-34 120-34 178-6 58 28 122 30 222-10v58H0z" fill="rgba(255,255,255,.13)"/>
-              <path d="M0 96c70-30 138-26 196 2 56 27 120 24 204-14v36H0z" fill="rgba(255,255,255,.1)"/>
-            </svg>
             <div class="logo">${fbBrandMark()}</div>
             <h2>${opts.title}</h2>
             <p>${opts.subtitle}</p>
