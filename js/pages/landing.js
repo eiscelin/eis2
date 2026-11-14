@@ -90,31 +90,73 @@ Pages.landing = function(el) {
               </div>
               <div class="fb-feature-list">
                 <div class="fb-feature">
-                  <span class="fb-feature-icon" aria-hidden="true">📝</span>
+                  <span class="fb-feature-icon" aria-hidden="true">🔓</span>
                   <div class="fb-feature-text">
-                    <h4>Share posts</h4>
-                    <p>Post what's on your mind and see everything your friends are sharing.</p>
+                    <h4>No Permanent Disabled Account</h4>
+                    <p>Your account stays yours — no sudden lifetime lockouts.</p>
                   </div>
                 </div>
                 <div class="fb-feature">
-                  <span class="fb-feature-icon" aria-hidden="true">👥</span>
+                  <span class="fb-feature-icon" aria-hidden="true">🕊️</span>
                   <div class="fb-feature-text">
-                    <h4>Find friends</h4>
-                    <p>Browse the community directory and start a conversation with one tap.</p>
+                    <h4>No Aggressive Restrictions</h4>
+                    <p>Post and chat freely without being blocked for every little thing.</p>
                   </div>
                 </div>
                 <div class="fb-feature">
-                  <span class="fb-feature-icon" aria-hidden="true">💬</span>
+                  <span class="fb-feature-icon" aria-hidden="true">📋</span>
                   <div class="fb-feature-text">
-                    <h4>Instant messages</h4>
-                    <p>A Messenger-style chat that follows you across every page.</p>
+                    <h4>No Too Much Policies and Rules</h4>
+                    <p>Simple, easy-to-understand rules instead of pages of fine print.</p>
                   </div>
                 </div>
                 <div class="fb-feature">
-                  <span class="fb-feature-icon" aria-hidden="true">👤</span>
+                  <span class="fb-feature-icon" aria-hidden="true">⚙️</span>
                   <div class="fb-feature-text">
-                    <h4>Your profile</h4>
-                    <p>A personal page with your posts, friends and details.</p>
+                    <h4>No Too Many Confusing Settings</h4>
+                    <p>Clean settings you can understand at a glance.</p>
+                  </div>
+                </div>
+                <div class="fb-feature">
+                  <span class="fb-feature-icon" aria-hidden="true">💰</span>
+                  <div class="fb-feature-text">
+                    <h4>No Hard Monetize System</h4>
+                    <p>Nothing essential is locked behind a paywall.</p>
+                  </div>
+                </div>
+                <div class="fb-feature">
+                  <span class="fb-feature-icon" aria-hidden="true">📰</span>
+                  <div class="fb-feature-text">
+                    <h4>No to Fake News</h4>
+                    <p>A feed that fights misinformation instead of spreading it.</p>
+                  </div>
+                </div>
+                <div class="fb-feature">
+                  <span class="fb-feature-icon" aria-hidden="true">🛡️</span>
+                  <div class="fb-feature-text">
+                    <h4>No to Scammers</h4>
+                    <p>Scam accounts and suspicious links are kept out of the community.</p>
+                  </div>
+                </div>
+                <div class="fb-feature">
+                  <span class="fb-feature-icon" aria-hidden="true">🧒</span>
+                  <div class="fb-feature-text">
+                    <h4>Minor Age Protection</h4>
+                    <p>Extra safeguards for younger members.</p>
+                  </div>
+                </div>
+                <div class="fb-feature">
+                  <span class="fb-feature-icon" aria-hidden="true">📣</span>
+                  <div class="fb-feature-text">
+                    <h4>Free Ads Posting</h4>
+                    <p>Promote what you sell or do without paying for ads.</p>
+                  </div>
+                </div>
+                <div class="fb-feature">
+                  <span class="fb-feature-icon" aria-hidden="true">✨</span>
+                  <div class="fb-feature-text">
+                    <h4>Many Advanced Features</h4>
+                    <p>Powerful tools that stay easy to use.</p>
                   </div>
                 </div>
               </div>
