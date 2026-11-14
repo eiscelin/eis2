@@ -240,7 +240,9 @@ function postSharedHtml(shared, users) {
   </div>`;
 }
 
-function postCommentHtml(comment, ctx) {
+// A comment paints its own replies indented underneath it. Replies never paint
+// more replies, so a thread stays one level deep.
+function postCommentHtml(comment, ctx, replies, isReply) {
   const viewer = ctx.viewer || {};
   const member = ctx.users ? ctx.users.get(String(comment.user_id)) : null;
   const name = (member && (member.full_name || member.username)) || comment.user_name || 'Member';
@@ -274,7 +276,11 @@ function postCommentHtml(comment, ctx) {
         ${comment.edited_at ? '<span class="fb-comment-edited">Edited</span>' : ''}
         ${own ? `<button class="fb-comment-act" type="button" data-act="edit-comment">Edit</button>` : ''}
         ${canDelete ? `<button class="fb-comment-act" type="button" data-act="delete-comment">Delete</button>` : ''}
+        ${isReply ? '' : '<button class="fb-comment-act" type="button" data-act="reply-comment">Reply</button>'}
       </div>
+      ${replies && replies.length
+        ? `<div class="fb-comment-replies">${replies.map(r => postCommentHtml(r, ctx, null, true)).join('')}</div>`
+        : ''}
     </div>
   </div>`;
 }
@@ -345,7 +351,8 @@ Posts.card = function (post, ctx) {
       <button class="fb-post-act" type="button" data-act="share"><span aria-hidden="true">↗</span><span>Share</span></button>
     </div>
     <div class="fb-comments">
-      ${comments.map(c => postCommentHtml(c, ctx)).join('')}
+      ${comments.filter(c => !c.parent_id).map(c => postCommentHtml(c, ctx,
+        comments.filter(r => String(r.parent_id) === String(c.id)))).join('')}
       ${ctx.locked
         ? `<div class="fb-composer-locked"><span aria-hidden="true">🔒</span><span>Commenting unlocks once an admin approves your profile picture or video.</span></div>`
         : `<div class="fb-comment-form">
@@ -758,8 +765,11 @@ Posts.mount = function (listEl, opts) {
       && active.closest('.fb-comment-form, .fb-comment-edit'));
     if (!spotlightPost || !spotlightPost.isConnected) spotlightPost = focusedPost();
     clearSpotlightMark();
-    // A post without comments has nothing to highlight — just wait for one
-    const comments = spotlightPost ? Array.from(spotlightPost.querySelectorAll('.fb-comment')) : [];
+    // A post without comments has nothing to highlight — just wait for one.
+    // Only the top-level comments take turns; replies stay unlit under them.
+    const comments = spotlightPost
+      ? Array.from(spotlightPost.querySelectorAll('.fb-comments > .fb-comment'))
+      : [];
     if (!comments.length) {
       spotlightTimer = setTimeout(spotlightNext, COMMENT_SPOTLIGHT_MS);
       return;
@@ -1093,18 +1103,38 @@ Posts.mount = function (listEl, opts) {
     await refreshCard(postId);
   }
 
-  async function addComment(postId, input) {
+  // Opens a small reply box under the comment the member answered
+  function openReplyBox(commentEl) {
+    const open = commentEl.querySelector('.fb-comment-reply-form');
+    if (open) {
+      open.querySelector('input').focus();
+      return;
+    }
+    const form = document.createElement('div');
+    form.className = 'fb-comment-form fb-comment-reply-form';
+    form.innerHTML = `<div class="fb-comment-box">
+        <input class="fb-comment-input" type="text" data-reply-input placeholder="Write a reply…" aria-label="Write a reply">
+        <button class="fb-comment-send" type="button" data-act="send-reply" aria-label="Send reply">➤</button>
+      </div>`;
+    commentEl.querySelector('.fb-comment-main').appendChild(form);
+    form.querySelector('input').focus();
+  }
+
+  async function addComment(postId, input, parentId) {
     const body = input.value.trim();
     if (!body) return;
     if (!viewer.id) return showToast('Log in to comment', '', 4000);
-    const { error } = await sb.from('post_comments').insert([{
+    const row = {
       post_id: postId,
       user_id: viewer.id,
       user_name: viewer.full_name || viewer.username,
       body
-    }]);
+    };
+    if (parentId) row.parent_id = parentId;
+    const { error } = await sb.from('post_comments').insert([row]);
     if (error) return showToast('Could not add your comment', 'error');
     await refreshCard(postId);
+    if (parentId) return;
     const fresh = listEl.querySelector(`[data-post="${postId}"] [data-comment-input]`);
     if (fresh) fresh.focus();
   }
@@ -1482,6 +1512,12 @@ Posts.mount = function (listEl, opts) {
       if (input) await addComment(postId, input);
       return;
     }
+    if (kind === 'reply-comment' && commentEl) return openReplyBox(commentEl);
+    if (kind === 'send-reply' && commentEl) {
+      const input = commentEl.querySelector('[data-reply-input]');
+      if (input) await addComment(postId, input, commentEl.dataset.comment);
+      return;
+    }
     if (kind === 'edit-comment' && commentEl) return editComment(postId, commentEl);
     if (kind === 'delete-comment' && commentEl) return deleteComment(postId, commentEl.dataset.comment);
     if (kind === 'share') {
@@ -1494,9 +1530,15 @@ Posts.mount = function (listEl, opts) {
     const input = e.target.closest('[data-comment-input]');
     if (!input) return;
     const postEl = input.closest('[data-post]');
+    const commentEl = input.closest('[data-comment]');
     if (e.key === 'Enter') {
       e.preventDefault();
-      if (postEl) addComment(postEl.dataset.post, input);
+      if (!postEl) return;
+      if (input.hasAttribute('data-reply-input') && commentEl) {
+        addComment(postEl.dataset.post, input, commentEl.dataset.comment);
+      } else {
+        addComment(postEl.dataset.post, input);
+      }
     } else if (e.key === 'Escape') {
       input.value = '';
       input.blur();

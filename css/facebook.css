@@ -2534,7 +2534,7 @@ a.fb-post-name:hover { text-decoration: underline; }
 .fb-comment-body { font-size: 0.9rem; line-height: 1.35; color: var(--fb-text); white-space: pre-wrap; overflow-wrap: anywhere; }
 /* One comment at a time is spotlit — yellow green with dark text — so a comment
    buried deep in a long thread is still easy to read. It stays up for 10 seconds. */
-.fb-comment.fb-comment-spotlight .fb-comment-bubble {
+.fb-comment.fb-comment-spotlight > .fb-comment-main > .fb-comment-bubble {
   display: block; width: 100%; max-width: 100%;
   padding: 0.7rem 0.95rem; border-radius: 14px;
   background: #9acd32; color: #1b2a00;
@@ -2544,15 +2544,15 @@ a.fb-post-name:hover { text-decoration: underline; }
   animation: fbCommentSpotlight 0.7s ease-out;
 }
 /* The spotlit comment's text doubles in size so it is easy to read at a glance */
-.fb-comment.fb-comment-spotlight .fb-comment-name,
-.fb-comment.fb-comment-spotlight .fb-comment-body { color: #1b2a00; }
-.fb-comment.fb-comment-spotlight .fb-comment-name { font-size: 1.6rem; }
-.fb-comment.fb-comment-spotlight .fb-comment-body {
+.fb-comment.fb-comment-spotlight > .fb-comment-main > .fb-comment-bubble > .fb-comment-name,
+.fb-comment.fb-comment-spotlight > .fb-comment-main > .fb-comment-bubble > .fb-comment-body { color: #1b2a00; }
+.fb-comment.fb-comment-spotlight > .fb-comment-main > .fb-comment-bubble > .fb-comment-name { font-size: 1.6rem; }
+.fb-comment.fb-comment-spotlight > .fb-comment-main > .fb-comment-bubble > .fb-comment-body {
   font-size: 1.8rem; line-height: 1.45;
   white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;
   max-height: none; overflow: visible;
 }
-.fb-comment.fb-comment-spotlight .fb-comment-reactions {
+.fb-comment.fb-comment-spotlight > .fb-comment-main > .fb-comment-bubble > .fb-comment-reactions {
   background: rgba(0, 0, 0, 0.16); color: #1b2a00; box-shadow: none;
 }
 @keyframes fbCommentSpotlight {
@@ -2560,8 +2560,14 @@ a.fb-post-name:hover { text-decoration: underline; }
   6% { box-shadow: 0 8px 28px rgba(154, 205, 50, 0.6), 0 0 0 4px rgba(180, 230, 70, 0.4); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .fb-comment.fb-comment-spotlight .fb-comment-bubble { animation: none; }
+  .fb-comment.fb-comment-spotlight > .fb-comment-main > .fb-comment-bubble { animation: none; }
 }
+/* A reply sits indented under the comment it answers, and never takes a turn
+   in the highlight loop */
+.fb-comment-replies { margin-top: 0.45rem; padding-left: 0.65rem; border-left: 2px solid var(--fb-line); }
+.fb-comment-replies .fb-comment { margin-top: 0.4rem; }
+.fb-comment-reply-form { margin-top: 0.5rem; }
+.fb-comment-replies .fb-comment-body { font-size: 0.86rem; }
 .fb-comment-reactions {
   display: inline-flex; align-items: center; gap: 0.3rem; margin-top: 0.3rem;
   padding: 0.05rem 0.4rem; border-radius: 999px;
