@@ -1302,6 +1302,24 @@ a.fb-person-img:hover { filter: brightness(1.1); }
 .auth-error { background: rgba(239, 68, 68, 0.14); border-color: rgba(239, 68, 68, 0.4); color: #ff8b8b; }
 .auth-note.taken { color: #ff8b8b; }
 .auth-note.ok { color: #4ade80; }
+/* Saved log-ins on this device — one tap fills both boxes */
+.auth-vault { margin-bottom: 1.15rem; }
+.auth-vault-title {
+  font-size: 0.7rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--fb-muted); margin-bottom: 0.45rem;
+}
+.auth-vault-list { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.auth-vault-account {
+  display: inline-flex; align-items: center; gap: 0.35rem; max-width: 100%;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--fb-line); border-radius: 999px;
+  background: var(--fb-elevated); color: var(--fb-text);
+  font-size: 0.82rem; font-weight: 600; cursor: pointer;
+}
+.auth-vault-account:hover { border-color: var(--fb-blue-hover); }
+.auth-vault-account.active { border-color: var(--fb-blue); background: rgba(24, 119, 242, 0.22); }
+.auth-vault-account .ico { font-size: 0.85rem; }
+.auth-vault-account .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 11rem; }
 .btn-auth.production { background: var(--fb-blue); }
 
 /* ===================== Landing (dark account look) ===================== */
