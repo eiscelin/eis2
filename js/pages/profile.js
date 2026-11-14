@@ -103,13 +103,11 @@ Pages.profileTab = function(main, user) {
 
         <div class="fb-col fb-col-right">
           <section class="fb-card" data-section="people" id="pfPeople">
-            <div class="fb-card-head"><h3>People you may know</h3></div>
+            <div class="fb-card-head"><h3>People You Know</h3></div>
             <div class="fb-people-search">
               <input type="search" id="pfPeopleSearch" placeholder="Search by username…" aria-label="Search people by username" autocomplete="off">
             </div>
-            <div class="fb-people-scroll" id="pfPeopleList">
-              <div class="loading" style="padding:1rem;">Loading…</div>
-            </div>
+            <div class="fb-people-scroll" id="pfPeopleList"></div>
           </section>
 
           <section class="fb-card" data-section="posts" id="pfPosts">
@@ -557,7 +555,6 @@ Pages.profileTab = function(main, user) {
     const peopleList = main.querySelector('#pfPeopleList');
     if (!sb) {
       friendsGrid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;padding:1rem;">No team members to show.</div>';
-      peopleList.innerHTML = '<div class="empty-state" style="padding:1rem;">No suggestions right now.</div>';
       return;
     }
 
@@ -573,12 +570,14 @@ Pages.profileTab = function(main, user) {
         String(p.full_name || '').toLowerCase().includes(q);
     }
 
-    // "People you may know": their picture or video, and Add Friend underneath
+    // People You Know keeps just the search bar; typing reveals the matches
     function paintSuggestions() {
       const query = peopleSearch ? peopleSearch.value.trim() : '';
-      const suggestions = people.filter(p =>
-        (!window.Friends || Friends.statusWith(p.id) !== 'friends') && matchesQuery(p)
-      );
+      if (!query) {
+        peopleList.innerHTML = '';
+        return;
+      }
+      const suggestions = people.filter(matchesQuery);
       peopleList.innerHTML = suggestions.length
         ? suggestions.map(p => {
           const pname = p.full_name || p.username || 'Member';
@@ -593,9 +592,7 @@ Pages.profileTab = function(main, user) {
             </div>
           </div>`;
         }).join('')
-        : `<div class="empty-state" style="padding:1rem;">${query
-            ? 'No username matches “' + fbEscape(query) + '”.'
-            : 'No suggestions right now.'}</div>`;
+        : `<div class="empty-state" style="padding:1rem;">No username matches “${fbEscape(query)}”.</div>`;
     }
 
     if (peopleSearch) peopleSearch.addEventListener('input', paintSuggestions);
@@ -652,7 +649,6 @@ Pages.profileTab = function(main, user) {
       paintSuggestions();
     } catch {
       friendsGrid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;padding:1rem;">Could not load friends.</div>';
-      peopleList.innerHTML = '<div class="empty-state" style="padding:1rem;">Could not load suggestions.</div>';
     }
   };
 

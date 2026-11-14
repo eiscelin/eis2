@@ -918,7 +918,10 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
 }
 .fb-people-search input::placeholder { color: var(--fb-muted); }
 
-/* "People you may know" grid — scrollable so every suggestion is reachable */
+/* The results stay out of the way until the member searches */
+.fb-people-scroll:empty { display: none; }
+
+/* "People you may know" grid — scrollable so every search result is reachable */
 .fb-people-scroll {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.65rem;
   padding: 0.35rem 0.9rem 1rem;
