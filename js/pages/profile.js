@@ -555,7 +555,7 @@ Pages.profileTab = function(main, user) {
     function paintSuggestions() {
       const suggestions = people.filter(p => !window.Friends || Friends.statusWith(p.id) !== 'friends');
       peopleList.innerHTML = suggestions.length
-        ? suggestions.slice(0, 10).map(p => {
+        ? suggestions.map(p => {
           const pname = p.full_name || p.username || 'Member';
           const state = window.Friends ? Friends.statusWith(p.id) : 'none';
           return `<div class="fb-person">
@@ -609,7 +609,7 @@ Pages.profileTab = function(main, user) {
       main.querySelector('#pfFriendCount').textContent = people.length;
 
       friendsGrid.innerHTML = people.length
-        ? people.slice(0, 9).map(p => {
+        ? people.map(p => {
           const pname = p.full_name || p.username || 'Member';
           // A member's picture or video, and the whole tile opens their profile
           const picture = window.Friends
