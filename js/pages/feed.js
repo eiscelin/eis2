@@ -289,7 +289,7 @@ Pages.feedTab = function (main, user) {
           <div class="fb-post-text">
             ${p.priority === 'high' ? '<span class="fb-post-tag">IMPORTANT</span>' : ''}
             <strong>${fbEscape(p.title || 'Post')}</strong>
-            ${fbEscape(p.content || '')}
+            ${fbEscape((p.content || '').trim())}
           </div>
         </article>`).join('');
       if (window.AdminModerate) AdminModerate.wire(announcementsList, { post: () => loadAnnouncements(query) });

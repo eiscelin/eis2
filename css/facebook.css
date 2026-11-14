@@ -2656,6 +2656,9 @@ a.fb-post-name:hover { text-decoration: underline; }
 /* Pinned office announcements sit above the composer on every home page */
 .fb-feed #feedAnnouncements[hidden] { display: none; }
 .fb-feed #feedAnnouncements .fb-post-card { border: 1px solid var(--fb-blue); }
+/* Keep the announcement header, IMPORTANT badge and message tight together */
+.fb-feed #feedAnnouncements .fb-post-head { padding-bottom: 0; align-items: center; }
+.fb-feed #feedAnnouncements .fb-post-text { padding-top: 0.3rem; padding-bottom: 0.6rem; }
 .fb-profile #pfComposer { border-bottom: 1px solid var(--fb-line); }
 .fb-profile #pfFeed { display: block; }
 .fb-profile #pfFeed .fb-post-card {
