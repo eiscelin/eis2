@@ -2665,6 +2665,11 @@ a.fb-post-name:hover { text-decoration: underline; }
 .fb-profile #pfFeed .fb-post-card:first-child { border-top: none; }
 
 @media (max-width: 640px) {
+  /* The lit-up comment box keeps its whole width on the phone screen, even
+     when the card it sits in is wider than the screen */
+  .fb-comment.fb-comment-spotlight > .fb-comment-main > .fb-comment-bubble {
+    width: auto; box-sizing: border-box; max-width: calc(100vw - 5rem);
+  }
   .fb-post-card .fb-post-head { padding: 0.8rem 0.85rem 0.3rem; }
   .fb-post-text { padding: 0.3rem 0.85rem 0.65rem; }
   .fb-post-actions { margin: 0 0.85rem; }
