@@ -799,7 +799,16 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
 .fb-detail-list li .ico { width: 22px; text-align: center; color: var(--fb-muted); }
 .fb-detail-list li .k { color: var(--fb-muted); }
 
-.fb-friends-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; padding: 0.25rem 0.75rem 0.85rem; }
+/* Friends stay inside a scrollable panel so every card is reachable */
+.fb-friends-grid {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem;
+  padding: 0.25rem 0.75rem 0.85rem;
+  max-height: 420px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--fb-elevated) transparent;
+}
 .fb-friend { display: block; border-radius: 8px; overflow: hidden; background: transparent; text-align: left; padding: 0; border: none; text-decoration: none; color: inherit; }
 .fb-friend:hover .fb-friend-img { filter: brightness(1.12); }
 .fb-friend-img {
@@ -890,16 +899,18 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
   .fb-gallery-next { right: 0.35rem; }
 }
 
-/* "People you may know" rail */
+/* "People you may know" grid — scrollable so every suggestion is reachable */
 .fb-people-scroll {
-  display: flex; gap: 0.65rem;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.65rem;
   padding: 0.35rem 0.9rem 1rem;
-  overflow-x: auto;
-  scrollbar-width: none;
+  max-height: 420px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--fb-elevated) transparent;
 }
-.fb-people-scroll::-webkit-scrollbar { display: none; }
 .fb-person {
-  flex: 0 0 148px;
+  min-width: 0;
   border: 1px solid var(--fb-line);
   border-radius: 10px;
   overflow: hidden;
