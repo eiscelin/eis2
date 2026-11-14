@@ -7,6 +7,16 @@ function fbEscape(value) {
   }[c]));
 }
 
+// Followers are the member's friends — an accepted friend request is a follow,
+// so there is no follow button and no separate follower list. Under 10,000 the
+// exact number stays private and only the range is shown; from 10,000 up the
+// count is shown exactly, with thousands separators (10,234 followers).
+function fbFollowerLabel(count) {
+  const n = Number(count) || 0;
+  if (n < 10000) return 'within 10,000 followers';
+  return n.toLocaleString('en-US') + ' followers';
+}
+
 // The landing page cover, used as the cover of members who have not picked one
 var FB_DEFAULT_COVER = '/img/landing-cover.jpg';
 
@@ -139,9 +149,9 @@ function appShell(el, user, navItems, renderContent, startTab) {
           </button>
         </div>
         <nav class="fb-topbar-center" id="fbTopNav" aria-label="Sections"></nav>
+        <div class="fb-topbar-slot" id="fbSupportSlot"></div>
         <div class="fb-topbar-right">
-          <button class="fb-icon-btn fb-notif-btn" id="fbFriendsBtn" type="button" title="Friend requests" aria-label="Friend requests" aria-expanded="false">🔔<span class="fb-notif-badge" id="fbFriendsBadge" hidden>0</span></button>
-          <button class="fb-icon-btn" id="fbMessages" type="button" title="Messages" aria-label="Messages">💬</button>
+          <button class="fb-icon-btn fb-notif-btn" id="fbFriendsBtn" type="button" title="Friend requests" aria-label="Friend requests" aria-expanded="false"><svg class="fb-bell" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><defs><linearGradient id="fbBellSilver" x1="0" y1="0" x2="0.35" y2="1"><stop offset="0%" stop-color="#ffffff"/><stop offset="38%" stop-color="#e7ecf2"/><stop offset="62%" stop-color="#9aa7b4"/><stop offset="82%" stop-color="#d5dde6"/><stop offset="100%" stop-color="#f7fafc"/></linearGradient></defs><path fill="url(#fbBellSilver)" d="M12 2.6a6.1 6.1 0 0 0-6.1 6.1v3.5l-1.35 2.7A1.15 1.15 0 0 0 5.58 16.7h12.84a1.15 1.15 0 0 0 1.03-1.8l-1.35-2.7V8.7A6.1 6.1 0 0 0 12 2.6Z"/><path fill="url(#fbBellSilver)" d="M9.4 18.1h5.2a2.6 2.6 0 0 1-5.2 0Z"/></svg><span class="fb-notif-badge" id="fbFriendsBadge" hidden>0</span></button>
           <button class="fb-user-btn" id="fbUserBtn" type="button" title="My profile" aria-label="My profile">${fbAvatar(displayName, 'fb-avatar-sm')}</button>
           <button class="fb-icon-btn fb-burger" id="fbBurger" type="button" title="Menu" aria-label="Menu">
             <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
@@ -270,10 +280,6 @@ function appShell(el, user, navItems, renderContent, startTab) {
 
   el.querySelector('#fbLogo').addEventListener('click', () => select(navItems[0].id));
   el.querySelector('#fbUserBtn').addEventListener('click', () => select('profile'));
-  el.querySelector('#fbMessages').addEventListener('click', () => {
-    if (window.ChatWidget && window.ChatWidget.open) window.ChatWidget.open();
-    else select('messages');
-  });
   el.querySelector('#fbBurger').addEventListener('click', () => {
     if (window.openAppMenu) window.openAppMenu({ user, onSelect: select });
   });
@@ -292,8 +298,9 @@ function appShell(el, user, navItems, renderContent, startTab) {
     }
   }
 
-  // Friend requests arrive in the bell of the top bar
+  // Friend requests and replies to my comments arrive in the bell of the top bar
   if (window.Friends) window.Friends.mountBell(el.querySelector('.fb-shell'), user);
+  if (window.CommentNotif) window.CommentNotif.mount(el.querySelector('.fb-shell'), user);
 }
 
 window.Pages = Pages;

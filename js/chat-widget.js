@@ -86,9 +86,16 @@ window.ChatWidget = function(container, currentUser) {
     }
     userListView.innerHTML = users.map(u => {
       const initial = (u.username || '?')[0].toUpperCase();
-      const avatarColor = u.role === 'admin' ? 'var(--gradient)' : '#bbb';
+      // The member's own picture or video stands for them in the chat list
+      const url = String(u.avatar_url || '');
+      const isVideo = /\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i.test(url);
+      const avatar = url
+        ? (isVideo
+          ? `<video class="chat-user-avatar chat-user-media" src="${escapeHtml(url)}" autoplay muted loop playsinline></video>`
+          : `<img class="chat-user-avatar chat-user-media" src="${escapeHtml(url)}" alt="">`)
+        : `<div class="chat-user-avatar" style="background:#bbb">${initial}</div>`;
       return `<div class="chat-user-item" data-uid="${u.id}">
-        <div class="chat-user-avatar" style="background:${avatarColor}">${initial}</div>
+        ${avatar}
         <div class="chat-user-info">
           <div class="chat-user-name">${u.full_name || u.username}</div>
           <div class="chat-user-role">${u.role}</div>

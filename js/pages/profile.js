@@ -11,7 +11,6 @@ function fbRoleLabel(role) {
 Pages.profileTab = function(main, user) {
   const name = user.full_name || user.username || 'Member';
 
-  const role = fbRoleLabel(user.role);
   const brand = fbBrand();
   let avatarUrl = user.avatar_url || '';
   let coverUrl = user.cover_url || '';
@@ -58,7 +57,7 @@ Pages.profileTab = function(main, user) {
         <div class="fb-profile-id">
           <h1 class="fb-profile-name">${fbEscape(name)}</h1>
           <div class="fb-profile-meta">
-            ${fbEscape(role)} · @${fbEscape(user.username)} · <span id="pfFriendCount">…</span> friends
+            @${fbEscape(user.username)} · <span id="pfFollowerCount" class="fb-followers">…</span>
           </div>
           <div class="fb-media-note" id="pfMediaNote" hidden></div>
         </div>
@@ -84,7 +83,6 @@ Pages.profileTab = function(main, user) {
           <section class="fb-card" data-section="about" id="pfAbout">
             <div class="fb-card-head"><h3>Personal details</h3><span aria-hidden="true">🔒</span></div>
             <ul class="fb-detail-list">
-              <li><span class="ico" aria-hidden="true">🏷️</span><span class="k">Role:</span> ${fbEscape(role)}</li>
               <li><span class="ico" aria-hidden="true">👤</span><span class="k">Username:</span> @${fbEscape(user.username)}</li>
               <li><span class="ico" aria-hidden="true">🔗</span><span class="k">Profile link:</span> <a href="#/u/${fbEscape(user.username)}">#/u/${fbEscape(user.username)}</a></li>
               <li><span class="ico" aria-hidden="true">🌐</span><span class="k">App:</span> ${fbEscape(brand.name)}</li>
@@ -105,10 +103,11 @@ Pages.profileTab = function(main, user) {
 
         <div class="fb-col fb-col-right">
           <section class="fb-card" data-section="people" id="pfPeople">
-            <div class="fb-card-head"><h3>People you may know</h3></div>
-            <div class="fb-people-scroll" id="pfPeopleList">
-              <div class="loading" style="padding:1rem;">Loading…</div>
+            <div class="fb-card-head"><h3>People You Know</h3></div>
+            <div class="fb-people-search">
+              <input type="search" id="pfPeopleSearch" placeholder="Search by username…" aria-label="Search people by username" autocomplete="off">
             </div>
+            <div class="fb-people-scroll" id="pfPeopleList"></div>
           </section>
 
           <section class="fb-card" data-section="posts" id="pfPosts">
@@ -538,24 +537,50 @@ Pages.profileTab = function(main, user) {
   // a cover saved with framing shows that framing straight away
   if (framedRect(coverUrl)) paintCover();
 
+  // The follower count beside the name: friends count as followers, and below
+  // 10,000 followers only the range is shown; from 10,000 up the exact number
+  // is shown with thousands separators
+  async function paintFollowerCount() {
+    const labelEl = main.querySelector('#pfFollowerCount');
+    if (!labelEl) return;
+    let count = 0;
+    if (window.Friends) {
+      try { count = await Friends.countFollowers(user.id); } catch { /* count stays 0 */ }
+    }
+    if (labelEl.isConnected) labelEl.textContent = fbFollowerLabel(count);
+  }
+
   // People / friends (team directory)
   const loadPeople = async () => {
     const friendsGrid = main.querySelector('#pfFriendsGrid');
     const peopleList = main.querySelector('#pfPeopleList');
     if (!sb) {
       friendsGrid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;padding:1rem;">No team members to show.</div>';
-      peopleList.innerHTML = '<div class="empty-state" style="padding:1rem;">No suggestions right now.</div>';
-      main.querySelector('#pfFriendCount').textContent = '0';
       return;
     }
 
     let people = [];
 
-    // "People you may know": their picture or video, and Add Friend underneath
+    // Search by username (or name) narrows the suggestions below
+    const peopleSearch = main.querySelector('#pfPeopleSearch');
+
+    function matchesQuery(p) {
+      const q = (peopleSearch ? peopleSearch.value : '').trim().toLowerCase();
+      if (!q) return true;
+      return String(p.username || '').toLowerCase().includes(q) ||
+        String(p.full_name || '').toLowerCase().includes(q);
+    }
+
+    // People You Know keeps just the search bar; typing reveals the matches
     function paintSuggestions() {
-      const suggestions = people.filter(p => !window.Friends || Friends.statusWith(p.id) !== 'friends');
+      const query = peopleSearch ? peopleSearch.value.trim() : '';
+      if (!query) {
+        peopleList.innerHTML = '';
+        return;
+      }
+      const suggestions = people.filter(matchesQuery);
       peopleList.innerHTML = suggestions.length
-        ? suggestions.slice(0, 10).map(p => {
+        ? suggestions.map(p => {
           const pname = p.full_name || p.username || 'Member';
           const state = window.Friends ? Friends.statusWith(p.id) : 'none';
           return `<div class="fb-person">
@@ -564,13 +589,14 @@ Pages.profileTab = function(main, user) {
             </a>
             <div class="fb-person-body">
               <div class="fb-person-name">${fbEscape(pname)}</div>
-              <div class="fb-person-meta">${fbEscape(fbRoleLabel(p.role))}</div>
               <button class="fb-person-btn" type="button" data-friend="${fbEscape(p.id)}"${window.Friends && Friends.isLocked(state) ? ' disabled' : ''}>${window.Friends ? fbEscape(Friends.label(state)) : 'Add Friend'}</button>
             </div>
           </div>`;
         }).join('')
-        : '<div class="empty-state" style="padding:1rem;">No suggestions right now.</div>';
+        : `<div class="empty-state" style="padding:1rem;">No username matches “${fbEscape(query)}”.</div>`;
     }
+
+    if (peopleSearch) peopleSearch.addEventListener('input', paintSuggestions);
 
     // Add Friend sends a request; Confirm accepts the one they sent you
     peopleList.addEventListener('click', async e => {
@@ -606,10 +632,9 @@ Pages.profileTab = function(main, user) {
         u.status !== 'deleted' &&
         u.status !== 'suspended'
       );
-      main.querySelector('#pfFriendCount').textContent = people.length;
 
       friendsGrid.innerHTML = people.length
-        ? people.slice(0, 9).map(p => {
+        ? people.map(p => {
           const pname = p.full_name || p.username || 'Member';
           // A member's picture or video, and the whole tile opens their profile
           const picture = window.Friends
@@ -618,7 +643,6 @@ Pages.profileTab = function(main, user) {
           return `<a class="fb-friend" href="#/u/${encodeURIComponent(p.username || '')}" title="Open ${fbEscape(pname)}'s profile">
             <div class="fb-friend-img">${picture}</div>
             <div class="fb-friend-name">${fbEscape(pname)}</div>
-            <div class="fb-friend-meta">${fbEscape(fbRoleLabel(p.role))}</div>
           </a>`;
         }).join('')
         : '<div class="empty-state" style="grid-column:1/-1;padding:1rem;">No friends yet.</div>';
@@ -626,8 +650,6 @@ Pages.profileTab = function(main, user) {
       paintSuggestions();
     } catch {
       friendsGrid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;padding:1rem;">Could not load friends.</div>';
-      peopleList.innerHTML = '<div class="empty-state" style="padding:1rem;">Could not load suggestions.</div>';
-      main.querySelector('#pfFriendCount').textContent = '0';
     }
   };
 
@@ -654,6 +676,7 @@ Pages.profileTab = function(main, user) {
 
   showTab('all');
   paintMediaNote();
+  paintFollowerCount();
   loadPeople();
 };
 

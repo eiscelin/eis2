@@ -8,6 +8,7 @@ Pages.feedTab = function (main, user) {
 
   main.innerHTML = `
     <div class="fb-feed">
+      <div id="feedAnnouncements" hidden></div>
       <section class="fb-card fb-composer-card" id="feedComposer">
         ${Posts.composerMarkup(user, `What's on your mind, ${firstName}?`)}
       </section>
@@ -15,7 +16,6 @@ Pages.feedTab = function (main, user) {
         <div class="fb-stories" id="storyRow"></div>
       </section>
       <div id="feedList"></div>
-      <div id="feedAnnouncements"></div>
     </div>
   `;
 
@@ -78,12 +78,32 @@ Pages.feedTab = function (main, user) {
     `;
   }
 
+  // My Day is private: a member sees their own stories and their friends'
+  async function storyFriendIds() {
+    const ids = new Set([String(user.id)]);
+    if (!sb) return ids;
+    try {
+      const { data } = await sb.from('friend_requests')
+        .select('sender_id, receiver_id')
+        .eq('status', 'accepted')
+        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`);
+      (data || []).forEach(row => {
+        ids.add(String(String(row.sender_id) === String(user.id) ? row.receiver_id : row.sender_id));
+      });
+    } catch {
+      // Without the friend list, only the member's own stories are shown
+    }
+    return ids;
+  }
+
   async function loadStories() {
     if (!sb) return;
     try {
       const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const allowed = await storyFriendIds();
       const { data } = await sb.from('stories').select('*').gte('created_at', since).order('created_at', { ascending: false });
-      renderStories(groupStories(data || []));
+      const mine = (data || []).filter(s => allowed.has(String(s.user_id)));
+      renderStories(groupStories(mine));
     } catch {
       renderStories([]);
     }
@@ -240,20 +260,22 @@ Pages.feedTab = function (main, user) {
 
   // ---------- Posts ----------
 
-  const postsFeed = Posts.mount(list, { viewer: user });
+  // Only the member's friends' posts (and their own) belong on the home page
+  const postsFeed = Posts.mount(list, { viewer: user, friendsOnly: true });
 
   Posts.composer(main.querySelector('#feedComposer'), {
     viewer: user,
     onPosted: () => postsFeed.reload()
   });
 
-  // Announcements from the office stay at the end of the feed
+  // Announcements from the office are pinned at the top of every member's home feed
   async function loadAnnouncements(query) {
-    if (!sb) { announcementsList.innerHTML = ''; return; }
+    if (!sb) { announcementsList.innerHTML = ''; announcementsList.hidden = true; return; }
     const q = (query || '').toLowerCase();
     try {
-      const { data } = await sb.from('announcements').select('*').order('created_at', { ascending: false });
+      const { data } = await sb.from('announcements').select('*').eq('is_active', true).order('created_at', { ascending: false });
       const shown = (data || []).filter(p => !q || `${p.title || ''} ${p.content || ''}`.toLowerCase().includes(q));
+      announcementsList.hidden = !shown.length;
       announcementsList.innerHTML = shown.map(p => `
         <article class="fb-card fb-post-card">
           <div class="fb-post-head">
@@ -264,15 +286,16 @@ Pages.feedTab = function (main, user) {
             </div>
             ${window.AdminModerate ? AdminModerate.postButton(p.id) : ''}
           </div>
-          <div class="fb-post-text">
-            ${p.priority === 'high' ? '<span class="fb-post-tag">IMPORTANT</span>' : ''}
-            <strong>${fbEscape(p.title || 'Post')}</strong>
-            ${fbEscape(p.content || '')}
-          </div>
+          <div class="fb-post-text">${[
+            p.priority === 'high' ? '<span class="fb-post-tag">IMPORTANT</span>' : '',
+            `<strong>${fbEscape(p.title || 'Post')}</strong>`,
+            fbEscape((p.content || '').trim())
+          ].filter(Boolean).join('\n')}</div>
         </article>`).join('');
       if (window.AdminModerate) AdminModerate.wire(announcementsList, { post: () => loadAnnouncements(query) });
     } catch {
       announcementsList.innerHTML = '';
+      announcementsList.hidden = true;
     }
   }
 

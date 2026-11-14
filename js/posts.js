@@ -240,7 +240,20 @@ function postSharedHtml(shared, users) {
   </div>`;
 }
 
-function postCommentHtml(comment, ctx) {
+// Replies are keyed by the comment they answer, so a thread can be painted to
+// any depth: every comment carries its own Reply button.
+function postCommentChildren(comments) {
+  const map = new Map();
+  comments.forEach(c => {
+    if (!c.parent_id) return;
+    const key = String(c.parent_id);
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(c);
+  });
+  return id => map.get(String(id)) || [];
+}
+
+function postCommentHtml(comment, ctx, childrenOf) {
   const viewer = ctx.viewer || {};
   const member = ctx.users ? ctx.users.get(String(comment.user_id)) : null;
   const name = (member && (member.full_name || member.username)) || comment.user_name || 'Member';
@@ -274,7 +287,12 @@ function postCommentHtml(comment, ctx) {
         ${comment.edited_at ? '<span class="fb-comment-edited">Edited</span>' : ''}
         ${own ? `<button class="fb-comment-act" type="button" data-act="edit-comment">Edit</button>` : ''}
         ${canDelete ? `<button class="fb-comment-act" type="button" data-act="delete-comment">Delete</button>` : ''}
+        <button class="fb-comment-act" type="button" data-act="reply-comment">Reply</button>
       </div>
+      ${childrenOf && childrenOf(comment.id).length
+        ? `<div class="fb-comment-replies">${childrenOf(comment.id)
+          .map(r => postCommentHtml(r, ctx, childrenOf)).join('')}</div>`
+        : ''}
     </div>
   </div>`;
 }
@@ -299,6 +317,11 @@ Posts.card = function (post, ctx) {
   // and sit in the free space between the reactions and the comment count
   const faceGroups = groups.filter(g => postOwnReaction(g.type));
   const emojiGroups = groups.filter(g => !postOwnReaction(g.type));
+  const children = postCommentChildren(comments);
+  // A friend's post on the home feed can be hidden, and restored later
+  const canHideAuthor = !!ctx.friendsOnly && !!viewer.id
+    && String(post.user_id) !== String(viewer.id)
+    && !!ctx.friendIds && ctx.friendIds.has(String(post.user_id));
 
   return `<article class="fb-card fb-post-card" data-post="${fbEscape(post.id)}">
     <div class="fb-post-head">
@@ -307,7 +330,10 @@ Posts.card = function (post, ctx) {
         <a class="fb-post-name" href="${postProfileHref(authorUsername)}">${fbEscape(authorName)}</a>
         <div class="fb-post-time">${fbEscape(postTimeAgo(post.created_at))} · <span title="${audience.label}" aria-label="${audience.label}">${audience.icon}</span></div>
       </div>
-      ${hasFaces ? `<span class="fb-post-toggles">${postFaceAnimSwitch(post.id, faceOff)}${postRxSoundSwitch(post.id, rxSoundOn(post.id))}</span>` : ''}
+      ${(canHideAuthor || hasFaces) ? `<span class="fb-post-toggles">
+        ${canHideAuthor ? `<button class="fb-post-hide" type="button" data-act="hide-author" data-author="${fbEscape(post.user_id)}" title="Hide posts from ${fbEscape(authorName)}" aria-label="Hide posts from ${fbEscape(authorName)}">✕</button>` : ''}
+        ${hasFaces ? `${postFaceAnimSwitch(post.id, faceOff)}${postRxSoundSwitch(post.id, rxSoundOn(post.id))}` : ''}
+      </span>` : ''}
     </div>
     ${post.content ? `<div class="fb-post-text">${fbEscape(post.content)}</div>` : ''}
     ${ctx.shared ? postSharedHtml(ctx.shared, ctx.users) : ''}
@@ -338,7 +364,7 @@ Posts.card = function (post, ctx) {
       <button class="fb-post-act" type="button" data-act="share"><span aria-hidden="true">↗</span><span>Share</span></button>
     </div>
     <div class="fb-comments">
-      ${comments.map(c => postCommentHtml(c, ctx)).join('')}
+      ${comments.filter(c => !c.parent_id).map(c => postCommentHtml(c, ctx, children)).join('')}
       ${ctx.locked
         ? `<div class="fb-composer-locked"><span aria-hidden="true">🔒</span><span>Commenting unlocks once an admin approves your profile picture or video.</span></div>`
         : `<div class="fb-comment-form">
@@ -521,6 +547,26 @@ Posts.composer = function (root, opts) {
 Posts.mount = function (listEl, opts) {
   const options = opts || {};
   const viewer = options.viewer || (window.Auth && Auth.currentUser) || {};
+
+  // Friends whose posts the member chose to stop seeing on the home feed.
+  // Kept in this browser, so the feed remembers the choice next time.
+  function hiddenFriends() {
+    try {
+      const list = JSON.parse(localStorage.getItem('meday.hiddenFriends.' + (viewer.id || 'guest')) || '[]');
+      return Array.isArray(list) ? list.filter(h => h && h.id) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function saveHiddenFriends(list) {
+    try {
+      localStorage.setItem('meday.hiddenFriends.' + (viewer.id || 'guest'), JSON.stringify(list));
+    } catch { /* a blocked store only loses the choice */ }
+  }
+
+  const hiddenAtStart = hiddenFriends();
+
   const state = {
     posts: [],
     users: new Map(),
@@ -529,6 +575,8 @@ Posts.mount = function (listEl, opts) {
     commentReactions: new Map(),
     shared: new Map(),
     friendIds: null,
+    hidden: hiddenAtStart,
+    hiddenIds: new Set(hiddenAtStart.map(h => String(h.id))),
     faces: [],
     // Which reaction picker stays open until a reaction is clicked
     openPicker: null,
@@ -585,6 +633,8 @@ Posts.mount = function (listEl, opts) {
       openPicker: state.openPicker,
       postId: String(post.id),
       postOwnerId: String(post.user_id),
+      friendsOnly: !!options.friendsOnly,
+      friendIds: state.friendIds,
       locked: ReadOnlyMode.active()
     };
   }
@@ -592,7 +642,15 @@ Posts.mount = function (listEl, opts) {
   // "Only me" stays private, "Friends" shows to accepted friends of the author
   function visibleToViewer(post) {
     const audience = post.audience || 'public';
-    if (audience === 'public' || String(post.user_id) === String(viewer.id)) return true;
+    const authorId = String(post.user_id);
+    const own = !!viewer.id && authorId === String(viewer.id);
+    // The home feed shows the member's own posts and their friends' posts only,
+    // minus the friends whose posts they chose to hide
+    if (options.friendsOnly && viewer.id && !own) {
+      if (!state.friendIds || !state.friendIds.has(authorId)) return false;
+      if (state.hiddenIds.has(authorId)) return false;
+    }
+    if (audience === 'public' || own) return true;
     if (audience === 'friends') {
       // A visitor who is not signed in only sees public posts
       if (!viewer.id) return false;
@@ -719,8 +777,11 @@ Posts.mount = function (listEl, opts) {
       && active.closest('.fb-comment-form, .fb-comment-edit'));
     if (!spotlightPost || !spotlightPost.isConnected) spotlightPost = focusedPost();
     clearSpotlightMark();
-    // A post without comments has nothing to highlight — just wait for one
-    const comments = spotlightPost ? Array.from(spotlightPost.querySelectorAll('.fb-comment')) : [];
+    // A post without comments has nothing to highlight — just wait for one.
+    // Only the top-level comments take turns; replies stay unlit under them.
+    const comments = spotlightPost
+      ? Array.from(spotlightPost.querySelectorAll('.fb-comments > .fb-comment'))
+      : [];
     if (!comments.length) {
       spotlightTimer = setTimeout(spotlightNext, COMMENT_SPOTLIGHT_MS);
       return;
@@ -787,6 +848,48 @@ Posts.mount = function (listEl, opts) {
     }, { passive: true });
   }
 
+  // ---------- Hiding and restoring a friend's posts ----------
+
+  function hideAuthorPosts(postId) {
+    const post = findPost(postId);
+    if (!post) return;
+    const authorId = String(post.user_id);
+    const member = state.users.get(authorId);
+    const name = (member && (member.full_name || member.username)) || post.author_name || 'this friend';
+    if (!state.hiddenIds.has(authorId)) {
+      state.hiddenIds.add(authorId);
+      state.hidden.push({ id: authorId, name });
+      saveHiddenFriends(state.hidden);
+    }
+    renderAll();
+    showToast(`Hiding ${name}'s posts — restore them at the top of your feed`, 'success', 4000);
+  }
+
+  function showAuthorPosts(authorId) {
+    const id = String(authorId);
+    const row = state.hidden.find(h => String(h.id) === id);
+    state.hidden = state.hidden.filter(h => String(h.id) !== id);
+    state.hiddenIds.delete(id);
+    saveHiddenFriends(state.hidden);
+    renderAll();
+    showToast(`${(row && row.name) || 'That friend'}'s posts are back`, 'success');
+  }
+
+  // The "restore" list that sits at the top of the home feed
+  function hiddenStrip() {
+    if (!options.friendsOnly || !state.hidden.length) return '';
+    return `<div class="fb-card fb-hidden-strip">
+      <span class="fb-hidden-strip-label">Hidden friends (${state.hidden.length})</span>
+      <span class="fb-hidden-strip-list">${state.hidden.map(h => `
+        <button type="button" data-act="show-author" data-author="${fbEscape(h.id)}" title="See ${fbEscape(h.name)}'s posts again">↩ ${fbEscape(h.name)}</button>
+      `).join('')}</span>
+    </div>`;
+  }
+
+  const emptyFeedHtml = options.friendsOnly
+    ? '<div class="fb-card fb-feed-empty">No posts from your friends yet. Add friends from the Friends tab to see their posts here.</div>'
+    : '';
+
   function renderAll() {
     const q = state.query.trim().toLowerCase();
     const shown = state.posts.filter(visibleToViewer).filter(p => !q
@@ -794,9 +897,9 @@ Posts.mount = function (listEl, opts) {
     // Stop the videos of the cards being replaced: a detached video keeps
     // playing its sound until it is paused by name
     stopVideoReactions();
-    listEl.innerHTML = shown.length
+    listEl.innerHTML = hiddenStrip() + (shown.length
       ? shown.map(p => Posts.card(p, ctxFor(p))).join('')
-      : (options.emptyHtml || '');
+      : (options.emptyHtml || emptyFeedHtml));
     startVideoReactions();
     startCommentSpotlight();
   }
@@ -885,7 +988,9 @@ Posts.mount = function (listEl, opts) {
     const friendsPromise = loadFriendIds();
     const facesPromise = loadReactionMedia();
 
-    let query = sb.from('posts').select('*').order('created_at', { ascending: false }).limit(options.limit || 30);
+    // The home feed drops non-friends' posts, so it reads a little deeper
+    let query = sb.from('posts').select('*').order('created_at', { ascending: false })
+      .limit(options.limit || (options.friendsOnly ? 60 : 30));
     if (options.authorId) query = query.eq('user_id', options.authorId);
     const { data: rows, error } = await query;
     state.friendIds = await friendsPromise;
@@ -1010,18 +1115,41 @@ Posts.mount = function (listEl, opts) {
     await refreshCard(postId);
   }
 
-  async function addComment(postId, input) {
+  // The reply box of one comment, never one belonging to a reply inside it
+  const REPLY_BOX = ':scope > .fb-comment-main > .fb-comment-reply-form';
+
+  // Opens a small reply box under the comment the member answered
+  function openReplyBox(commentEl) {
+    const open = commentEl.querySelector(REPLY_BOX);
+    if (open) {
+      open.querySelector('input').focus();
+      return;
+    }
+    const form = document.createElement('div');
+    form.className = 'fb-comment-form fb-comment-reply-form';
+    form.innerHTML = `<div class="fb-comment-box">
+        <input class="fb-comment-input" type="text" data-reply-input placeholder="Write a reply…" aria-label="Write a reply">
+        <button class="fb-comment-send" type="button" data-act="send-reply" aria-label="Send reply">➤</button>
+      </div>`;
+    commentEl.querySelector('.fb-comment-main').appendChild(form);
+    form.querySelector('input').focus();
+  }
+
+  async function addComment(postId, input, parentId) {
     const body = input.value.trim();
     if (!body) return;
     if (!viewer.id) return showToast('Log in to comment', '', 4000);
-    const { error } = await sb.from('post_comments').insert([{
+    const row = {
       post_id: postId,
       user_id: viewer.id,
       user_name: viewer.full_name || viewer.username,
       body
-    }]);
+    };
+    if (parentId) row.parent_id = parentId;
+    const { error } = await sb.from('post_comments').insert([row]);
     if (error) return showToast('Could not add your comment', 'error');
     await refreshCard(postId);
+    if (parentId) return;
     const fresh = listEl.querySelector(`[data-post="${postId}"] [data-comment-input]`);
     if (fresh) fresh.focus();
   }
@@ -1339,7 +1467,7 @@ Posts.mount = function (listEl, opts) {
     // A member waiting for approval reads the feed, but cannot react, comment or share
     const actName = guarded ? (guarded.dataset.act || '') : '';
     const readOnlyAct = guarded && !guarded.classList.contains('fb-reaction-option')
-      && (/^toggle-/.test(actName) || actName === 'focus-comment' || actName === 'react-picker');
+      && (/^toggle-/.test(actName) || actName === 'focus-comment' || actName === 'show-author');
     if (guarded && !readOnlyAct && ReadOnlyMode.block('Reacting, commenting and sharing')) {
       e.preventDefault();
       return;
@@ -1358,11 +1486,15 @@ Posts.mount = function (listEl, opts) {
 
     const act = e.target.closest('[data-act]');
     if (!act) return;
+    // The restore list lives above the posts, outside any post card
+    if (act.dataset.act === 'show-author') return showAuthorPosts(act.dataset.author);
     const postEl = act.closest('[data-post]');
     if (!postEl) return;
     const postId = postEl.dataset.post;
     const commentEl = act.closest('[data-comment]');
     const kind = act.dataset.act;
+
+    if (kind === 'hide-author') return hideAuthorPosts(postId);
 
     if (kind === 'add-face') return addOwnReaction(postId, commentEl ? commentEl.dataset.comment : null);
     if (kind === 'remove-face') return removeOwnReaction(act);
@@ -1395,6 +1527,12 @@ Posts.mount = function (listEl, opts) {
       if (input) await addComment(postId, input);
       return;
     }
+    if (kind === 'reply-comment' && commentEl) return openReplyBox(commentEl);
+    if (kind === 'send-reply' && commentEl) {
+      const input = commentEl.querySelector(REPLY_BOX + ' [data-reply-input]');
+      if (input) await addComment(postId, input, commentEl.dataset.comment);
+      return;
+    }
     if (kind === 'edit-comment' && commentEl) return editComment(postId, commentEl);
     if (kind === 'delete-comment' && commentEl) return deleteComment(postId, commentEl.dataset.comment);
     if (kind === 'share') {
@@ -1404,12 +1542,20 @@ Posts.mount = function (listEl, opts) {
   });
 
   listEl.addEventListener('keydown', e => {
-    const input = e.target.closest('[data-comment-input]');
+    // A comment or a reply is sent with Enter, the way the send button sends it
+    const input = e.target.closest('[data-comment-input], [data-reply-input]');
     if (!input) return;
     const postEl = input.closest('[data-post]');
-    if (e.key === 'Enter') {
+    const commentEl = input.closest('[data-comment]');
+    const isEnter = e.key === 'Enter' || e.keyCode === 13;
+    if (isEnter && !e.isComposing) {
       e.preventDefault();
-      if (postEl) addComment(postEl.dataset.post, input);
+      if (!postEl) return;
+      if (input.hasAttribute('data-reply-input') && commentEl) {
+        addComment(postEl.dataset.post, input, commentEl.dataset.comment);
+      } else {
+        addComment(postEl.dataset.post, input);
+      }
     } else if (e.key === 'Escape') {
       input.value = '';
       input.blur();

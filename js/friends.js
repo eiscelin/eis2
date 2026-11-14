@@ -91,6 +91,19 @@ window.Friends = (function () {
     emit();
   }
 
+  // Followers: a member's friends are their followers, so the count is simply
+  // how many accepted friend requests involve them. Nobody can follow without
+  // being a friend, and there is no follow button.
+  async function countFollowers(userId) {
+    if (!sb || userId == null) return 0;
+    const { data, error } = await sb.from('friend_requests')
+      .select('id')
+      .eq('status', 'accepted')
+      .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`);
+    if (error) return 0;
+    return (data || []).length;
+  }
+
   // ---------- Sending and answering ----------
 
   async function send(targetId) {
@@ -188,15 +201,18 @@ window.Friends = (function () {
     const head = panel.querySelector('.fb-notif-head h3');
     const body = panel.querySelector('.fb-notif-body');
 
+    // The badge counts the friend requests plus the unread replies to my comments
     function paint() {
       const count = incoming().length;
-      badge.textContent = count > 99 ? '99+' : String(count);
-      badge.hidden = !count;
+      const total = count + (window.CommentNotif ? window.CommentNotif.unread() : 0);
+      badge.textContent = total > 99 ? '99+' : String(total);
+      badge.hidden = !total;
       head.textContent = count ? `Friend requests (${count})` : 'Friend requests';
       body.innerHTML = requestRowsHTML();
     }
 
     document.addEventListener('friends:changed', paint);
+    document.addEventListener('comment-notif:changed', paint);
     badge.hidden = true;
     body.innerHTML = requestRowsHTML();
 
@@ -252,6 +268,7 @@ window.Friends = (function () {
     act,
     incoming,
     statusWith,
+    countFollowers,
     label,
     isLocked,
     media,

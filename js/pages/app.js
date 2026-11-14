@@ -47,7 +47,6 @@ Pages.app = async function (el, startTab) {
   const navItems = [
     { id: 'home', icon: '🏠', label: 'Home' },
     { id: 'friends', icon: '👥', label: 'Friends' },
-    { id: 'messages', icon: '💬', label: 'Messages' },
     { id: 'profile', icon: '👤', label: 'Profile' }
   ];
 

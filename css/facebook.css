@@ -223,22 +223,31 @@ body.fb-searching { overflow: hidden; }
 .fb-search-clear:hover { background: var(--fb-hover); }
 .fb-search-empty { padding: 0.5rem 1rem 1rem; color: var(--fb-muted); font-size: 0.85rem; }
 
-.fb-topbar-center { display: flex; align-items: center; justify-content: center; gap: 0.25rem; flex: 1 1 0; }
+.fb-topbar-center { display: flex; align-items: center; justify-content: center; gap: 0.45rem; flex: 1 1 0; }
+/* Phones park the Customer Service button in the strip between search and the
+   right-hand icons; wider screens leave the slot empty */
+.fb-topbar-slot { display: none; flex: 1 1 auto; justify-content: center; align-items: center; min-width: 0; }
 
 .fb-tab {
-  width: 108px; height: 48px;
+  width: 64px; height: 38px;
   display: flex; align-items: center; justify-content: center;
   border-radius: 8px;
-  background: transparent;
-  color: var(--fb-muted);
-  font-size: 1.2rem;
+  color: #fff;
+  font-size: 1.05rem;
   position: relative;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22), 0 2px 8px rgba(0, 0, 0, 0.35);
+  transition: filter 0.15s ease, transform 0.15s ease;
 }
-.fb-tab:hover { background: var(--fb-elevated); }
-.fb-tab.active { color: var(--fb-blue-hover); }
+/* One vivid colour per section so each button is easy to spot */
+.fb-tab[data-tab="home"] { background: linear-gradient(135deg, #ff9f1c, #d81b60); }
+.fb-tab[data-tab="friends"] { background: linear-gradient(135deg, #2dd4bf, #047857); }
+.fb-tab[data-tab="profile"] { background: linear-gradient(135deg, #ff4fa3, #8e0e63); }
+.fb-tab[data-tab="admin"] { background: linear-gradient(135deg, #facc15, #b45309); }
+.fb-tab:hover { filter: brightness(1.15); transform: translateY(-1px); }
+.fb-tab.active { box-shadow: inset 0 0 0 2px #fff, 0 4px 14px rgba(0, 0, 0, 0.45); }
 .fb-tab.active::after {
-  content: ''; position: absolute; left: 0.4rem; right: 0.4rem; bottom: -4px;
-  height: 3px; border-radius: 3px 3px 0 0; background: var(--fb-blue-hover);
+  content: ''; position: absolute; left: 0.5rem; right: 0.5rem; bottom: -5px;
+  height: 3px; border-radius: 3px 3px 0 0; background: #fff;
 }
 
 .fb-icon-btn {
@@ -740,6 +749,8 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
 .fb-profile-id { padding-bottom: 0.6rem; min-width: 0; }
 .fb-profile-name { font-size: 2rem; font-weight: 800; line-height: 1.15; color: var(--fb-text); }
 .fb-profile-meta { color: var(--fb-muted); font-size: 0.92rem; margin-top: 0.2rem; }
+/* The follower count beside the name stands out in vivid white */
+.fb-profile-meta .fb-followers { color: #fff; font-weight: 700; font-size: 1.1rem; }
 .fb-profile-actions { position: relative; display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .fb-profile-head > .fb-profile-actions { margin-left: auto; padding-bottom: 0.7rem; }
 
@@ -799,7 +810,16 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
 .fb-detail-list li .ico { width: 22px; text-align: center; color: var(--fb-muted); }
 .fb-detail-list li .k { color: var(--fb-muted); }
 
-.fb-friends-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; padding: 0.25rem 0.75rem 0.85rem; }
+/* Friends stay inside a scrollable panel so every card is reachable */
+.fb-friends-grid {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem;
+  padding: 0.25rem 0.75rem 0.85rem;
+  max-height: 420px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--fb-elevated) transparent;
+}
 .fb-friend { display: block; border-radius: 8px; overflow: hidden; background: transparent; text-align: left; padding: 0; border: none; text-decoration: none; color: inherit; }
 .fb-friend:hover .fb-friend-img { filter: brightness(1.12); }
 .fb-friend-img {
@@ -814,7 +834,6 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
 .fb-friend-img img, .fb-friend-img video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .fb-friend-name { font-size: 0.8rem; font-weight: 600; color: var(--fb-text); margin-top: 0.35rem; line-height: 1.25;
   overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
-.fb-friend-meta { font-size: 0.72rem; color: var(--fb-muted); text-transform: capitalize; }
 
 /* Profile photo and video gallery */
 .fb-gallery-count { color: var(--fb-muted); font-weight: 500; font-size: 0.85rem; }
@@ -890,16 +909,33 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
   .fb-gallery-next { right: 0.35rem; }
 }
 
-/* "People you may know" rail */
-.fb-people-scroll {
-  display: flex; gap: 0.65rem;
-  padding: 0.35rem 0.9rem 1rem;
-  overflow-x: auto;
-  scrollbar-width: none;
+/* Username search above "People you may know" */
+.fb-people-search { padding: 0 0.9rem 0.55rem; }
+.fb-people-search input {
+  width: 100%;
+  padding: 0.5rem 0.9rem;
+  border: none; outline: none;
+  border-radius: 999px;
+  background: var(--fb-elevated);
+  color: var(--fb-text); font: inherit; font-size: 0.9rem;
 }
-.fb-people-scroll::-webkit-scrollbar { display: none; }
+.fb-people-search input::placeholder { color: var(--fb-muted); }
+
+/* The results stay out of the way until the member searches */
+.fb-people-scroll:empty { display: none; }
+
+/* "People you may know" grid — scrollable so every search result is reachable */
+.fb-people-scroll {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.65rem;
+  padding: 0.35rem 0.9rem 1rem;
+  max-height: 420px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--fb-elevated) transparent;
+}
 .fb-person {
-  flex: 0 0 148px;
+  min-width: 0;
   border: 1px solid var(--fb-line);
   border-radius: 10px;
   overflow: hidden;
@@ -912,9 +948,8 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
   background: linear-gradient(135deg, #2f6fce, #14396f);
 }
 .fb-person-body { padding: 0.5rem 0.6rem 0.7rem; }
-.fb-person-name { font-size: 0.85rem; font-weight: 700; color: var(--fb-text); line-height: 1.25;
+.fb-person-name { font-size: 0.85rem; font-weight: 700; color: var(--fb-text); line-height: 1.25; margin-bottom: 0.5rem;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fb-person-meta { font-size: 0.73rem; color: var(--fb-muted); margin-bottom: 0.5rem; text-transform: capitalize; }
 .fb-person-btn { width: 100%; padding: 0.4rem; border-radius: 6px; background: var(--fb-blue); color: #fff; font-size: 0.8rem; font-weight: 600; }
 .fb-person-btn:hover { background: var(--fb-blue-hover); }
 /* A member's picture (photo or video) fills the card and opens their profile */
@@ -927,6 +962,11 @@ a.fb-person-img:hover { filter: brightness(1.1); }
 
 /* Friend requests: bell in the top bar and the panel it opens */
 .fb-notif-btn { position: relative; }
+/* The bell is a big polished-silver icon instead of a tiny emoji */
+.fb-bell {
+  width: 26px; height: 26px; display: block;
+  filter: drop-shadow(0 0 5px rgba(226, 232, 240, 0.55)) drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5));
+}
 .fb-notif-badge {
   position: absolute; top: 1px; right: 1px;
   min-width: 18px; height: 18px; padding: 0 5px;
@@ -976,6 +1016,28 @@ a.fb-person-img:hover { filter: brightness(1.1); }
 .fb-request-actions { display: flex; gap: 0.4rem; }
 .fb-request-actions .fb-btn { padding: 0.35rem 0.8rem; font-size: 0.8rem; }
 
+/* Replies to my comments, listed under the friend requests in the same bell */
+.fb-notif-replies {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  border-top: 1px solid var(--fb-line-soft); padding-bottom: 0.4rem;
+}
+.fb-notif-subhead {
+  padding: 0.6rem 0.9rem 0.35rem;
+  font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--fb-muted);
+}
+.fb-reply-notif { display: flex; gap: 0.6rem; padding: 0.55rem 0.9rem; text-decoration: none; color: inherit; }
+.fb-reply-notif:hover { background: var(--fb-elevated); }
+.fb-reply-notif .fb-avatar-xs { flex-shrink: 0; }
+.fb-reply-notif-body { min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+.fb-reply-notif-name { font-size: 0.9rem; font-weight: 700; color: var(--fb-text); }
+.fb-reply-notif-meta { font-size: 0.74rem; color: var(--fb-muted); }
+.fb-reply-notif-text { font-size: 0.84rem; color: var(--fb-text); overflow-wrap: anywhere; }
+.fb-reply-notif-parent {
+  font-size: 0.76rem; color: var(--fb-muted); overflow-wrap: anywhere;
+  border-left: 2px solid var(--fb-line); padding-left: 0.4rem; margin-top: 0.1rem;
+}
+
 @media (max-width: 900px) {
   .fb-notif-panel { top: 54px; right: 8px; }
 }
@@ -1001,6 +1063,26 @@ a.fb-person-img:hover { filter: brightness(1.1); }
 .fb-post-head { display: flex; align-items: center; gap: 0.6rem; }
 /* Grow/sound switches live in the post head, clear of the growing reactions */
 .fb-post-toggles { margin-left: auto; display: inline-flex; align-items: center; gap: 0.1rem; flex-shrink: 0; }
+/* Stop seeing a friend's posts from the home feed */
+.fb-post-hide {
+  width: 28px; height: 28px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%; background: var(--fb-elevated); color: var(--fb-muted);
+  font-size: 0.78rem; font-weight: 700;
+}
+.fb-post-hide:hover { background: rgba(240, 40, 73, 0.18); color: #ff7a8f; }
+
+/* Restore list at the top of the home feed */
+.fb-hidden-strip { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem; padding: 0.55rem 0.85rem; }
+.fb-hidden-strip-label { font-size: 0.76rem; font-weight: 700; color: var(--fb-muted); }
+.fb-hidden-strip-list { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.fb-hidden-strip-list button {
+  padding: 0.26rem 0.6rem; border-radius: 999px;
+  background: var(--fb-elevated); color: var(--fb-text);
+  font-size: 0.78rem; font-weight: 600;
+}
+.fb-hidden-strip-list button:hover { background: var(--fb-hover); color: var(--fb-blue-hover); }
+.fb-feed-empty { padding: 1.1rem; text-align: center; color: var(--fb-muted); font-size: 0.9rem; }
 .fb-post-name { font-weight: 700; font-size: 0.93rem; color: var(--fb-text); }
 .fb-post-time { font-size: 0.76rem; color: var(--fb-muted); }
 .fb-post-body { padding: 0.6rem 0 0.7rem; font-size: 0.93rem; line-height: 1.45; color: var(--fb-text); }
@@ -2100,6 +2182,18 @@ a.admin-tool { text-decoration: none; display: inline-flex; align-items: center;
     justify-content: center; font-size: 1rem;
   }
   .fb-support.dock-compact .fb-support-label { display: none; }
+  /* Slot mode: the button is a real child of the top bar, centred between the
+     search button and the icons on the right */
+  .fb-topbar-slot { display: flex; }
+  .fb-support.dock-slot { position: relative; top: auto; right: auto; display: flex; align-items: center; }
+  /* ... and keeps its full "Customer Service" label instead of a bare icon */
+  .fb-support.dock-slot .fb-support-fab {
+    width: auto; max-width: 100%; height: 34px; padding: 0 0.6rem; border-radius: 999px;
+    gap: 0.3rem; font-size: 0.7rem; white-space: nowrap;
+  }
+  .fb-support.dock-slot .fb-support-label { display: inline; overflow: hidden; text-overflow: ellipsis; }
+  .fb-support.dock-slot .fb-support-panel { top: 64px; }
+  .fb-bell { width: 28px; height: 28px; }
   .fb-support.dock-compact .fb-support-panel {
     position: fixed; left: 0.75rem; right: 0.75rem; width: auto;
     top: calc(var(--sup-top, 0.5rem) + 50px); bottom: auto;
@@ -2485,36 +2579,44 @@ a.fb-post-name:hover { text-decoration: underline; }
 .fb-comment-name { display: block; font-size: 0.8rem; font-weight: 700; color: var(--fb-text); text-decoration: none; }
 .fb-comment-name:hover { text-decoration: underline; }
 .fb-comment-body { font-size: 0.9rem; line-height: 1.35; color: var(--fb-text); white-space: pre-wrap; overflow-wrap: anywhere; }
-/* One comment at a time is spotlit — red with white text — so a comment buried
-   deep in a long thread is still easy to read. It stays up for 10 seconds. */
-.fb-comment.fb-comment-spotlight .fb-comment-bubble {
+/* One comment at a time is spotlit — yellow green with dark text — so a comment
+   buried deep in a long thread is still easy to read. It stays up for 10 seconds. */
+.fb-comment.fb-comment-spotlight > .fb-comment-main > .fb-comment-bubble {
   display: block; width: 100%; max-width: 100%;
   padding: 0.7rem 0.95rem; border-radius: 14px;
-  background: #c62828; color: #fff;
-  box-shadow: 0 8px 24px rgba(198, 40, 40, 0.45);
+  background: #9acd32; color: #1b2a00;
+  box-shadow: 0 8px 24px rgba(154, 205, 50, 0.45);
   /* A single short pulse when the comment lights up: a long running shadow
      animation repaints on every frame and makes phones stutter */
   animation: fbCommentSpotlight 0.7s ease-out;
 }
 /* The spotlit comment's text doubles in size so it is easy to read at a glance */
-.fb-comment.fb-comment-spotlight .fb-comment-name,
-.fb-comment.fb-comment-spotlight .fb-comment-body { color: #fff; }
-.fb-comment.fb-comment-spotlight .fb-comment-name { font-size: 1.6rem; }
-.fb-comment.fb-comment-spotlight .fb-comment-body {
+.fb-comment.fb-comment-spotlight > .fb-comment-main > .fb-comment-bubble > .fb-comment-name,
+.fb-comment.fb-comment-spotlight > .fb-comment-main > .fb-comment-bubble > .fb-comment-body { color: #1b2a00; }
+.fb-comment.fb-comment-spotlight > .fb-comment-main > .fb-comment-bubble > .fb-comment-name { font-size: 1.6rem; }
+.fb-comment.fb-comment-spotlight > .fb-comment-main > .fb-comment-bubble > .fb-comment-body {
   font-size: 1.8rem; line-height: 1.45;
   white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word;
   max-height: none; overflow: visible;
 }
-.fb-comment.fb-comment-spotlight .fb-comment-reactions {
-  background: rgba(0, 0, 0, 0.24); color: #fff; box-shadow: none;
+.fb-comment.fb-comment-spotlight > .fb-comment-main > .fb-comment-bubble > .fb-comment-reactions {
+  background: rgba(0, 0, 0, 0.16); color: #1b2a00; box-shadow: none;
 }
 @keyframes fbCommentSpotlight {
-  0%, 100% { box-shadow: 0 8px 24px rgba(198, 40, 40, 0.45); }
-  6% { box-shadow: 0 8px 28px rgba(198, 40, 40, 0.6), 0 0 0 4px rgba(220, 38, 38, 0.35); }
+  0%, 100% { box-shadow: 0 8px 24px rgba(154, 205, 50, 0.45); }
+  6% { box-shadow: 0 8px 28px rgba(154, 205, 50, 0.6), 0 0 0 4px rgba(180, 230, 70, 0.4); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .fb-comment.fb-comment-spotlight .fb-comment-bubble { animation: none; }
+  .fb-comment.fb-comment-spotlight > .fb-comment-main > .fb-comment-bubble { animation: none; }
 }
+/* A reply sits indented under the comment it answers, and never takes a turn
+   in the highlight loop */
+.fb-comment-replies { margin-top: 0.45rem; padding-left: 0.65rem; border-left: 2px solid var(--fb-line); }
+.fb-comment-replies .fb-comment { margin-top: 0.4rem; }
+/* Deeper turns of a thread indent a little less, so the text keeps its room */
+.fb-comment-replies .fb-comment-replies { padding-left: 0.45rem; }
+.fb-comment-reply-form { margin-top: 0.5rem; }
+.fb-comment-replies .fb-comment-body { font-size: 0.86rem; }
 .fb-comment-reactions {
   display: inline-flex; align-items: center; gap: 0.3rem; margin-top: 0.3rem;
   padding: 0.05rem 0.4rem; border-radius: 999px;
@@ -2551,6 +2653,12 @@ a.fb-post-name:hover { text-decoration: underline; }
 
 /* Feed stacks its cards; the profile tab lists posts inside one card */
 .fb-feed #feedList, .fb-feed #feedAnnouncements { display: flex; flex-direction: column; gap: 0.75rem; }
+/* Pinned office announcements sit above the composer on every home page */
+.fb-feed #feedAnnouncements[hidden] { display: none; }
+.fb-feed #feedAnnouncements .fb-post-card { border: 1px solid var(--fb-blue); }
+/* Keep the announcement header, IMPORTANT badge and message tight together */
+.fb-feed #feedAnnouncements .fb-post-head { padding-bottom: 0; align-items: center; }
+.fb-feed #feedAnnouncements .fb-post-text { padding-top: 0.3rem; padding-bottom: 0.6rem; }
 .fb-profile #pfComposer { border-bottom: 1px solid var(--fb-line); }
 .fb-profile #pfFeed { display: block; }
 .fb-profile #pfFeed .fb-post-card {
@@ -2560,6 +2668,11 @@ a.fb-post-name:hover { text-decoration: underline; }
 .fb-profile #pfFeed .fb-post-card:first-child { border-top: none; }
 
 @media (max-width: 640px) {
+  /* The lit-up comment box keeps its whole width on the phone screen, even
+     when the card it sits in is wider than the screen */
+  .fb-comment.fb-comment-spotlight > .fb-comment-main > .fb-comment-bubble {
+    width: auto; box-sizing: border-box; max-width: calc(100vw - 5rem);
+  }
   .fb-post-card .fb-post-head { padding: 0.8rem 0.85rem 0.3rem; }
   .fb-post-text { padding: 0.3rem 0.85rem 0.65rem; }
   .fb-post-actions { margin: 0 0.85rem; }

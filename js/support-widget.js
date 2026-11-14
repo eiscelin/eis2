@@ -110,6 +110,20 @@
     const bar = document.querySelector('.fb-topbar');
     const cover = document.querySelector('.fb-cover');
     const rect = bar ? bar.getBoundingClientRect() : null;
+    const slot = bar ? bar.querySelector('#fbSupportSlot') : null;
+    // Phones: ride inside the top bar's vacant strip, between search and the
+    // icons on the right, so the button always lines up with them
+    if (slot && window.innerWidth <= 900) {
+      root.classList.add('dock-bar', 'dock-compact', 'dock-slot');
+      root.classList.remove('dock-cover');
+      root.style.removeProperty('--sup-left');
+      root.style.removeProperty('--sup-right');
+      root.style.removeProperty('--sup-top');
+      if (root.parentElement !== slot) slot.appendChild(root);
+      return;
+    }
+    if (root.parentElement !== document.body) document.body.appendChild(root);
+    root.classList.remove('dock-slot');
     if (rect && rect.height) {
       const narrow = window.innerWidth <= 900;
       root.classList.add('dock-bar');
