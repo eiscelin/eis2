@@ -22,11 +22,11 @@
   /* Thick frosted glass: the dark panels that carry text stay see-through,
      the wide blur keeps the words crisp, a lit top rim plus a soft sheen read
      as the pane's depth, and a deep drop shadow lifts it off the page */
-  --fb-glass: rgba(30, 32, 36, 0.06);
-  --fb-glass-strong: rgba(18, 20, 24, 0.30);
+  --fb-glass: rgba(28, 30, 34, 0.03);
+  --fb-glass-strong: rgba(16, 18, 22, 0.24);
   --fb-glass-edge: rgba(255, 255, 255, 0.32);
-  --fb-glass-blur: blur(11px) saturate(145%) brightness(1.02);
-  --fb-glass-sheen: linear-gradient(162deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.04) 36%, rgba(255, 255, 255, 0) 64%);
+  --fb-glass-blur: blur(6px) saturate(130%);
+  --fb-glass-sheen: linear-gradient(162deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.03) 36%, rgba(255, 255, 255, 0) 64%);
   --fb-glass-rim:
     inset 0 1px 0 rgba(255, 255, 255, 0.34),
     inset 0 -1px 0 rgba(255, 255, 255, 0.10),
