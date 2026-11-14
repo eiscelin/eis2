@@ -18,9 +18,8 @@ Pages.landing = function(el) {
       </header>
 
       <div class="fb-profile landing-profile">
-        <div class="fb-cover">
-          <div class="fb-cover-text">${fbEscape(brand.name.toUpperCase())}</div>
-          <span class="fb-cover-badge">Social network</span>
+        <div class="fb-cover fb-cover--media">
+          <img class="fb-cover-media" src="/img/landing-cover.jpg" alt="${fbEscape(brand.name)} features">
         </div>
 
         <div class="fb-profile-head">
