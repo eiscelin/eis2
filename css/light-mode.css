@@ -17,6 +17,27 @@ html[data-theme="light"] {
   --fb-blue-soft: rgba(24, 119, 242, 0.1);
 
   /* The base app tokens follow the light shell */
+  /* Thick frosted glass, light flavour: milky panes with a bright top rim
+     and a fine dark edge so the depth reads against a pale page */
+  --fb-glass: rgba(255, 255, 255, 0.10);
+  --fb-glass-strong: rgba(255, 255, 255, 0.52);
+  --fb-glass-edge: rgba(15, 23, 42, 0.20);
+  --fb-glass-sheen:
+    linear-gradient(162deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.12) 38%, rgba(255, 255, 255, 0) 66%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(15, 23, 42, 0.05));
+  --fb-glass-rim:
+    inset 0 2px 1px -1px rgba(255, 255, 255, 0.55),
+    inset 1px 1px 0 rgba(255, 255, 255, 0.32),
+    inset -1px 1px 0 rgba(255, 255, 255, 0.26),
+    inset 0 -2px 1px -1px rgba(15, 23, 42, 0.16),
+    inset 0 16px 24px -20px rgba(255, 255, 255, 0.45),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+  --fb-glass-shadow:
+    0 40px 84px -18px rgba(15, 23, 42, 0.28),
+    0 18px 36px rgba(15, 23, 42, 0.14),
+    0 3px 8px rgba(15, 23, 42, 0.10);
+  --fb-stage: var(--fb-bg);
+
   --dark-bg: #f0f2f5;
   --dark-card: #ffffff;
   --light-bg: #f0f2f5;

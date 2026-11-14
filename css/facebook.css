@@ -19,6 +19,32 @@
   --fb-green: #45bd62;
   --fb-radius: 10px;
 
+  /* Thick frosted glass: the dark panels that carry text stay see-through,
+     the wide blur keeps the words crisp, a lit top rim plus a soft sheen read
+     as the pane's depth, and a deep drop shadow lifts it off the page */
+  --fb-glass: rgba(28, 30, 34, 0.01);
+  --fb-glass-strong: rgba(16, 18, 22, 0.24);
+  --fb-glass-edge: rgba(255, 255, 255, 0.26);
+  --fb-glass-blur: blur(1.5px) saturate(115%);
+  --fb-glass-sheen:
+    linear-gradient(162deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.03) 34%, rgba(255, 255, 255, 0) 62%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.10));
+  --fb-glass-rim:
+    inset 0 2px 1px -1px rgba(255, 255, 255, 0.34),
+    inset 1px 1px 0 rgba(255, 255, 255, 0.12),
+    inset -1px 1px 0 rgba(255, 255, 255, 0.09),
+    inset 0 -2px 1px -1px rgba(0, 0, 0, 0.55),
+    inset 0 16px 24px -20px rgba(255, 255, 255, 0.26),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+  --fb-glass-shadow:
+    0 40px 90px -18px rgba(0, 0, 0, 0.62),
+    0 18px 40px rgba(0, 0, 0, 0.40),
+    0 3px 8px rgba(0, 0, 0, 0.32);
+  --fb-stage:
+    radial-gradient(1100px 560px at 10% -8%, rgba(45, 136, 255, 0.14), transparent 62%),
+    radial-gradient(900px 520px at 100% 0%, rgba(242, 101, 34, 0.08), transparent 58%),
+    var(--fb-bg);
+
   /* Re-point the app's brand tokens at the Facebook look */
   --orange: #1877f2;
   --orange-dark: #2d88ff;
@@ -1046,12 +1072,16 @@ a.fb-person-img:hover { filter: brightness(1.1); }
 .fb-composer { display: flex; gap: 0.6rem; padding: 0.85rem 1rem; }
 .fb-composer input {
   flex: 1; min-width: 0;
-  background: var(--fb-elevated);
-  border: 1px solid var(--fb-line);
+  background-color: var(--fb-glass-strong);
+  background-image: var(--fb-glass-sheen);
+  border: 1px solid var(--fb-glass-edge);
   border-radius: 999px;
   color: var(--fb-text);
   padding: 0.55rem 0.9rem;
   font-size: 0.9rem;
+  -webkit-backdrop-filter: var(--fb-glass-blur);
+  backdrop-filter: var(--fb-glass-blur);
+  box-shadow: var(--fb-glass-rim);
 }
 .fb-composer input::placeholder { color: var(--fb-muted); }
 .fb-composer input:focus { outline: none; border-color: var(--fb-blue); }
@@ -1171,7 +1201,15 @@ a.fb-person-img:hover { filter: brightness(1.1); }
 }
 
 /* Create story card: my picture as the thumbnail + blue + and label */
-.fb-story-create { display: flex; flex-direction: column; background: var(--fb-card); }
+.fb-story-create {
+  display: flex; flex-direction: column;
+  background-color: var(--fb-glass-strong);
+  background-image: var(--fb-glass-sheen);
+  border: 1px solid var(--fb-glass-edge);
+  -webkit-backdrop-filter: var(--fb-glass-blur);
+  backdrop-filter: var(--fb-glass-blur);
+  box-shadow: var(--fb-glass-rim);
+}
 
 .fb-story-thumb {
   position: relative;
@@ -1179,7 +1217,7 @@ a.fb-person-img:hover { filter: brightness(1.1); }
   display: flex; align-items: center; justify-content: center;
   background:
     radial-gradient(circle at 50% 42%, rgba(45, 136, 255, 0.28), transparent 62%),
-    linear-gradient(180deg, #3a3b3c, #2b2c2d);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(0, 0, 0, 0.10));
 }
 .fb-story .fb-story-thumb-pic {
   width: 74px; height: 74px;
@@ -1194,7 +1232,7 @@ a.fb-person-img:hover { filter: brightness(1.1); }
   width: 36px; height: 36px;
   border-radius: 50%;
   background: var(--fb-blue);
-  border: 3px solid var(--fb-card);
+  border: 3px solid rgba(16, 18, 22, 0.55);
   color: #fff;
   font-size: 1.4rem; font-weight: 400; line-height: 1;
   display: flex; align-items: center; justify-content: center;
@@ -1206,7 +1244,7 @@ a.fb-person-img:hover { filter: brightness(1.1); }
   padding-bottom: 0.5rem;
   color: var(--fb-text);
   font-size: 0.76rem; font-weight: 600; line-height: 1;
-  background: var(--fb-card);
+  background: transparent;
 }
 
 /* Fullscreen story player */
@@ -2575,7 +2613,18 @@ a.fb-post-name:hover { text-decoration: underline; }
 .fb-comment { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
 .fb-comment-avatar { flex-shrink: 0; text-decoration: none; }
 .fb-comment-main { min-width: 0; flex: 1; }
-.fb-comment-bubble { display: inline-block; max-width: 100%; padding: 0.45rem 0.75rem; border-radius: 16px; background: var(--fb-elevated); }
+.fb-comment-bubble {
+  display: inline-block;
+  max-width: 100%;
+  padding: 0.45rem 0.75rem;
+  border-radius: 16px;
+  background-color: var(--fb-glass-strong);
+  background-image: var(--fb-glass-sheen);
+  border: 1px solid var(--fb-glass-edge);
+  -webkit-backdrop-filter: var(--fb-glass-blur);
+  backdrop-filter: var(--fb-glass-blur);
+  box-shadow: var(--fb-glass-rim);
+}
 .fb-comment-name { display: block; font-size: 0.8rem; font-weight: 700; color: var(--fb-text); text-decoration: none; }
 .fb-comment-name:hover { text-decoration: underline; }
 .fb-comment-body { font-size: 0.9rem; line-height: 1.35; color: var(--fb-text); white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -2584,8 +2633,13 @@ a.fb-post-name:hover { text-decoration: underline; }
 .fb-comment.fb-comment-spotlight > .fb-comment-main > .fb-comment-bubble {
   display: block; width: 100%; max-width: 100%;
   padding: 0.7rem 0.95rem; border-radius: 14px;
-  background: #9acd32; color: #1b2a00;
-  box-shadow: 0 8px 24px rgba(154, 205, 50, 0.45);
+  background-color: rgba(163, 214, 62, 0.5);
+  background-image: var(--fb-glass-sheen);
+  border: 1px solid rgba(214, 245, 140, 0.65);
+  -webkit-backdrop-filter: var(--fb-glass-blur);
+  backdrop-filter: var(--fb-glass-blur);
+  color: #1b2a00;
+  box-shadow: var(--fb-glass-rim), 0 8px 24px rgba(154, 205, 50, 0.35);
   /* A single short pulse when the comment lights up: a long running shadow
      animation repaints on every frame and makes phones stutter */
   animation: fbCommentSpotlight 0.7s ease-out;
@@ -2790,3 +2844,64 @@ a.fb-share-embed-name:hover { text-decoration: underline; }
   .fb-share-main { padding: 0.85rem; }
   .fb-share-menu { width: 220px; }
 }
+
+/* ===================== Transparent text surfaces ===================== */
+/* The black panels that carry text become frosted glass: the account
+   background shows through, the wide blur keeps every word crisp over a photo,
+   and a hairline light rim + inner highlight give each panel its edge.
+   Buttons, chips and inputs keep their solid fill so details stay noticeable. */
+.fb-card,
+.table-card,
+.dash-stat-card,
+.modal,
+.fm-card,
+.fm-section,
+.fm-stat,
+.fb-notif-panel,
+.fb-search-panel,
+.fb-share-modal,
+.fb-share-menu,
+.fb-share-embed,
+.fb-menu-panel,
+.fb-support-panel,
+.fb-person,
+.fb-gallery-card,
+.fb-stories-card,
+.fb-more-sheet,
+.chat-panel,
+.cover-editor-box,
+.fb-reaction-picker,
+.admin-card,
+.admin-stat,
+.stat-card,
+.feature-card,
+.pi-card {
+  background-color: var(--fb-glass);
+  background-image: var(--fb-glass-sheen);
+  border-color: var(--fb-glass-edge);
+  -webkit-backdrop-filter: var(--fb-glass-blur);
+  backdrop-filter: var(--fb-glass-blur);
+  box-shadow: var(--fb-glass-rim), var(--fb-glass-shadow);
+}
+.pi-card { border: 1px solid var(--fb-glass-edge); }
+
+/* Bars the text scrolls under: a touch deeper than the cards so labels stay legible */
+.fb-topbar,
+.fb-menu-head,
+.fb-menu-search,
+.fb-bottom-nav {
+  background-color: var(--fb-glass-strong);
+  background-image: var(--fb-glass-sheen);
+  border-color: var(--fb-glass-edge);
+  -webkit-backdrop-filter: var(--fb-glass-blur);
+  backdrop-filter: var(--fb-glass-blur);
+}
+.fb-topbar { box-shadow: var(--fb-glass-rim), 0 18px 40px rgba(0, 0, 0, 0.42); }
+.fb-bottom-nav { box-shadow: var(--fb-glass-rim), 0 -14px 36px rgba(0, 0, 0, 0.4); }
+
+/* A soft ambient wash sits behind the glass, so the panels read as glass even
+   before the member picks an account background picture. Their picture wins:
+   body.has-page-bg makes these surfaces transparent. */
+.fb-shell,
+.fb-account,
+.landing { background: var(--fb-stage); }
