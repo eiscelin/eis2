@@ -2186,6 +2186,12 @@ a.admin-tool { text-decoration: none; display: inline-flex; align-items: center;
      search button and the icons on the right */
   .fb-topbar-slot { display: flex; }
   .fb-support.dock-slot { position: relative; top: auto; right: auto; display: flex; align-items: center; }
+  /* ... and keeps its full "Customer Service" label instead of a bare icon */
+  .fb-support.dock-slot .fb-support-fab {
+    width: auto; max-width: 100%; height: 34px; padding: 0 0.6rem; border-radius: 999px;
+    gap: 0.3rem; font-size: 0.7rem; white-space: nowrap;
+  }
+  .fb-support.dock-slot .fb-support-label { display: inline; overflow: hidden; text-overflow: ellipsis; }
   .fb-support.dock-slot .fb-support-panel { top: 64px; }
   .fb-bell { width: 28px; height: 28px; }
   .fb-support.dock-compact .fb-support-panel {
