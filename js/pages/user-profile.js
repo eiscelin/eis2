@@ -134,7 +134,7 @@ Pages.userProfile = async function (el, username) {
         ${cover
           ? coverIsVideo
             ? `<video class="fb-cover-media" src="${fbEscape(cover)}" autoplay muted loop playsinline></video>`
-            : `<img class="fb-cover-media" src="${fbEscape(cover)}" alt="">`
+            : `<img class="fb-cover-media" src="${fbEscape(fbImageUrl(cover, 1200))}" alt="" decoding="async">`
           : `<img class="fb-cover-media" src="${FB_DEFAULT_COVER}" alt="">`}
         ${coverIsVideo
           ? '<button class="fb-cover-expand" id="upExpand" type="button" aria-label="Play the whole video with sound" title="Play the whole video with sound">⤢</button>'
@@ -146,7 +146,7 @@ Pages.userProfile = async function (el, username) {
         <div class="fb-avatar fb-profile-avatar">${avatar
           ? avatarIsVideo
             ? `<video class="fb-avatar-img" src="${fbEscape(avatar)}" autoplay muted loop playsinline></video>`
-            : `<img class="fb-avatar-img" src="${fbEscape(avatar)}" alt="${fbEscape(name)}">`
+            : `<img class="fb-avatar-img" src="${fbEscape(fbImageUrl(avatar, 200))}" alt="${fbEscape(name)}" decoding="async">`
           : fbBrandMark()}${avatar && window.AdminModerate ? AdminModerate.mediaButton('avatar', person.id) : ''}</div>
         <div class="fb-profile-id">
           <h1 class="fb-profile-name">${fbEscape(name)}</h1>

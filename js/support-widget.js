@@ -5,7 +5,10 @@
   const GUEST_NAME_KEY = 'chookee_guest_name';
   const GUEST_PHONE_KEY = 'chookee_guest_phone';
   const READ_KEY = 'chookee_support_read';
-  const POLL_MS = 5000;
+  // With the chat closed a phone only needs to know about a new message now and
+  // then; an open chat refreshes quickly
+  const POLL_OPEN_MS = 5000;
+  const POLL_CLOSED_MS = 20000;
 
   let root = null;
   let timer = null;
@@ -157,7 +160,7 @@
   }
 
   function unmount() {
-    if (timer) { clearInterval(timer); timer = null; }
+    if (timer) { clearTimeout(timer); timer = null; }
     window.removeEventListener('resize', onLayoutChange);
     window.removeEventListener('hashchange', onLayoutChange);
     if (root) { root.remove(); root = null; }
@@ -473,11 +476,14 @@
           else if (!phone && phoneInput) phoneInput.focus();
         }
       }
+      // An open chat checks for answers more often than a closed one
+      startPolling();
     }
 
     function closePanel() {
       panel.hidden = true;
       fab.setAttribute('aria-expanded', 'false');
+      startPolling();
     }
 
     function syncChatOffset() {
@@ -485,9 +491,9 @@
       root.classList.toggle('has-chat', !!document.getElementById('chatWidget'));
     }
 
-    // Watch this side's inbox so a new message badges the button and rings,
-    // even with the panel closed
-    async function watchInbox() {
+    // One inbox read answers everything the poll needs: the badge counts and
+    // the chime for a message that just landed
+    async function checkInbox() {
       const id = me();
       if (!id) return;
       let rows = [];
@@ -496,12 +502,28 @@
           .select('id, sender_id, created_at')
           .eq('receiver_id', id)
           .order('created_at', { ascending: false })
-          .limit(50);
+          .limit(100);
         rows = data || [];
       } catch {
         return;
       }
       rows = rows.filter(m => isAdmin || admins.some(a => a.id === String(m.sender_id)));
+      const counts = {};
+      rows.forEach(m => {
+        const from = String(m.sender_id || '');
+        if (!from) return;
+        const thread = isAdmin ? from : id;
+        if (new Date(m.created_at).getTime() <= lastReadAt(thread)) return;
+        counts[thread] = (counts[thread] || 0) + 1;
+      });
+      paintBadge(Object.keys(counts).reduce((sum, key) => sum + counts[key], 0));
+      list.querySelectorAll('.fb-support-person').forEach(row => {
+        const n = counts[row.dataset.cid] || 0;
+        const tag = row.querySelector('.fb-support-count');
+        if (!tag) return;
+        tag.hidden = !n;
+        tag.textContent = n > 99 ? '99+' : String(n);
+      });
       const ids = new Set(rows.map(m => String(m.id)));
       if (seen) {
         const openThread = (!panel.hidden && isAdmin && active) ? active.id : null;
@@ -509,23 +531,26 @@
         if (ring) chime();
       }
       seen = ids;
-      await refreshBadges();
     }
 
+    // The next check is scheduled by how the chat is being used, and a phone
+    // showing another app is not checked at all
     function startPolling() {
       stopPolling();
-      timer = setInterval(async () => {
-        // A phone in the background has nothing to show, so it stops asking
-        if (document.hidden) return;
-        syncChatOffset();
-        syncDock();
-        if (!panel.hidden && active) await loadThread();
-        await watchInbox();
-      }, POLL_MS);
+      const delay = panel.hidden ? POLL_CLOSED_MS : POLL_OPEN_MS;
+      timer = setTimeout(async () => {
+        timer = null;
+        if (root !== el) return;
+        if (!document.hidden) {
+          if (!panel.hidden && active) await loadThread();
+          await checkInbox();
+        }
+        if (root === el) startPolling();
+      }, delay);
     }
 
     function stopPolling() {
-      if (timer) { clearInterval(timer); timer = null; }
+      if (timer) { clearTimeout(timer); timer = null; }
     }
 
     // ---------- wiring ----------
@@ -607,7 +632,7 @@
     // The badge and the ring work from here on, with the panel closed
     (async () => {
       await loadAdmins();
-      await watchInbox();
+      await checkInbox();
       if (!root || root !== el) return;
       startPolling();
     })();

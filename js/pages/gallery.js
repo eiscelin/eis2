@@ -29,7 +29,7 @@ var ProfileGallery = {
       const video = post.media_type === 'video';
       const thumb = video
         ? `<video src="${fbEscape(post.media_url)}#t=0.1" muted playsinline preload="metadata"></video>`
-        : `<img src="${fbEscape(post.media_url)}" alt="" loading="lazy">`;
+        : `<img src="${fbEscape(fbImageUrl(post.media_url, 400))}" alt="" loading="lazy" decoding="async">`;
       const when = post.created_at ? new Date(post.created_at).toLocaleDateString() : '';
       return `<button class="fb-gallery-tile" type="button" data-index="${index}"
         aria-label="Open ${video ? 'video' : 'photo'}${when ? ' from ' + fbEscape(when) : ''}">${thumb}

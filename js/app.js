@@ -13,8 +13,14 @@ Router.register('/Register', Pages.register);
 Router.register('/App', Pages.app);
 // Own profile link opens the profile tab straight away
 Router.register('/App/Profile', (el) => Pages.app(el, 'profile'));
-// Admin panel — guarded inside Pages.admin
-Router.register('/Admin', Pages.admin);
+// Admin panel — guarded inside Pages.admin. Its two scripts are the largest in
+// the app and only admins open them, so they load when the page is visited
+Router.register('/Admin', (el) => {
+  fbLoadScript('/js/admin-member-picker.js')
+    .then(() => fbLoadScript('/js/pages/admin.js'))
+    .then(() => Pages.admin(el))
+    .catch(() => { el.innerHTML = '<div class="empty-state"><p>Could not open the admin panel. Check your connection and try again.</p></div>'; });
+});
 // Shared profile link: #/u/<username>
 Router.registerFallback(path => {
   const match = path.match(/^\/u\/([^/?#]+)$/);
