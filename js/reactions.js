@@ -53,52 +53,22 @@ Posts.videoUrl = function (type) {
   return match ? match[1] : '';
 };
 
-// Each face on a post swells and wiggles for 2 seconds, one after another.
-// One keyframe set per face count, so the loop is exactly as long as the
-// turns it holds: the next face starts the instant the previous one shrinks.
-const FB_FACE_TURNS = 6;
-(function buildFaceTurnKeyframes() {
-  let css = '';
-  for (let count = 1; count <= FB_FACE_TURNS; count += 1) {
-    const window = 100 / count;
-    const at = fraction => `${(window * fraction).toFixed(3)}%`;
-    // The growing face also lifts above the other reaction icons on the post
-    css += `@keyframes fb-rx-turn-${count}{`
-      + '0%{transform:scale(1) rotate(0deg);z-index:20}'
-      + `${at(0.18)}{transform:scale(2) rotate(-8deg);z-index:20}`
-      + `${at(0.36)}{transform:scale(4) rotate(8deg);z-index:20}`
-      + `${at(0.5)}{transform:scale(5) rotate(-6deg);z-index:20}`
-      + `${at(0.625)}{transform:scale(5) rotate(6deg);z-index:20}`
-      + `${at(0.75)}{transform:scale(5) rotate(-5deg);z-index:20}`
-      + `${at(0.875)}{transform:scale(5) rotate(4deg);z-index:20}`
-      + `${at(1)}{transform:scale(1) rotate(0deg);z-index:4}`
-      + '100%{transform:scale(1) rotate(0deg);z-index:4}}';
-  }
-  const style = document.createElement('style');
-  style.id = 'fb-face-turns';
-  style.textContent = css;
-  document.head.appendChild(style);
-})();
-
-// Only the member's own uploads in a post's reaction stack animate; the copy
-// inside the Like button stays still so one reaction never grows and wiggles
-// twice at once. A video takes its own turn in the same loop as the faces.
-Posts.reactionIcon = function (type, slot, ownCount) {
+// Uploaded reactions on a post take turns growing and wiggling: js/posts.js
+// hands one of them the fb-rx-turning class at a time (css/facebook.css holds
+// the 2 second keyframes), so the order works the same on every device. The
+// copy inside the Like button never animates, so one reaction never grows
+// twice at once.
+Posts.reactionIcon = function (type) {
   const video = Posts.videoUrl(type);
   const face = Posts.faceUrl(type);
-  let anim = '';
-  if ((video || face) && ownCount) {
-    const count = Math.min(Math.max(ownCount, 1), FB_FACE_TURNS);
-    const turn = slot ? `; animation-delay:${slot * 2}s` : '';
-    anim = ` style="animation-name:fb-rx-turn-${count}; animation-duration:${count * 2}s${turn}"`;
-  }
   if (video) {
-    // The video plays once (js/posts.js) while the loop gives it its growing
-    // and wiggling turn, then it holds its last frame
-    return `<span class="fb-rx fb-rx-face fb-rx-video"${anim}><video class="fb-rx-img fb-rx-vid" src="${fbEscape(video)}" muted playsinline preload="auto"></video></span>`;
+    // The video plays while it holds its growing and wiggling turn. The #t=0.1
+    // seeks to the first frame, so a phone paints the face instead of a black
+    // circle before the video is played.
+    return `<span class="fb-rx fb-rx-face fb-rx-video"><video class="fb-rx-img fb-rx-vid" src="${fbEscape(video)}#t=0.1" muted playsinline webkit-playsinline preload="auto"></video></span>`;
   }
   if (face) {
-    return `<span class="fb-rx fb-rx-face"${anim}><img class="fb-rx-img" src="${fbEscape(face)}" alt="" loading="lazy"></span>`;
+    return `<span class="fb-rx fb-rx-face"><img class="fb-rx-img" src="${fbEscape(face)}" alt="" loading="lazy"></span>`;
   }
   const art = FB_RX_ART[type] || FB_RX_ART.like;
   return `<span class="fb-rx fb-rx-${type}"><svg class="fb-rx-svg" viewBox="0 0 40 40" aria-hidden="true" focusable="false">${art}</svg></span>`;

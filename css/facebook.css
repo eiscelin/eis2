@@ -2438,6 +2438,11 @@ body.has-page-bg .admin-page { background: transparent; }
 }
 .pi-bg-preview.has-image { border-style: solid; }
 .pi-bg-actions { display: flex; gap: .6rem; flex-wrap: wrap; }
+/* The picker is a label so a phone opens its own file chooser; the field
+   inside it never shows */
+.pi-bg-pick { display: inline-flex; align-items: center; gap: .4rem; cursor: pointer; }
+.pi-bg-pick.is-busy { opacity: .65; pointer-events: none; }
+.pi-bg-file { display: none; }
 .pi-clear {
   padding: .65rem 1rem; border: none; border-radius: 10px;
   background: rgba(255, 255, 255, .12); color: #fff; font: inherit; font-size: .9rem; cursor: pointer;
@@ -2600,26 +2605,37 @@ a.fb-post-name:hover { text-decoration: underline; }
 .fb-post-summary .fb-rx { width: 40px; height: 40px; }
 .fb-reaction-group > span { width: 40px; height: 40px; margin-left: -10px; box-shadow: 0 0 0 3px var(--fb-card); }
 .fb-comment-reactions .fb-rx { width: 36px; height: 36px; }
-/* Uploaded face reactions swell to 10x while wiggling, one face after another.
-   Each takes a 2 second turn and the next one starts the moment the previous
-   one has shrunk back, so the loop has no idle gap. Only the image is shown —
-   no ring, border or background behind it. Name/duration/delay are set inline
-   per face in js/reactions.js. */
+/* Uploaded face reactions swell to 10x while wiggling, one reaction after
+   another. Each takes a 2 second turn; js/posts.js hands the fb-rx-turning
+   class to one of them at a time, so every uploaded reaction gets its turn on
+   every device (a CSS delay per face only ever ran the first one on some
+   phones). Only the image is shown — no ring, border or background behind it. */
 .fb-post-summary .fb-rx-face {
   position: relative;
   z-index: 4;
   pointer-events: none;
-  animation-timing-function: ease-in-out;
-  animation-iteration-count: infinite;
   transform-origin: center;
   background: none;
   box-shadow: none;
 }
+.fb-post-summary .fb-rx-face.fb-rx-turning { animation: fb-rx-turn 2s ease-in-out; }
+@keyframes fb-rx-turn {
+  0% { transform: scale(1) rotate(0deg); z-index: 4; }
+  18% { transform: scale(2) rotate(-8deg); z-index: 20; }
+  36% { transform: scale(4) rotate(8deg); z-index: 20; }
+  50% { transform: scale(5) rotate(-6deg); z-index: 20; }
+  62.5% { transform: scale(5) rotate(6deg); z-index: 20; }
+  75% { transform: scale(5) rotate(-5deg); z-index: 20; }
+  87.5% { transform: scale(5) rotate(4deg); z-index: 20; }
+  100% { transform: scale(1) rotate(0deg); z-index: 4; }
+}
 .fb-post-card { overflow: visible; }
 .fb-reaction-group > span.fb-rx-face-slot { box-shadow: none; }
 /* A member's video reaction takes its own turn in the same one-by-one loop as
-   the faces: it grows and wiggles while it plays (js/posts.js starts it once). */
-.fb-rx-video { border-radius: 50%; background: #000; overflow: hidden; }
+   the faces: it grows and wiggles while it plays (js/posts.js starts it once).
+   Nothing clips it here — on a phone a video inside an animated clipping box
+   can fail to paint while it grows, and the video is already round itself. */
+.fb-rx-video { border-radius: 50%; background: #000; }
 .fb-rx-vid { object-fit: cover; }
 /* Switch beside a post's reactions that stops the growing and wiggling.
    It sits on its own card-coloured chip above the growing faces (which reach

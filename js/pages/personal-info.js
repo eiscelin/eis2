@@ -73,7 +73,7 @@
             <span>No background picture yet</span>
           </div>
           <div class="pi-bg-actions">
-            <button class="pi-save" id="piBgUpload" type="button">Upload picture</button>
+            <label class="pi-save pi-bg-pick" id="piBgUpload"><span id="piBgUploadText">Upload picture</span><input class="pi-bg-file" id="piBgFile" type="file" accept="image/*"></label>
             <button class="pi-clear" id="piBgClear" type="button"${user.background_url ? '' : ' hidden'}>Remove</button>
           </div>
         </div>
@@ -207,18 +207,16 @@
       // Show what is saved already
       if (user.background_url) paintBackground(user.background_url);
 
-      const backgroundFile = document.createElement('input');
-      backgroundFile.type = 'file';
-      backgroundFile.accept = 'image/*';
-      backgroundFile.hidden = true;
-      container.append(backgroundFile);
-
-      backgroundBtn.addEventListener('click', () => backgroundFile.click());
+      // The picture field sits inside the label: a phone opens its own picker
+      // for a tapped label, which a scripted click on a hidden field can miss
+      const backgroundFile = container.querySelector('#piBgFile');
+      const backgroundText = container.querySelector('#piBgUploadText');
+      let uploading = false;
 
       backgroundFile.addEventListener('change', async () => {
         const file = backgroundFile.files[0];
         backgroundFile.value = '';
-        if (!file) return;
+        if (!file || uploading) return;
         if (ReadOnlyMode.block('Uploading a picture')) return;
         if (file.type && file.type.indexOf('image/') !== 0) {
           showToast('Choose an image file', 'error');
@@ -228,8 +226,9 @@
           showToast('That picture is larger than 20 MB', 'error');
           return;
         }
-        backgroundBtn.disabled = true;
-        backgroundBtn.textContent = 'Uploading…';
+        uploading = true;
+        backgroundBtn.classList.add('is-busy');
+        backgroundText.textContent = 'Uploading…';
         try {
           // Any picture is accepted: what the browser cannot shrink goes up as it is
           let payload = file;
@@ -241,8 +240,9 @@
         } catch (err) {
           showToast(backgroundProblem(err), 'error', 6000);
         } finally {
-          backgroundBtn.disabled = false;
-          backgroundBtn.textContent = 'Upload picture';
+          uploading = false;
+          backgroundBtn.classList.remove('is-busy');
+          backgroundText.textContent = 'Upload picture';
         }
       });
 

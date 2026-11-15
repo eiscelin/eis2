@@ -76,7 +76,9 @@ function fbNavIcon(item) {
 // Account background: the picture the signed-in member chose shows behind every
 // page. The layer lives on <body>, so it survives every route change.
 function fbPaintPageBackground(url) {
-  const picture = String(url || '').trim();
+  // A phone only needs a screen-sized copy: the stored picture stays as it was,
+  // but the layer paints a smaller one so the page never labours behind it
+  const picture = fbImageUrl(String(url || '').trim(), 1600);
   let layer = document.getElementById('fbPageBg');
   if (!picture) {
     if (layer) layer.remove();
@@ -166,6 +168,42 @@ function fmtDate(d) {
 
 // Shrink a photo in the browser before uploading it (longest side capped)
 function shrinkImage(file, maxSide = 1400) {
+  // A phone picture is often 50 megapixels, and decoding one whole is what
+  // makes a phone stop answering. A big file is decoded straight down to the
+  // size that is kept; anything smaller takes the plain resize.
+  if (file.size > 1200 * 1024 && typeof createImageBitmap === 'function') {
+    return shrinkImageWhileDecoding(file, maxSide).catch(() => shrinkImageFromElement(file, maxSide));
+  }
+  return shrinkImageFromElement(file, maxSide);
+}
+
+function canvasToJpeg(canvas) {
+  return new Promise((resolve, reject) => canvas.toBlob(
+    blob => (blob ? resolve(blob) : reject(new Error('that file is not an image'))), 'image/jpeg', 0.85
+  ));
+}
+
+// The browser scales the picture while it decodes it, so a 50 megapixel photo
+// never has to be held whole in memory
+async function shrinkImageWhileDecoding(file, maxSide) {
+  let bitmap = await createImageBitmap(file, {
+    resizeWidth: maxSide, resizeQuality: 'high', imageOrientation: 'from-image'
+  });
+  // resizeWidth caps the width; a tall picture is then capped on its height
+  if (bitmap.height > maxSide) {
+    const shorter = await createImageBitmap(bitmap, { resizeHeight: maxSide, resizeQuality: 'high' });
+    bitmap.close();
+    bitmap = shorter;
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  canvas.getContext('2d').drawImage(bitmap, 0, 0);
+  bitmap.close();
+  return canvasToJpeg(canvas);
+}
+
+function shrinkImageFromElement(file, maxSide) {
   return new Promise((resolve, reject) => {
     const objectUrl = URL.createObjectURL(file);
     const img = new Image();
