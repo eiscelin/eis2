@@ -1548,6 +1548,10 @@ a.fb-person-img:hover { filter: brightness(1.1); }
 
 /* ===================== Mobile ===================== */
 @media (max-width: 900px) {
+  /* One screen wide: a wide piece of feed content must never stretch the phone
+     layout past the screen, or the fixed chat bubble (and bottom bar) end up
+     anchored off the right edge and look missing. */
+  html, body { max-width: 100%; overflow-x: clip; }
   .fb-rail { display: none; }
   .fb-topbar { padding: 0 0.5rem; gap: 0.35rem; }
   .fb-topbar-left, .fb-topbar-right { flex: 0 0 auto; gap: 0.15rem; }
