@@ -173,16 +173,77 @@ function postRxSoundSwitch(postId, on) {
 // Each uploaded reaction — a face or a video — shakes in its own turn instead
 // of all of them growing at once
 function postFaceSlots(groups) {
-  const ownCount = groups.filter(g => postOwnReaction(g.type)).length;
-  let slot = 0;
   // One stack: a post with uploads shows the standard emoji in a stack of their
   // own, so an uploaded face never hides an emoji beside it
   return `<span class="fb-reaction-group">${groups.map(g => {
     const own = postOwnReaction(g.type);
-    const icon = Posts.reactionIcon(g.type, own ? slot++ : 0, ownCount);
-    return `<span${own ? ' class="fb-rx-face-slot"' : ''} title="${g.label}">${icon}</span>`;
+    return `<span${own ? ' class="fb-rx-face-slot"' : ''} title="${g.label}">${Posts.reactionIcon(g.type)}</span>`;
   }).join('')}</span>`;
 }
+
+// Uploaded reactions take a two second turn each, in the order they sit on the
+// post. The order is driven here instead of by a CSS delay on each face: some
+// phones only ever ran the face that had no delay, so the others never took
+// their turn. One reaction moving at a time is also gentler on a phone.
+const RX_TURN_MS = 2000;
+const rxTurnAt = new WeakMap();
+let rxTurnTimer = null;
+
+function playVideoReaction(holder) {
+  const video = holder.querySelector('video');
+  if (!video) return;
+  clearTimeout(holder.rxStop);
+  video.pause();
+  if (video.currentTime) video.currentTime = 0;
+  const card = holder.closest('[data-post]');
+  // Silent unless the member switched this post's sound on
+  const soundOn = card ? rxSoundOn(card.dataset.post) : false;
+  video.muted = !soundOn;
+  video.volume = soundOn ? 1 : 0;
+  holder.rxPlaying = true;
+  const attempt = video.play();
+  if (attempt && attempt.catch) attempt.catch(() => {
+    // A browser that blocks sound still shows the video, played silently
+    video.muted = true;
+    video.play().catch(() => {});
+  });
+  // It plays its full maximum on its turn and then stops, sound included
+  holder.rxStop = setTimeout(() => {
+    holder.rxPlaying = false;
+    video.pause();
+  }, REACTION_VIDEO_MAX * 1000);
+}
+
+function stepReactionTurns() {
+  const cards = document.querySelectorAll('.fb-post-card');
+  if (!cards.length) {
+    clearInterval(rxTurnTimer);
+    rxTurnTimer = null;
+    return;
+  }
+  cards.forEach(card => {
+    // The post's grow switch is off: its reactions stay still
+    if (card.querySelector('.fb-face-anim-off')) return;
+    const faces = card.querySelectorAll('.fb-post-summary .fb-rx-face');
+    if (!faces.length) return;
+    const turn = (rxTurnAt.get(card) || 0) % faces.length;
+    rxTurnAt.set(card, turn + 1);
+    faces.forEach((face, index) => {
+      const mine = index === turn;
+      face.classList.toggle('fb-rx-turning', mine);
+      // A video reaction plays during its own turn
+      if (mine && face.classList.contains('fb-rx-video')) playVideoReaction(face);
+    });
+  });
+}
+
+// One loop drives every feed on screen: the home feed, a profile, the older
+// posts that were just added
+Posts.startReactionTurns = function () {
+  if (rxTurnTimer) return;
+  stepReactionTurns();
+  rxTurnTimer = setInterval(stepReactionTurns, RX_TURN_MS);
+};
 
 function postReactionPicker(media) {
   // A member's own uploads sit in the choices with a delete badge, so the
@@ -945,75 +1006,17 @@ Posts.mount = function (listEl, opts) {
     moreEl = listEl.querySelector('[data-feed-more]');
     paintMore();
     watchMore();
-    startVideoReactions();
+    Posts.startReactionTurns();
     startCommentSpotlight();
   }
 
-  // A video reaction plays with its own sound while the one-by-one loop gives
-  // it its growing and wiggling turn, then stops once the video's maximum play
-  // time is done (or the video itself ends). Turning a post's switch off stops
-  // it right away
-  const videoTimers = [];
-
+  // Turning a post's grow switch off stops its videos right away
   function stopVideoReactions() {
-    videoTimers.splice(0).forEach(clearTimeout);
     listEl.querySelectorAll('.fb-post-summary .fb-rx-video').forEach(holder => {
       clearTimeout(holder.rxStop);
       holder.rxPlaying = false;
       const video = holder.querySelector('video');
       if (video) video.pause();
-    });
-  }
-
-  function playVideoReaction(holder) {
-    const video = holder.querySelector('video');
-    if (!video) return;
-    clearTimeout(holder.rxStop);
-    video.pause();
-    if (video.currentTime) video.currentTime = 0;
-    const card = holder.closest('[data-post]');
-    // Silent unless the member switched this post's sound on
-    const soundOn = card ? rxSoundOn(card.dataset.post) : false;
-    video.muted = !soundOn;
-    video.volume = soundOn ? 1 : 0;
-    holder.rxPlaying = true;
-    const attempt = video.play();
-    if (attempt && attempt.catch) attempt.catch(() => {
-      // A browser that blocks sound still shows the video, played silently
-      video.muted = true;
-      video.play().catch(() => {});
-    });
-    // It plays its full maximum on its turn and then stops, sound included
-    holder.rxStop = setTimeout(() => {
-      holder.rxPlaying = false;
-      video.pause();
-    }, REACTION_VIDEO_MAX * 1000);
-  }
-
-  function startVideoReactions() {
-    stopVideoReactions();
-    listEl.querySelectorAll('.fb-post-summary .fb-rx-video').forEach(holder => {
-      const video = holder.querySelector('video');
-      if (!video) return;
-      if (!holder.rxEndHooked) {
-        holder.rxEndHooked = '1';
-        video.addEventListener('ended', () => { holder.rxPlaying = false; });
-      }
-      // No turn loop here (switch off, or a small screen): just play it once
-      const looping = getComputedStyle(holder).animationName !== 'none';
-      const turn = (parseFloat(holder.style.animationDelay) || 0) * 1000;
-      const period = (parseFloat(holder.style.animationDuration) || 0) * 1000;
-      if (!looping || !period) {
-        playVideoReaction(holder);
-        return;
-      }
-      // Each turn starts a full play; a turn that arrives while the video is
-      // still playing its maximum leaves it running instead of cutting it off
-      const tick = () => {
-        if (!holder.rxPlaying) playVideoReaction(holder);
-        videoTimers.push(setTimeout(tick, period));
-      };
-      videoTimers.push(setTimeout(tick, turn));
     });
   }
 
@@ -1164,7 +1167,7 @@ Posts.mount = function (listEl, opts) {
       || `${p.content || ''} ${p.author_name || ''}`.toLowerCase().includes(q));
     if (!shown.length) return;
     moreEl.insertAdjacentHTML('beforebegin', shown.map(p => Posts.card(p, ctxFor(p))).join(''));
-    startVideoReactions();
+    Posts.startReactionTurns();
     startCommentSpotlight();
   }
 
@@ -1190,7 +1193,7 @@ Posts.mount = function (listEl, opts) {
     }
     const el = listEl.querySelector(`[data-post="${key}"]`);
     if (el) el.outerHTML = Posts.card(post, ctxFor(post));
-    startVideoReactions();
+    Posts.startReactionTurns();
     startCommentSpotlight();
   }
 
@@ -1574,8 +1577,10 @@ Posts.mount = function (listEl, opts) {
       const icons = postEl.querySelector('.fb-reaction-icons');
       if (icons) icons.classList.toggle('fb-face-anim-off', !box.checked);
       // A video reaction only plays while its turn loop runs
-      if (box.checked) startVideoReactions();
-      else stopVideoReactions();
+      if (box.checked) {
+        postEl.querySelectorAll('.fb-rx-turning').forEach(el => el.classList.remove('fb-rx-turning'));
+        Posts.startReactionTurns();
+      } else stopVideoReactions();
       return;
     }
     const sound = e.target.closest('[data-act="toggle-rx-sound"]');
