@@ -764,7 +764,9 @@ var Pages = window.Pages || {};
         const { error } = await sb.rpc('admin_set_setting', {
           p_admin_id: me.id, p_key: 'overlay_button', p_value: next
         });
-        if (error) throw error;
+        if (error) throw new Error(/Unknown setting/.test(error.message)
+          ? 'Run 020_add_overlay_button_setting.sql in Supabase, then try again'
+          : error.message);
         state.settings.overlay_button = next;
         showToast(next === 'true' ? 'Overlay button is on' : 'Overlay button is hidden from profiles', 'success');
         renderBody();
