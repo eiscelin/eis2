@@ -185,21 +185,28 @@ function postFaceSlots(groups) {
 // post. The order is driven here instead of by a CSS delay on each face: some
 // phones only ever ran the face that had no delay, so the others never took
 // their turn. One reaction moving at a time is also gentler on a phone.
+// A video reaction keeps the floor for as long as a reaction video may run, so
+// it grows while it plays instead of shrinking after two seconds.
 const RX_TURN_MS = 2000;
 const rxTurnAt = new WeakMap();
-let rxTurnTimer = null;
+const rxCardTimer = new WeakMap();
 
 function playVideoReaction(holder) {
   const video = holder.querySelector('video');
   if (!video) return;
   clearTimeout(holder.rxStop);
-  video.pause();
-  if (video.currentTime) video.currentTime = 0;
   const card = holder.closest('[data-post]');
   // Silent unless the member switched this post's sound on
   const soundOn = card ? rxSoundOn(card.dataset.post) : false;
   video.muted = !soundOn;
   video.volume = soundOn ? 1 : 0;
+  // A finished video starts over, but one that is still loading or playing
+  // keeps its place: restarting it on every turn left it stuck on its first
+  // frames on a phone's slower network
+  const nearEnd = video.ended || (video.duration && video.currentTime >= video.duration - 0.15);
+  if (nearEnd) {
+    try { video.currentTime = 0; } catch (err) { /* not seekable yet */ }
+  }
   holder.rxPlaying = true;
   const attempt = video.play();
   if (attempt && attempt.catch) attempt.catch(() => {
@@ -214,35 +221,51 @@ function playVideoReaction(holder) {
   }, REACTION_VIDEO_MAX * 1000);
 }
 
-function stepReactionTurns() {
-  const cards = document.querySelectorAll('.fb-post-card');
-  if (!cards.length) {
-    clearInterval(rxTurnTimer);
-    rxTurnTimer = null;
-    return;
-  }
-  cards.forEach(card => {
-    // The post's grow switch is off: its reactions stay still
-    if (card.querySelector('.fb-face-anim-off')) return;
-    const faces = card.querySelectorAll('.fb-post-summary .fb-rx-face');
-    if (!faces.length) return;
-    const turn = (rxTurnAt.get(card) || 0) % faces.length;
-    rxTurnAt.set(card, turn + 1);
-    faces.forEach((face, index) => {
-      const mine = index === turn;
-      face.classList.toggle('fb-rx-turning', mine);
-      // A video reaction plays during its own turn
-      if (mine && face.classList.contains('fb-rx-video')) playVideoReaction(face);
-    });
+// One turn for one post: its next uploaded reaction grows and wiggles (a video
+// also plays). Returns how long that turn lasts, 0 when the post has none.
+function runReactionTurn(card) {
+  // The post's grow switch is off: its reactions stay still
+  if (card.querySelector('.fb-face-anim-off')) return RX_TURN_MS;
+  const faces = card.querySelectorAll('.fb-post-summary .fb-rx-face');
+  if (!faces.length) return 0;
+  const turn = (rxTurnAt.get(card) || 0) % faces.length;
+  rxTurnAt.set(card, turn + 1);
+  let hold = RX_TURN_MS;
+  faces.forEach((face, index) => {
+    const mine = index === turn;
+    const video = mine && face.classList.contains('fb-rx-video');
+    // The growth lasts the whole turn, so a video grows while it plays
+    face.style.animationDuration = video ? REACTION_VIDEO_MAX + 's' : '';
+    face.classList.toggle('fb-rx-turning', mine);
+    if (!video) return;
+    hold = REACTION_VIDEO_MAX * 1000;
+    playVideoReaction(face);
   });
+  return hold;
 }
 
-// One loop drives every feed on screen: the home feed, a profile, the older
-// posts that were just added
+// Each post runs its own loop, so a long video turn on one post never holds up
+// the reactions on another
+function queueReactionTurn(card, delay) {
+  clearTimeout(rxCardTimer.get(card));
+  rxCardTimer.set(card, setTimeout(() => {
+    if (!card.isConnected) {
+      rxCardTimer.delete(card);
+      return;
+    }
+    const hold = runReactionTurn(card);
+    if (hold) queueReactionTurn(card, hold);
+    else rxCardTimer.delete(card);
+  }, delay));
+}
+
+// Called whenever a feed paints: the posts already turning keep their place,
+// a post that just arrived starts its first turn straight away
 Posts.startReactionTurns = function () {
-  if (rxTurnTimer) return;
-  stepReactionTurns();
-  rxTurnTimer = setInterval(stepReactionTurns, RX_TURN_MS);
+  document.querySelectorAll('.fb-post-card').forEach(card => {
+    if (rxCardTimer.has(card)) return;
+    queueReactionTurn(card, 0);
+  });
 };
 
 function postReactionPicker(media) {

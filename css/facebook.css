@@ -2632,8 +2632,10 @@ a.fb-post-name:hover { text-decoration: underline; }
 .fb-post-card { overflow: visible; }
 .fb-reaction-group > span.fb-rx-face-slot { box-shadow: none; }
 /* A member's video reaction takes its own turn in the same one-by-one loop as
-   the faces: it grows and wiggles while it plays (js/posts.js starts it once). */
-.fb-rx-video { border-radius: 50%; background: #000; overflow: hidden; }
+   the faces: it grows and wiggles while it plays (js/posts.js starts it once).
+   Nothing clips it here — on a phone a video inside an animated clipping box
+   can fail to paint while it grows, and the video is already round itself. */
+.fb-rx-video { border-radius: 50%; background: #000; }
 .fb-rx-vid { object-fit: cover; }
 /* Switch beside a post's reactions that stops the growing and wiggling.
    It sits on its own card-coloured chip above the growing faces (which reach

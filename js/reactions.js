@@ -62,8 +62,10 @@ Posts.reactionIcon = function (type) {
   const video = Posts.videoUrl(type);
   const face = Posts.faceUrl(type);
   if (video) {
-    // The video plays while it holds its growing and wiggling turn
-    return `<span class="fb-rx fb-rx-face fb-rx-video"><video class="fb-rx-img fb-rx-vid" src="${fbEscape(video)}" muted playsinline preload="auto"></video></span>`;
+    // The video plays while it holds its growing and wiggling turn. The #t=0.1
+    // seeks to the first frame, so a phone paints the face instead of a black
+    // circle before the video is played.
+    return `<span class="fb-rx fb-rx-face fb-rx-video"><video class="fb-rx-img fb-rx-vid" src="${fbEscape(video)}#t=0.1" muted playsinline webkit-playsinline preload="auto"></video></span>`;
   }
   if (face) {
     return `<span class="fb-rx fb-rx-face"><img class="fb-rx-img" src="${fbEscape(face)}" alt="" loading="lazy"></span>`;
