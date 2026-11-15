@@ -2305,6 +2305,13 @@ a.admin-tool { text-decoration: none; display: inline-flex; align-items: center;
   background: #121826; border-radius: 15px; padding: 1.4rem 1.5rem;
   display: flex; flex-direction: column; gap: 1rem;
 }
+/* The profile's Background button lights the card it jumps to, so the member
+   sees exactly where the upload lives */
+.pi-card.pi-bg-flash { animation: piBgFlash 1.4s ease-out; }
+@keyframes piBgFlash {
+  0%, 55% { outline: 2px solid var(--fb-blue); outline-offset: 3px; }
+  100% { outline: 2px solid transparent; outline-offset: 6px; }
+}
 .pi-title { color: #fff; font-size: 1.05rem; font-weight: 600; margin: 0; }
 .pi-form { display: flex; flex-direction: column; gap: 1rem; }
 .pi-field { display: flex; flex-direction: column; gap: .4rem; color: #fff; font-size: .82rem; font-weight: 400; }
