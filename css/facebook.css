@@ -19,23 +19,39 @@
   --fb-green: #45bd62;
   --fb-radius: 10px;
 
-  /* Thick frosted glass: the dark panels that carry text stay see-through,
-     the wide blur keeps the words crisp, a lit top rim plus a soft sheen read
-     as the pane's depth, and a deep drop shadow lifts it off the page */
-  --fb-glass: rgba(28, 30, 34, 0.01);
-  --fb-glass-strong: rgba(16, 18, 22, 0.24);
-  --fb-glass-edge: rgba(255, 255, 255, 0.26);
-  --fb-glass-blur: blur(1.5px) saturate(115%);
+  /* Glass panes: a clear frosted fill shows whatever sits behind it, a thick
+     bright bevelled frame catches the light (bright top and left, darker
+     bottom), two diagonal specular streaks sweep across the surface, small
+     four-point sparkles sit near two corners, and a soft drop shadow lifts the
+     pane off the page. The fill stays see-through so the words keep their
+     contrast against the dark shell. */
+  --fb-glass: rgba(255, 255, 255, 0.05);
+  --fb-glass-strong: rgba(20, 23, 29, 0.30);
+  --fb-glass-edge: rgba(255, 255, 255, 0.44);
+  --fb-glass-blur: blur(2px) saturate(120%);
   --fb-glass-sheen:
-    linear-gradient(162deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.03) 34%, rgba(255, 255, 255, 0) 62%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.10));
+    /* broad specular band sweeping in from the top-left corner */
+    linear-gradient(128deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.07) 26%, rgba(255, 255, 255, 0) 50%),
+    /* a narrow second streak crossing the lower half of the pane */
+    linear-gradient(118deg, rgba(255, 255, 255, 0) 56%, rgba(255, 255, 255, 0.13) 70%, rgba(255, 255, 255, 0) 84%),
+    /* faint frosted body so the fill reads as glass, not as a hole */
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.08));
+  /* Four-point sparkles: a thin vertical flare crossed by a thin horizontal
+     one, near the top-left and bottom-right corners */
+  --fb-glass-glints:
+    radial-gradient(1.5px 12px at 11% 9%, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0) 100%),
+    radial-gradient(12px 1.5px at 11% 9%, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0) 100%),
+    radial-gradient(1.5px 9px at 89% 88%, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0) 100%),
+    radial-gradient(9px 1.5px at 89% 88%, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0) 100%);
   --fb-glass-rim:
-    inset 0 2px 1px -1px rgba(255, 255, 255, 0.34),
-    inset 1px 1px 0 rgba(255, 255, 255, 0.12),
-    inset -1px 1px 0 rgba(255, 255, 255, 0.09),
-    inset 0 -2px 1px -1px rgba(0, 0, 0, 0.55),
-    inset 0 16px 24px -20px rgba(255, 255, 255, 0.26),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+    /* the thick bright frame: a lit outer line, a bright top and left bevel */
+    inset 0 0 0 1px rgba(255, 255, 255, 0.32),
+    inset 0 2px 1px -1px rgba(255, 255, 255, 0.62),
+    inset 2px 2px 0 -1px rgba(255, 255, 255, 0.22),
+    inset -2px 2px 0 -1px rgba(255, 255, 255, 0.13),
+    /* the shaded bottom bevel that gives the frame its thickness */
+    inset 0 -2px 1px -1px rgba(0, 0, 0, 0.58),
+    inset 0 20px 30px -24px rgba(255, 255, 255, 0.30);
   --fb-glass-shadow:
     0 40px 90px -18px rgba(0, 0, 0, 0.62),
     0 18px 40px rgba(0, 0, 0, 0.40),
@@ -2877,13 +2893,12 @@ a.fb-share-embed-name:hover { text-decoration: underline; }
 .feature-card,
 .pi-card {
   background-color: var(--fb-glass);
-  background-image: var(--fb-glass-sheen);
-  border-color: var(--fb-glass-edge);
+  background-image: var(--fb-glass-glints), var(--fb-glass-sheen);
+  border: 1.5px solid var(--fb-glass-edge);
   -webkit-backdrop-filter: var(--fb-glass-blur);
   backdrop-filter: var(--fb-glass-blur);
   box-shadow: var(--fb-glass-rim), var(--fb-glass-shadow);
 }
-.pi-card { border: 1px solid var(--fb-glass-edge); }
 
 /* Bars the text scrolls under: a touch deeper than the cards so labels stay legible */
 .fb-topbar,
