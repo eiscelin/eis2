@@ -565,9 +565,19 @@ Pages.profileTab = function(main, user) {
     }
     coverFile.click();
   });
-  avatarFile.addEventListener('change', () => {
+  avatarFile.addEventListener('change', async () => {
     const file = avatarFile.files[0];
     avatarFile.value = '';
+    if (!file) return;
+    // A profile video runs 5 seconds at most
+    if (String(file.type || '').startsWith('video/')) {
+      try {
+        const seconds = await coverVideoSeconds(file);
+        if (isFinite(seconds) && seconds > 5.5) return showToast('A profile video can be 5 seconds at most', 'error', 6000);
+      } catch {
+        return showToast('That video could not be read', 'error', 6000);
+      }
+    }
     saveMedia('avatar', file);
   });
   coverFile.addEventListener('change', async () => {
