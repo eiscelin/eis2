@@ -65,7 +65,7 @@
       </section>
 
       ${isSelf ? `
-      <section class="pi-card">
+      <section class="pi-card" id="piBgCard">
         <h3 class="pi-title">Account background</h3>
         <p class="pi-private">Any picture you upload here shows behind every page while you are signed in.</p>
         <div class="pi-bg">

@@ -2305,6 +2305,13 @@ a.admin-tool { text-decoration: none; display: inline-flex; align-items: center;
   background: #121826; border-radius: 15px; padding: 1.4rem 1.5rem;
   display: flex; flex-direction: column; gap: 1rem;
 }
+/* The profile's Background button lights the card it jumps to, so the member
+   sees exactly where the upload lives */
+.pi-card.pi-bg-flash { animation: piBgFlash 1.4s ease-out; }
+@keyframes piBgFlash {
+  0%, 55% { outline: 2px solid var(--fb-blue); outline-offset: 3px; }
+  100% { outline: 2px solid transparent; outline-offset: 6px; }
+}
 .pi-title { color: #fff; font-size: 1.05rem; font-weight: 600; margin: 0; }
 .pi-form { display: flex; flex-direction: column; gap: 1rem; }
 .pi-field { display: flex; flex-direction: column; gap: .4rem; color: #fff; font-size: .82rem; font-weight: 400; }
@@ -2786,6 +2793,32 @@ a.fb-post-name:hover { text-decoration: underline; }
   .fb-post-actions { margin: 0 0.85rem; }
   .fb-post-stats { padding: 0.45rem 0.85rem; }
   .fb-comments { padding: 0.55rem 0.85rem 0.9rem; }
+  /* A thread that runs deep keeps its readable width on a phone: from the
+     second reply on, the replies pan sideways (swipe) instead of squeezing
+     the text thinner and thinner until it breaks one letter per line */
+  .fb-comment-replies .fb-comment-replies {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 0.15rem;
+  }
+  .fb-comment-replies .fb-comment-replies > .fb-comment { min-width: 15rem; }
+  /* The sideways strip would cut the reaction popup: inside it the picker wraps
+     into a narrower block so every reaction stays reachable */
+  .fb-comment-replies .fb-comment-replies .fb-reaction-picker { max-width: 11rem; }
+  /* Past that depth the strip is wide enough already: deeper turns stop
+     narrowing the text so the sideways swipe reaches everything. They also
+     drop their avatar and lose the staircase, which otherwise pushed every
+     deeper reply off to the right until the words were squeezed again */
+  .fb-comment-replies .fb-comment-replies .fb-comment-replies {
+    overflow: visible;
+    padding-left: 0.35rem;
+  }
+  .fb-comment-replies .fb-comment-replies .fb-comment-replies > .fb-comment {
+    min-width: 0;
+    gap: 0;
+  }
+  .fb-comment-replies .fb-comment-replies .fb-comment-replies > .fb-comment > .fb-comment-avatar { display: none; }
   .fb-post-act span:last-child { font-size: 0.82rem; }
 }
 

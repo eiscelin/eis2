@@ -64,6 +64,7 @@ Pages.profileTab = function(main, user) {
         <div class="fb-profile-actions">
           <button class="fb-btn fb-btn-primary" id="pfEdit" type="button">✏️ Edit profile</button>
           <button class="fb-btn fb-btn-secondary" id="pfOverlay" type="button">✨ Overlay</button>
+          <button class="fb-btn fb-btn-secondary" id="pfBackground" type="button">🖼️ Background</button>
           <button class="fb-btn fb-btn-secondary" id="pfShare" type="button">↗ Share profile</button>
           <button class="fb-btn fb-btn-secondary" id="pfLogout" type="button">⎋ Log out</button>
         </div>
@@ -162,6 +163,17 @@ Pages.profileTab = function(main, user) {
     personal.scrollIntoView({ behavior: 'smooth', block: 'center' });
     const first = personal.querySelector('input');
     if (first) setTimeout(() => first.focus({ preventScroll: true }), 350);
+  });
+
+  // The background setting sits in My Information: this button takes the member
+  // straight to that card instead of making them hunt for the tab
+  main.querySelector('#pfBackground').addEventListener('click', () => {
+    showTab('info');
+    const card = main.querySelector('#piBgCard');
+    if (!card) return;
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    card.classList.add('pi-bg-flash');
+    setTimeout(() => card.classList.remove('pi-bg-flash'), 1400);
   });
 
   main.querySelector('#pfShare').addEventListener('click', () => {
