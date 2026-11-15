@@ -2931,6 +2931,19 @@ a.fb-share-embed-name:hover { text-decoration: underline; }
 .fb-topbar { box-shadow: var(--fb-glass-rim-soft), 0 18px 40px rgba(0, 0, 0, 0.42); }
 .fb-bottom-nav { box-shadow: var(--fb-glass-rim-soft), 0 -14px 36px rgba(0, 0, 0, 0.4); }
 
+/* The member search field and the "no photos yet" note are panes too,
+   so they float on the account background like the cards around them */
+.fb-people-search input,
+.fb-gallery-empty,
+.fb-gallery-locked {
+  background-color: var(--fb-glass);
+  background-image: var(--fb-glass-glints), var(--fb-glass-sheen);
+  border: 1px solid var(--fb-glass-edge);
+  -webkit-backdrop-filter: var(--fb-glass-blur);
+  backdrop-filter: var(--fb-glass-blur);
+  box-shadow: var(--fb-glass-rim), var(--fb-glass-shadow);
+}
+
 /* A soft ambient wash sits behind the glass, so the panels read as glass even
    before the member picks an account background picture. Their picture wins:
    body.has-page-bg makes these surfaces transparent. */
