@@ -1567,8 +1567,8 @@ a.fb-person-img:hover { filter: brightness(1.1); }
   .fb-topbar .fb-icon-btn:hover { background: var(--fb-elevated); }
   .fb-topbar > .fb-topbar-right { margin-left: auto; }
   .fb-brand-name { font-size: 1rem; }
-  .fb-main { padding: 0.35rem 0.35rem 90px; }
-  .fb-main--flush { padding: 0 0 90px; }
+  .fb-main { padding: 0.35rem 0.35rem 98px; }
+  .fb-main--flush { padding: 0 0 98px; }
 
   .fb-bottom-nav {
     display: flex;
@@ -1582,24 +1582,35 @@ a.fb-person-img:hover { filter: brightness(1.1); }
   }
   .fb-bottom-item {
     flex: 1 1 0; min-width: 0;
-    display: flex; flex-direction: column; align-items: center; gap: 0.15rem;
-    padding: 0.25rem 0.1rem;
-    background: none; border-radius: 10px;
-    color: var(--fb-muted);
-    font-size: 0.63rem; font-weight: 600;
+    display: flex; flex-direction: column; align-items: center; gap: 0.2rem;
+    padding: 0.3rem 0.15rem;
+    background: none; border-radius: 12px;
+    color: var(--fb-text);
+    font-size: 0.73rem; font-weight: 700;
+    letter-spacing: 0.01em;
     text-decoration: none;
   }
-  .fb-bottom-item .ico { font-size: 1.4rem; line-height: 1.05; }
+  .fb-bottom-item .ico {
+    font-size: 1.72rem; line-height: 1.05;
+    filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.55));
+  }
   .fb-bottom-item span:last-child {
     max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    opacity: 0.86;
   }
   .fb-bottom-item.active { color: var(--fb-blue-hover); }
-  .fb-bottom-item.active .ico { transform: scale(1.04); }
+  .fb-bottom-item.active span:last-child { opacity: 1; }
+  .fb-bottom-item.active .ico { transform: scale(1.12); }
+  /* The open section sits in its own lit pane so it reads at a glance */
+  .fb-bottom-item.active {
+    background-image: var(--fb-glass-glints), var(--fb-glass-sheen);
+    box-shadow: inset 0 0 0 1px var(--fb-glass-edge), 0 6px 18px rgba(0, 0, 0, 0.35);
+  }
   .fb-bottom-item:active { background: var(--fb-elevated); }
 
   .fb-more-sheet {
     position: fixed; left: 0.5rem; right: 0.5rem;
-    bottom: calc(64px + env(safe-area-inset-bottom));
+    bottom: calc(72px + env(safe-area-inset-bottom));
     z-index: 128;
     display: none;
     flex-direction: column;
@@ -1681,7 +1692,7 @@ a.fb-person-img:hover { filter: brightness(1.1); }
   .fb-person-img { height: 104px; }
 
   /* Chat above the bottom nav */
-  .chat-fab { bottom: calc(74px + env(safe-area-inset-bottom)); right: 1rem; width: 58px; height: 58px; }
+  .chat-fab { bottom: calc(82px + env(safe-area-inset-bottom)); right: 1rem; width: 58px; height: 58px; }
   .chat-panel {
     width: calc(100vw - 1.5rem);
     right: 0.75rem;
