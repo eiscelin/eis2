@@ -584,12 +584,12 @@ Pages.profileTab = function(main, user) {
     const file = coverFile.files[0];
     coverFile.value = '';
     if (!file) return;
-    // A cover video runs 5 seconds at most, and an admin can turn it off
+    // A cover video runs 30 seconds at most, and an admin can turn it off
     if (String(file.type || '').startsWith('video/')) {
       if (!coverVideoOn) return showToast('Cover videos are turned off by an admin', 'error', 6000);
       try {
         const seconds = await coverVideoSeconds(file);
-        if (isFinite(seconds) && seconds > 5.5) return showToast('A cover video can be 5 seconds at most', 'error', 6000);
+        if (isFinite(seconds) && seconds > 30.5) return showToast('A cover video can be 30 seconds at most', 'error', 6000);
       } catch {
         return showToast('That video could not be read', 'error', 6000);
       }

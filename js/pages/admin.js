@@ -753,7 +753,7 @@ var Pages = window.Pages || {};
         <div class="admin-setting">
           <div>
             <div class="admin-setting-name">Video profile covers</div>
-            <div class="admin-setting-desc">Members can use a cover video up to 5 seconds long. Turn it off and a cover accepts pictures only.</div>
+            <div class="admin-setting-desc">Members can use a cover video up to 30 seconds long. Turn it off and a cover accepts pictures only.</div>
           </div>
           <button class="admin-switch${coverVideo ? ' on' : ''}" id="adminCoverVideoToggle" type="button" role="switch" aria-checked="${coverVideo}" aria-label="Allow uploaded cover videos"><i></i></button>
         </div>
