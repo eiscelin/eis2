@@ -196,7 +196,7 @@ function appShell(el, user, navItems, renderContent, startTab) {
     <div class="fb-shell">
       <header class="fb-topbar">
         <div class="fb-topbar-left">
-          <button class="fb-logo" id="fbLogo" type="button" title="${brand.name}" aria-label="${brand.name}">${brand.initial}</button>
+          <button class="fb-logo" id="fbLogo" type="button" title="${brand.name}" aria-label="${brand.name}">${fbBrandMark()}</button>
           <button class="fb-search" id="fbSearch" type="button" title="Search" aria-label="Search ${brand.name}">
             <span aria-hidden="true">🔍</span>
             <span class="fb-search-hint">Search ${brand.name}</span>
