@@ -183,6 +183,21 @@ Pages.profileTab = function(main, user) {
 
   // ---------- Translucent overlay in front of the whole profile ----------
 
+  // The admins decide whether members may set an overlay, and whether a cover
+  // may be a video: with either setting off that feature leaves the profile
+  const overlayBtn = main.querySelector('#pfOverlay');
+  let coverVideoOn = true;
+  if (sb) {
+    sb.from('app_settings').select('key, value').in('key', ['overlay_button', 'cover_video'])
+      .then(({ data }) => {
+        (data || []).forEach(row => {
+          if (row.key === 'overlay_button' && row.value === 'false') overlayBtn.style.display = 'none';
+          if (row.key === 'cover_video' && row.value === 'false') coverVideoOn = false;
+        });
+      })
+      .catch(() => {});
+  }
+
   ProfileOverlay.paint(main.querySelector('.fb-profile'), user);
 
   main.querySelector('#pfOverlay').addEventListener('click', () => {
@@ -288,6 +303,35 @@ Pages.profileTab = function(main, user) {
   function cloudinaryCrop(url, rect) {
     const transform = `c_crop,w_${Math.round(rect.w)},h_${Math.round(rect.h)},x_${Math.round(rect.x)},y_${Math.round(rect.y)}`;
     return String(url).replace('image/upload/', 'image/upload/' + transform + '/');
+  }
+
+  // How long the picked clip runs, read before it is uploaded
+  function coverVideoSeconds(file) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const probe = document.createElement('video');
+      probe.preload = 'metadata';
+      const done = seconds => {
+        clearTimeout(timer);
+        URL.revokeObjectURL(url);
+        resolve(seconds);
+      };
+      // A clip whose length the browser cannot read is left to the upload
+      const timer = setTimeout(() => done(NaN), 4000);
+      probe.onloadedmetadata = () => {
+        if (isFinite(probe.duration) && probe.duration > 0) return done(probe.duration);
+        // Some recordings report no length until the browser seeks past the end
+        probe.ondurationchange = () => {
+          if (isFinite(probe.duration) && probe.duration > 0) done(probe.duration);
+        };
+        probe.currentTime = 1e101;
+      };
+      probe.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error('that video could not be read'));
+      };
+      probe.src = url;
+    });
   }
 
   // Drag the photo or video to choose what shows and zoom to resize it
@@ -521,15 +565,35 @@ Pages.profileTab = function(main, user) {
     }
     coverFile.click();
   });
-  avatarFile.addEventListener('change', () => {
+  avatarFile.addEventListener('change', async () => {
     const file = avatarFile.files[0];
     avatarFile.value = '';
+    if (!file) return;
+    // A profile video runs 5 seconds at most
+    if (String(file.type || '').startsWith('video/')) {
+      try {
+        const seconds = await coverVideoSeconds(file);
+        if (isFinite(seconds) && seconds > 5.5) return showToast('A profile video can be 5 seconds at most', 'error', 6000);
+      } catch {
+        return showToast('That video could not be read', 'error', 6000);
+      }
+    }
     saveMedia('avatar', file);
   });
   coverFile.addEventListener('change', async () => {
     const file = coverFile.files[0];
     coverFile.value = '';
     if (!file) return;
+    // A cover video runs 30 seconds at most, and an admin can turn it off
+    if (String(file.type || '').startsWith('video/')) {
+      if (!coverVideoOn) return showToast('Cover videos are turned off by an admin', 'error', 6000);
+      try {
+        const seconds = await coverVideoSeconds(file);
+        if (isFinite(seconds) && seconds > 30.5) return showToast('A cover video can be 30 seconds at most', 'error', 6000);
+      } catch {
+        return showToast('That video could not be read', 'error', 6000);
+      }
+    }
     const edited = await openCoverEditor(file);
     if (edited) saveMedia('cover', edited.blob, edited.crop, edited.size);
   });

@@ -17,25 +17,34 @@ html[data-theme="light"] {
   --fb-blue-soft: rgba(24, 119, 242, 0.1);
 
   /* The base app tokens follow the light shell */
-  /* Thick frosted glass, light flavour: milky panes with a bright top rim
-     and a fine dark edge so the depth reads against a pale page */
-  --fb-glass: rgba(255, 255, 255, 0.10);
-  --fb-glass-strong: rgba(255, 255, 255, 0.52);
-  --fb-glass-edge: rgba(15, 23, 42, 0.20);
+  /* Glass panes, light flavour: a milky see-through fill, a bright white
+     bevelled frame (a fine slate line keeps its edge visible on a pale page),
+     the same two diagonal streaks and corner sparkles as the dark shell */
+  /* a cool milky tint so the pane still separates from the pale page */
+  --fb-glass: rgba(230, 236, 244, 0.55);
+  --fb-glass-strong: rgba(255, 255, 255, 0.70);
+  /* the fine neutral stroke around the silhouette */
+  --fb-glass-edge: rgba(69, 90, 100, 0.22);
   --fb-glass-sheen:
-    linear-gradient(162deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.12) 38%, rgba(255, 255, 255, 0) 66%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(15, 23, 42, 0.05));
+    linear-gradient(135deg, rgba(255, 255, 255, 0) 26%, rgba(255, 255, 255, 0.30) 36%, rgba(255, 255, 255, 0.70) 46%, rgba(255, 255, 255, 0.30) 57%, rgba(255, 255, 255, 0) 70%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.05));
+  --fb-glass-glints:
+    linear-gradient(0deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 12px),
+    radial-gradient(2px 32px at 100% 50%, rgba(255, 255, 255, 1), rgba(255, 255, 255, 0) 100%),
+    radial-gradient(6px 40px at 100% 50%, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 100%),
+    radial-gradient(70px 90px at 0% 92%, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0) 72%);
   --fb-glass-rim:
-    inset 0 2px 1px -1px rgba(255, 255, 255, 0.55),
-    inset 1px 1px 0 rgba(255, 255, 255, 0.32),
-    inset -1px 1px 0 rgba(255, 255, 255, 0.26),
-    inset 0 -2px 1px -1px rgba(15, 23, 42, 0.16),
-    inset 0 16px 24px -20px rgba(255, 255, 255, 0.45),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 5px 9px -5px rgba(255, 255, 255, 0.9),
+    inset 1px 0 0 rgba(255, 255, 255, 0.95),
+    inset 4px 0 9px -6px rgba(255, 255, 255, 0.8),
+    /* the unlit right and bottom edges keep the dark refracted line, as in the reference */
+    inset -1px 0 0 rgba(69, 90, 100, 0.45),
+    inset 0 -1px 0 rgba(69, 90, 100, 0.4);
   --fb-glass-shadow:
-    0 40px 84px -18px rgba(15, 23, 42, 0.28),
-    0 18px 36px rgba(15, 23, 42, 0.14),
-    0 3px 8px rgba(15, 23, 42, 0.10);
+    0 2px 4px rgba(15, 23, 42, 0.14),
+    0 8px 18px rgba(15, 23, 42, 0.12),
+    0 24px 44px -16px rgba(15, 23, 42, 0.18);
   --fb-stage: var(--fb-bg);
 
   --dark-bg: #f0f2f5;

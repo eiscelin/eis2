@@ -121,8 +121,93 @@ function loadPeople(main, user, heading, emptyMsg, options) {
   load();
 }
 
+// The Friends view shows who you are friends with, then the requests you have
+// sent and are waiting on. Nobody else is suggested here.
 Pages.peopleTab = function (main, user) {
-  loadPeople(main, user, 'Friends', 'No one else has joined yet.', { search: true, addFriend: true });
+  main.innerHTML = `
+    <div class="fb-feed">
+      <section class="fb-card">
+        <div class="fb-card-head"><h3>Friends</h3></div>
+        <div class="fb-people-search">
+          <input id="peopleSearch" type="search" placeholder="Search your friends by username"
+            aria-label="Search your friends by username" autocomplete="off">
+        </div>
+        <div id="friendsList"><div class="loading">Loading…</div></div>
+      </section>
+      <section class="fb-card">
+        <div class="fb-card-head"><h3>Sent friend requests</h3></div>
+        <div id="sentList"><div class="loading">Loading…</div></div>
+      </section>
+    </div>`;
+
+  const search = main.querySelector('#peopleSearch');
+  const friendsList = main.querySelector('#friendsList');
+  const sentList = main.querySelector('#sentList');
+  let people = [];
+  let query = '';
+
+  function wireMessages(container) {
+    container.querySelectorAll('[data-uid]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (window.ChatWidget && window.ChatWidget.openWith) window.ChatWidget.openWith(btn.dataset.uid);
+        else showToast('Messaging is unavailable right now', 'error');
+      });
+    });
+  }
+
+  function render() {
+    const q = query.trim().toLowerCase();
+    const match = id => {
+      const person = people.find(p => String(p.id) === String(id));
+      if (!person) return null;
+      if (!q) return person;
+      return String(person.username || '').toLowerCase().includes(q)
+        || String(person.full_name || '').toLowerCase().includes(q) ? person : null;
+    };
+    const friends = (window.Friends ? Friends.friendIds() : []).map(match).filter(Boolean);
+    const sent = (window.Friends ? Friends.sentIds() : []).map(match).filter(Boolean);
+
+    friendsList.innerHTML = friends.length
+      ? peopleRows(friends, false)
+      : emptyState('👥', q ? 'No friends match your search.' : 'No friends yet — open a post or a profile and add someone.');
+    sentList.innerHTML = sent.length
+      ? peopleRows(sent, true)
+      : emptyState('📨', q ? 'No sent requests match your search.' : 'You have not sent any friend requests.');
+
+    wireMessages(friendsList);
+    wireMessages(sentList);
+  }
+
+  if (search) search.addEventListener('input', () => { query = search.value; render(); });
+
+  // A request answered elsewhere updates these two lists too
+  document.addEventListener('friends:changed', () => { if (friendsList.isConnected) render(); });
+
+  window.__appSearchHandler = (q) => {
+    if (search) search.value = q || '';
+    query = q || '';
+    render();
+  };
+
+  (async () => {
+    if (!sb) { people = []; render(); return; }
+    try {
+      const [{ data }] = await Promise.all([
+        sb.from('users').select('*').order('username', { ascending: true }),
+        (window.Friends ? Friends.load(user) : Promise.resolve())
+      ]);
+      people = (data || []).filter(u =>
+        String(u.id) !== String(user.id) &&
+        u.role !== 'admin' &&
+        !u.deleted_at &&
+        u.status !== 'deleted' &&
+        u.status !== 'suspended'
+      );
+    } catch {
+      people = [];
+    }
+    render();
+  })();
 };
 
 Pages.messagesTab = function (main, user) {

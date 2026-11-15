@@ -410,6 +410,17 @@ Posts.composer = function (root, opts) {
   const viewer = options.viewer || {};
   const wrap = root.matches('[data-composer]') ? root : root.querySelector('[data-composer]');
   if (!wrap) return;
+
+  // Admins can turn video posts off; the Video button then leaves the composer
+  if (sb) {
+    sb.from('app_settings').select('value').eq('key', 'video_posts').maybeSingle()
+      .then(({ data }) => {
+        if (data && data.value !== 'false') return;
+        const videoBtn = wrap.querySelector('[data-pick="video"]');
+        if (videoBtn) videoBtn.remove();
+      })
+      .catch(() => {});
+  }
   const textEl = wrap.querySelector('[data-post-text]');
   const preview = wrap.querySelector('[data-preview]');
   const submit = wrap.querySelector('[data-post-submit]');

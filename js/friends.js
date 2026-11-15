@@ -56,6 +56,17 @@ window.Friends = (function () {
     return rows.filter(r => r.status === 'pending' && asId(r.receiver_id) === asId(meId));
   }
 
+  // The members I am friends with, and the ones who owe me an answer
+  function friendIds() {
+    return rows.filter(r => r.status === 'accepted')
+      .map(r => asId(r.sender_id) === asId(meId) ? asId(r.receiver_id) : asId(r.sender_id));
+  }
+
+  function sentIds() {
+    return rows.filter(r => r.status === 'pending' && asId(r.sender_id) === asId(meId))
+      .map(r => asId(r.receiver_id));
+  }
+
   function emit() {
     try { document.dispatchEvent(new CustomEvent('friends:changed')); } catch { /* no listeners */ }
   }
@@ -267,6 +278,8 @@ window.Friends = (function () {
     respond,
     act,
     incoming,
+    friendIds,
+    sentIds,
     statusWith,
     countFollowers,
     label,
