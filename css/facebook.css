@@ -175,6 +175,9 @@ body {
 }
 .fb-logo:hover { background: var(--fb-blue-hover); }
 
+/* Section glyphs drawn as SVG take the color of their tab */
+.fb-nav-svg { width: 1em; height: 1em; display: block; fill: currentColor; }
+
 /* Brand logo image inside any mark/avatar container */
 .fb-logo .brand-mark,
 .fb-avatar .brand-mark,
@@ -361,7 +364,7 @@ body.fb-searching { overflow: hidden; }
   display: flex; align-items: center; justify-content: center;
   font-size: 1rem;
 }
-.fb-rail-item.active .fb-rail-icon { background: var(--fb-blue); }
+.fb-rail-item.active .fb-rail-icon { background: var(--fb-blue); color: #fff; }
 
 .fb-main { flex: 1; min-width: 0; padding: 1rem 1rem 3rem; }
 .fb-main--flush { padding: 0 0 3rem; }
@@ -1592,8 +1595,10 @@ a.fb-person-img:hover { filter: brightness(1.1); }
   }
   .fb-bottom-item .ico {
     font-size: 1.72rem; line-height: 1.05;
+    color: #a78bfa;
     filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.55));
   }
+  .fb-bottom-item.active .ico { color: var(--fb-blue-hover); }
   .fb-bottom-item span:last-child {
     max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     opacity: 0.86;

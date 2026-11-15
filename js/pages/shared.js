@@ -63,6 +63,16 @@ function fbBrandMark() {
   return fbEscape(brand.initial);
 }
 
+// Section icons: drawn glyphs that take the surrounding color, so a tab reads
+// white when idle and vivid blue when open (emoji fallback for anything else)
+const FB_NAV_GLYPHS = {
+  friends: '<svg class="fb-nav-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M16 11a3.2 3.2 0 1 0-3.2-3.2A3.2 3.2 0 0 0 16 11Zm-8 0a3.2 3.2 0 1 0-3.2-3.2A3.2 3.2 0 0 0 8 11Zm0 1.8c-3.1 0-5.6 1.6-5.6 3.6v1.1h7.1v-1.1c0-1 .5-1.9 1.4-2.7a11 11 0 0 0-2.9-.9Zm8 0c-.6 0-1.2.06-1.7.18a4.2 4.2 0 0 1 1.5 3.3v1.1h6.2v-1.1c0-1.9-2.5-3.5-6-3.5Z"/></svg>',
+  profile: '<svg class="fb-nav-svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-4.2 0-7.6 2.1-7.6 4.7v1.3h15.2v-1.3c0-2.6-3.4-4.7-7.6-4.7Z"/></svg>'
+};
+function fbNavIcon(item) {
+  return FB_NAV_GLYPHS[item.id] || item.icon;
+}
+
 // Account background: the picture the signed-in member chose shows behind every
 // page. The layer lives on <body>, so it survives every route change.
 function fbPaintPageBackground(url) {
@@ -275,7 +285,7 @@ function appShell(el, user, navItems, renderContent, startTab) {
     a.type = 'button';
     a.dataset.tab = item.id;
     a.className = 'fb-rail-item';
-    a.innerHTML = `<span class="fb-rail-icon" aria-hidden="true">${item.icon}</span><span>${item.label}</span>`;
+    a.innerHTML = `<span class="fb-rail-icon" aria-hidden="true">${fbNavIcon(item)}</span><span>${item.label}</span>`;
     a.addEventListener('click', () => select(item.id));
     nav.appendChild(a);
   });
@@ -287,7 +297,7 @@ function appShell(el, user, navItems, renderContent, startTab) {
     b.className = 'fb-tab';
     b.title = item.label;
     b.setAttribute('aria-label', item.label);
-    b.innerHTML = item.icon;
+    b.innerHTML = fbNavIcon(item);
     b.addEventListener('click', () => select(item.id));
     topNav.appendChild(b);
   });
@@ -297,7 +307,7 @@ function appShell(el, user, navItems, renderContent, startTab) {
     b.type = 'button';
     b.dataset.tab = item.id;
     b.className = 'fb-bottom-item';
-    b.innerHTML = `<span class="ico" aria-hidden="true">${item.icon}</span><span>${item.label}</span>`;
+    b.innerHTML = `<span class="ico" aria-hidden="true">${fbNavIcon(item)}</span><span>${item.label}</span>`;
     b.addEventListener('click', () => select(item.id));
     bottomNav.appendChild(b);
   });
@@ -307,7 +317,7 @@ function appShell(el, user, navItems, renderContent, startTab) {
   sheet.className = 'fb-more-sheet';
   sheet.innerHTML = `
     ${overflowItems.map(item => `<button type="button" class="fb-rail-item" data-tab="${item.id}">
-      <span class="fb-rail-icon" aria-hidden="true">${item.icon}</span><span>${item.label}</span></button>`).join('')}
+      <span class="fb-rail-icon" aria-hidden="true">${fbNavIcon(item)}</span><span>${item.label}</span></button>`).join('')}
     <button type="button" class="fb-rail-item" id="sheetLogout">
       <span class="fb-rail-icon" aria-hidden="true">⏻</span><span>Log out</span>
     </button>`;
