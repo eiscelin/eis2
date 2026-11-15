@@ -19,53 +19,51 @@
   --fb-green: #45bd62;
   --fb-radius: 10px;
 
-  /* Glass panes: a clear frosted fill shows whatever sits behind it, a thick
-     bright bevelled frame catches the light (bright top and left, darker
-     bottom), two diagonal specular streaks sweep across the surface, small
-     four-point sparkles sit near two corners, and a soft drop shadow lifts the
-     pane off the page. The fill stays see-through so the words keep their
-     contrast against the dark shell. */
+  /* Glass panes: a very clear pane with a thin refracting perimeter rather than
+     a heavy frame. The top and left edges carry a pale highlight with a soft
+     glow behind it (strongest low on the left edge), the right and bottom
+     edges carry a thin dark refracted line, one soft white streak runs down the
+     top-right → bottom-left diagonal, a short sparkle sits at the middle of the
+     right edge and a faint highlight runs along the bottom. The slab reads as
+     solid glass from its edges, so the fill stays almost empty and the words
+     keep their contrast against the dark shell. */
   /* The pane itself is almost clear: a whisper of white, no dark body, so
-     whatever sits behind it reads through the frost */
-  --fb-glass: rgba(255, 255, 255, 0.035);
+     whatever sits behind it reads through the glass */
+  --fb-glass: rgba(255, 255, 255, 0.02);
   --fb-glass-strong: rgba(24, 27, 33, 0.32);
-  /* the fine neutral stroke drawn around the silhouette */
-  --fb-glass-edge: rgba(255, 255, 255, 0.18);
+  /* the thin refractive stroke around the silhouette, pale like the lit edges */
+  --fb-glass-edge: rgba(224, 247, 250, 0.20);
   --fb-glass-blur: blur(2.5px) saturate(115%);
   --fb-glass-sheen:
-    /* the top-left corner takes the strongest light, so a tight flare sits there */
-    radial-gradient(90px 90px at 0% 0%, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 68%),
-    /* one broad soft sheen lying along the top-right → bottom-left diagonal */
-    linear-gradient(135deg, rgba(255, 255, 255, 0) 12%, rgba(255, 255, 255, 0.06) 30%, rgba(255, 255, 255, 0.18) 45%, rgba(255, 255, 255, 0.06) 60%, rgba(255, 255, 255, 0) 82%),
-    /* the faintest tint, so the pane reads as frosted glass rather than a hole */
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
-  /* The isolated reflections: a four-point flare where the two lit bevelled
-     edges meet at the top-left corner, a vertical sparkle on the right edge
-     just above the middle, and a small highlight at the middle of the bottom */
+    /* one prominent soft white streak along the top-right → bottom-left diagonal */
+    linear-gradient(135deg, rgba(255, 255, 255, 0) 25%, rgba(255, 255, 255, 0.06) 36%, rgba(255, 255, 255, 0.18) 46%, rgba(255, 255, 255, 0.06) 57%, rgba(255, 255, 255, 0) 71%),
+    /* the faintest veil, so the pane reads as glass and not a hole */
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.005));
+  /* The isolated reflections: a soft highlight along the bottom edge, the short
+     bright sparkle at the middle of the right edge, and the left edge glowing a
+     little stronger toward its bottom corner */
   --fb-glass-glints:
-    radial-gradient(2px 26px at 0% 0%, rgba(255, 255, 255, 1), rgba(255, 255, 255, 0) 100%),
-    radial-gradient(26px 2px at 0% 0%, rgba(255, 255, 255, 1), rgba(255, 255, 255, 0) 100%),
-    radial-gradient(2px 28px at 100% 42%, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0) 100%),
-    radial-gradient(15px 2px at 100% 42%, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0) 100%),
-    radial-gradient(36px 2px at 50% 100%, rgba(255, 255, 255, 0.65), rgba(255, 255, 255, 0) 100%);
+    linear-gradient(0deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0) 14px),
+    radial-gradient(2px 32px at 100% 50%, rgba(255, 255, 255, 1), rgba(255, 255, 255, 0) 100%),
+    radial-gradient(6px 40px at 100% 50%, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 100%),
+    radial-gradient(70px 90px at 0% 92%, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 72%);
   --fb-glass-rim:
-    /* top edge: a crisp white hairline with a thick bright bevel glowing under it */
-    inset 0 1px 0 rgba(255, 255, 255, 1),
-    inset 0 18px 16px -11px rgba(255, 255, 255, 0.9),
-    /* left edge: the same lit bevel, a shade softer as the light falls away */
-    inset 1px 0 0 rgba(255, 255, 255, 1),
-    inset 18px 0 16px -11px rgba(255, 255, 255, 0.7),
-    /* right and bottom edges stay unlit: one thin, sharp dark line each, so the
-       pane reads as a solid bevelled slab rather than a flat outline */
-    inset -1px 0 0 rgba(0, 0, 0, 0.7),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.65);
-  /* Bars get the same edge, kept hairline-thin so a full-width strip stays flat */
+    /* top edge: a pale hairline with a soft glow spreading under it */
+    inset 0 1px 0 rgba(224, 247, 250, 0.6),
+    inset 0 6px 10px -5px rgba(255, 255, 255, 0.55),
+    /* left edge: pale too, and it brightens as it nears the bottom corner */
+    inset 1px 0 0 rgba(224, 247, 250, 0.45),
+    inset 5px 0 10px -6px rgba(255, 255, 255, 0.38),
+    /* right and bottom edges are the pane's thickness seen edge-on: dark lines */
+    inset -1px 0 0 rgba(69, 90, 100, 0.65),
+    inset 0 -1px 0 rgba(69, 90, 100, 0.6);
+  /* Bars get the same perimeter, kept hairline-thin so a full-width strip stays flat */
   --fb-glass-rim-soft:
-    inset 0 1px 0 rgba(255, 255, 255, 0.8),
-    inset 0 12px 12px -9px rgba(255, 255, 255, 0.45),
-    inset 1px 0 0 rgba(255, 255, 255, 0.45),
-    inset -1px 0 0 rgba(0, 0, 0, 0.5),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.45);
+    inset 0 1px 0 rgba(224, 247, 250, 0.45),
+    inset 0 4px 8px -5px rgba(255, 255, 255, 0.32),
+    inset 1px 0 0 rgba(224, 247, 250, 0.32),
+    inset -1px 0 0 rgba(69, 90, 100, 0.55),
+    inset 0 -1px 0 rgba(69, 90, 100, 0.5);
   /* a soft shade falling away to the bottom-right, nothing heavier */
   --fb-glass-shadow:
     0 2px 4px rgba(0, 0, 0, 0.34),
