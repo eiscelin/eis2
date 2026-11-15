@@ -815,16 +815,15 @@ Posts.mount = function (listEl, opts) {
     if (spotlightIndex >= comments.length) spotlightIndex = 0;
     const comment = comments[spotlightIndex];
     comment.classList.add('fb-comment-spotlight');
-    // On a phone the comment is highlighted where it sits: lifting it and
-    // scrolling the page every 10 seconds is what made the feed feel heavy
-    const compact = window.innerWidth <= 900;
-    if (!compact) liftSpotlightComment(comment);
+    // The lit comment follows to the first line of its thread on every screen,
+    // phones included, so a comment buried deep is never lit out of sight
+    liftSpotlightComment(comment);
     spotlightCommentId = String(comment.dataset.comment);
     spotlightEndsAt = Date.now() + COMMENT_SPOTLIGHT_MS;
     // Keep the lit comment readable without scrolling the post away: the page
     // only moves if the comment is out of view. The scroll it causes must not
     // be mistaken for the member choosing another post.
-    if (!typing && spotlightUserScrolled && !compact) {
+    if (!typing && spotlightUserScrolled) {
       spotlightIgnoreScrollUntil = Date.now() + 1200;
       keepSpotlightVisible(comment);
     }

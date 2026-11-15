@@ -2786,6 +2786,32 @@ a.fb-post-name:hover { text-decoration: underline; }
   .fb-post-actions { margin: 0 0.85rem; }
   .fb-post-stats { padding: 0.45rem 0.85rem; }
   .fb-comments { padding: 0.55rem 0.85rem 0.9rem; }
+  /* A thread that runs deep keeps its readable width on a phone: from the
+     second reply on, the replies pan sideways (swipe) instead of squeezing
+     the text thinner and thinner until it breaks one letter per line */
+  .fb-comment-replies .fb-comment-replies {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 0.15rem;
+  }
+  .fb-comment-replies .fb-comment-replies > .fb-comment { min-width: 15rem; }
+  /* The sideways strip would cut the reaction popup: inside it the picker wraps
+     into a narrower block so every reaction stays reachable */
+  .fb-comment-replies .fb-comment-replies .fb-reaction-picker { max-width: 11rem; }
+  /* Past that depth the strip is wide enough already: deeper turns stop
+     narrowing the text so the sideways swipe reaches everything. They also
+     drop their avatar and lose the staircase, which otherwise pushed every
+     deeper reply off to the right until the words were squeezed again */
+  .fb-comment-replies .fb-comment-replies .fb-comment-replies {
+    overflow: visible;
+    padding-left: 0.35rem;
+  }
+  .fb-comment-replies .fb-comment-replies .fb-comment-replies > .fb-comment {
+    min-width: 0;
+    gap: 0;
+  }
+  .fb-comment-replies .fb-comment-replies .fb-comment-replies > .fb-comment > .fb-comment-avatar { display: none; }
   .fb-post-act span:last-child { font-size: 0.82rem; }
 }
 
