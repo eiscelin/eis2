@@ -727,6 +727,7 @@ var Pages = window.Pages || {};
 
   function renderSettings(body) {
     const approval = state.settings.require_media_approval !== 'false';
+    const overlayBtn = state.settings.overlay_button !== 'false';
     body.innerHTML = `
       <section class="admin-card">
         <div class="admin-toolbar">
@@ -742,6 +743,13 @@ var Pages = window.Pages || {};
         </div>
         <div class="admin-setting">
           <div>
+            <div class="admin-setting-name">Profile overlay button</div>
+            <div class="admin-setting-desc">The Overlay button lets members lay a photo or clip over their profile. Turn it off and the button disappears from every profile.</div>
+          </div>
+          <button class="admin-switch${overlayBtn ? ' on' : ''}" id="adminOverlayToggle" type="button" role="switch" aria-checked="${overlayBtn}" aria-label="Show the profile overlay button"><i></i></button>
+        </div>
+        <div class="admin-setting">
+          <div>
             <div class="admin-setting-name">Message moderation</div>
             <div class="admin-setting-desc">Admins can read every message from the Messages tab and delete a message from all devices.</div>
           </div>
@@ -750,6 +758,20 @@ var Pages = window.Pages || {};
       </section>`;
 
     body.querySelector('#adminRefresh').addEventListener('click', refresh);
+    body.querySelector('#adminOverlayToggle').addEventListener('click', async () => {
+      const next = overlayBtn ? 'false' : 'true';
+      try {
+        const { error } = await sb.rpc('admin_set_setting', {
+          p_admin_id: me.id, p_key: 'overlay_button', p_value: next
+        });
+        if (error) throw error;
+        state.settings.overlay_button = next;
+        showToast(next === 'true' ? 'Overlay button is on' : 'Overlay button is hidden from profiles', 'success');
+        renderBody();
+      } catch (e) {
+        toastError(e);
+      }
+    });
     body.querySelector('#adminApprovalToggle').addEventListener('click', async () => {
       const next = approval ? 'false' : 'true';
       try {

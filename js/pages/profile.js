@@ -183,6 +183,17 @@ Pages.profileTab = function(main, user) {
 
   // ---------- Translucent overlay in front of the whole profile ----------
 
+  // The admins decide whether members may set an overlay: with the setting off
+  // the button is gone from the profile entirely
+  const overlayBtn = main.querySelector('#pfOverlay');
+  if (sb) {
+    sb.from('app_settings').select('value').eq('key', 'overlay_button').maybeSingle()
+      .then(({ data }) => {
+        if (data && data.value === 'false') overlayBtn.style.display = 'none';
+      })
+      .catch(() => {});
+  }
+
   ProfileOverlay.paint(main.querySelector('.fb-profile'), user);
 
   main.querySelector('#pfOverlay').addEventListener('click', () => {
