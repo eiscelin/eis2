@@ -30,38 +30,42 @@
   --fb-glass: rgba(255, 255, 255, 0.035);
   --fb-glass-strong: rgba(24, 27, 33, 0.32);
   /* the fine neutral stroke drawn around the silhouette */
-  --fb-glass-edge: rgba(255, 255, 255, 0.26);
+  --fb-glass-edge: rgba(255, 255, 255, 0.18);
   --fb-glass-blur: blur(2.5px) saturate(115%);
   --fb-glass-sheen:
-    /* the top-left corner catches the most light, so the bevel tapers away from it */
-    radial-gradient(70px 70px at 0% 0%, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0) 70%),
-    /* one broad sheen running from the bottom-left toward the top-right */
-    linear-gradient(70deg, rgba(255, 255, 255, 0) 16%, rgba(255, 255, 255, 0.11) 42%, rgba(255, 255, 255, 0.04) 58%, rgba(255, 255, 255, 0) 76%),
-    /* the faintest tint, so the pane reads as glass rather than a hole */
-    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012));
-  /* Four-point sparkles: a thin vertical flare crossed by a thin horizontal
-     one, at the top-left corner and halfway down the left edge */
+    /* the top-left corner takes the strongest light, so a tight flare sits there */
+    radial-gradient(90px 90px at 0% 0%, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 68%),
+    /* one broad soft sheen lying along the top-right → bottom-left diagonal */
+    linear-gradient(135deg, rgba(255, 255, 255, 0) 12%, rgba(255, 255, 255, 0.06) 30%, rgba(255, 255, 255, 0.18) 45%, rgba(255, 255, 255, 0.06) 60%, rgba(255, 255, 255, 0) 82%),
+    /* the faintest tint, so the pane reads as frosted glass rather than a hole */
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
+  /* The isolated reflections: a four-point flare where the two lit bevelled
+     edges meet at the top-left corner, a vertical sparkle on the right edge
+     just above the middle, and a small highlight at the middle of the bottom */
   --fb-glass-glints:
-    radial-gradient(2px 18px at 5% 6%, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0) 100%),
-    radial-gradient(18px 2px at 5% 6%, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0) 100%),
-    radial-gradient(1.5px 13px at 5% 52%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 100%),
-    radial-gradient(13px 1.5px at 5% 52%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 100%);
+    radial-gradient(2px 26px at 0% 0%, rgba(255, 255, 255, 1), rgba(255, 255, 255, 0) 100%),
+    radial-gradient(26px 2px at 0% 0%, rgba(255, 255, 255, 1), rgba(255, 255, 255, 0) 100%),
+    radial-gradient(2px 28px at 100% 42%, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0) 100%),
+    radial-gradient(15px 2px at 100% 42%, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0) 100%),
+    radial-gradient(36px 2px at 50% 100%, rgba(255, 255, 255, 0.65), rgba(255, 255, 255, 0) 100%);
   --fb-glass-rim:
-    /* the lit top edge: a thick, bright white band that softens into the pane */
-    inset 0 10px 10px -7px rgba(255, 255, 255, 0.80),
-    inset 0 1px 0 rgba(255, 255, 255, 0.95),
-    /* the lit left edge: nearly as thick, fading as it runs down */
-    inset 9px 0 10px -7px rgba(255, 255, 255, 0.62),
-    inset 1px 0 0 rgba(255, 255, 255, 0.85),
-    /* the right edge: a single thin, sharp white line */
-    inset -1.5px 0 0 rgba(255, 255, 255, 0.55),
-    /* the bottom edge: the faintest of highlights */
-    inset 0 -1px 0 rgba(255, 255, 255, 0.22);
+    /* top edge: a crisp white hairline with a thick bright bevel glowing under it */
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 18px 16px -11px rgba(255, 255, 255, 0.9),
+    /* left edge: the same lit bevel, a shade softer as the light falls away */
+    inset 1px 0 0 rgba(255, 255, 255, 1),
+    inset 18px 0 16px -11px rgba(255, 255, 255, 0.7),
+    /* right and bottom edges stay unlit: one thin, sharp dark line each, so the
+       pane reads as a solid bevelled slab rather than a flat outline */
+    inset -1px 0 0 rgba(0, 0, 0, 0.7),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.65);
   /* Bars get the same edge, kept hairline-thin so a full-width strip stays flat */
   --fb-glass-rim-soft:
-    inset 0 1px 0 rgba(255, 255, 255, 0.60),
-    inset 1px 0 0 rgba(255, 255, 255, 0.36),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.20);
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    inset 0 12px 12px -9px rgba(255, 255, 255, 0.45),
+    inset 1px 0 0 rgba(255, 255, 255, 0.45),
+    inset -1px 0 0 rgba(0, 0, 0, 0.5),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.45);
   /* a soft shade falling away to the bottom-right, nothing heavier */
   --fb-glass-shadow:
     0 2px 4px rgba(0, 0, 0, 0.34),
