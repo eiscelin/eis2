@@ -25,9 +25,10 @@
      four-point sparkles sit near two corners, and a soft drop shadow lifts the
      pane off the page. The fill stays see-through so the words keep their
      contrast against the dark shell. */
-  --fb-glass: rgba(255, 255, 255, 0.05);
-  --fb-glass-strong: rgba(20, 23, 29, 0.30);
-  --fb-glass-edge: rgba(255, 255, 255, 0.44);
+  --fb-glass: rgba(255, 255, 255, 0.07);
+  --fb-glass-strong: rgba(22, 25, 31, 0.34);
+  /* a thin dark line draws the silhouette; the bright bevel lives inside it */
+  --fb-glass-edge: rgba(0, 0, 0, 0.55);
   --fb-glass-blur: blur(2px) saturate(120%);
   --fb-glass-sheen:
     /* broad specular band sweeping in from the top-left corner */
@@ -44,14 +45,15 @@
     radial-gradient(1.5px 9px at 89% 88%, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0) 100%),
     radial-gradient(9px 1.5px at 89% 88%, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0) 100%);
   --fb-glass-rim:
-    /* the thick bright frame: a lit outer line, a bright top and left bevel */
-    inset 0 0 0 1px rgba(255, 255, 255, 0.32),
-    inset 0 2px 1px -1px rgba(255, 255, 255, 0.62),
-    inset 2px 2px 0 -1px rgba(255, 255, 255, 0.22),
-    inset -2px 2px 0 -1px rgba(255, 255, 255, 0.13),
-    /* the shaded bottom bevel that gives the frame its thickness */
-    inset 0 -2px 1px -1px rgba(0, 0, 0, 0.58),
-    inset 0 20px 30px -24px rgba(255, 255, 255, 0.30);
+    /* the bright inner bevel, lit from the top-left: a wide white rim along
+       the top and left, a narrow sheen on the right and bottom */
+    inset 0 3px 2px -2px rgba(255, 255, 255, 0.92),
+    inset 3px 0 2px -2px rgba(255, 255, 255, 0.78),
+    inset -2px 0 1px -1px rgba(255, 255, 255, 0.42),
+    inset 0 -2px 1px -1px rgba(255, 255, 255, 0.30),
+    /* ...and a dark inner line so the bright rim sits proud of the silhouette */
+    inset 0 0 0 1px rgba(0, 0, 0, 0.35),
+    inset 0 20px 30px -24px rgba(255, 255, 255, 0.26);
   --fb-glass-shadow:
     0 40px 90px -18px rgba(0, 0, 0, 0.62),
     0 18px 40px rgba(0, 0, 0, 0.40),
@@ -2894,7 +2896,7 @@ a.fb-share-embed-name:hover { text-decoration: underline; }
 .pi-card {
   background-color: var(--fb-glass);
   background-image: var(--fb-glass-glints), var(--fb-glass-sheen);
-  border: 1.5px solid var(--fb-glass-edge);
+  border: 1px solid var(--fb-glass-edge);
   -webkit-backdrop-filter: var(--fb-glass-blur);
   backdrop-filter: var(--fb-glass-blur);
   box-shadow: var(--fb-glass-rim), var(--fb-glass-shadow);

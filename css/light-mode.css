@@ -20,9 +20,11 @@ html[data-theme="light"] {
   /* Glass panes, light flavour: a milky see-through fill, a bright white
      bevelled frame (a fine slate line keeps its edge visible on a pale page),
      the same two diagonal streaks and corner sparkles as the dark shell */
-  --fb-glass: rgba(255, 255, 255, 0.22);
-  --fb-glass-strong: rgba(255, 255, 255, 0.58);
-  --fb-glass-edge: rgba(255, 255, 255, 0.92);
+  /* a cool milky tint, so the white bevel still reads against the pale page */
+  --fb-glass: rgba(226, 232, 240, 0.55);
+  --fb-glass-strong: rgba(255, 255, 255, 0.66);
+  /* the thin dark silhouette that makes the white bevel read on a pale page */
+  --fb-glass-edge: rgba(15, 23, 42, 0.42);
   --fb-glass-sheen:
     linear-gradient(128deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.20) 28%, rgba(255, 255, 255, 0) 52%),
     linear-gradient(118deg, rgba(255, 255, 255, 0) 56%, rgba(255, 255, 255, 0.34) 70%, rgba(255, 255, 255, 0) 84%),
@@ -33,12 +35,12 @@ html[data-theme="light"] {
     radial-gradient(1.5px 9px at 89% 88%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 100%),
     radial-gradient(9px 1.5px at 89% 88%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 100%);
   --fb-glass-rim:
-    inset 0 2px 1px -1px rgba(255, 255, 255, 0.95),
-    inset 2px 2px 0 -1px rgba(255, 255, 255, 0.62),
-    inset -2px 2px 0 -1px rgba(255, 255, 255, 0.54),
-    inset 0 -2px 1px -1px rgba(15, 23, 42, 0.18),
-    inset 0 20px 30px -24px rgba(255, 255, 255, 0.55),
-    inset 0 0 0 1px rgba(15, 23, 42, 0.16);
+    inset 0 3px 2px -2px rgba(255, 255, 255, 1),
+    inset 3px 0 2px -2px rgba(255, 255, 255, 0.92),
+    inset -2px 0 1px -1px rgba(255, 255, 255, 0.62),
+    inset 0 -2px 1px -1px rgba(255, 255, 255, 0.48),
+    inset 0 0 0 1px rgba(15, 23, 42, 0.18),
+    inset 0 20px 30px -24px rgba(255, 255, 255, 0.6);
   --fb-glass-shadow:
     0 40px 84px -18px rgba(15, 23, 42, 0.28),
     0 18px 36px rgba(15, 23, 42, 0.14),
