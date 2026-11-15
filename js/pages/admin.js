@@ -728,6 +728,8 @@ var Pages = window.Pages || {};
   function renderSettings(body) {
     const approval = state.settings.require_media_approval !== 'false';
     const overlayBtn = state.settings.overlay_button !== 'false';
+    const coverVideo = state.settings.cover_video !== 'false';
+    const videoPosts = state.settings.video_posts !== 'false';
     body.innerHTML = `
       <section class="admin-card">
         <div class="admin-toolbar">
@@ -750,6 +752,20 @@ var Pages = window.Pages || {};
         </div>
         <div class="admin-setting">
           <div>
+            <div class="admin-setting-name">Video profile covers</div>
+            <div class="admin-setting-desc">Members can use a cover video up to 5 seconds long. Turn it off and a cover accepts pictures only.</div>
+          </div>
+          <button class="admin-switch${coverVideo ? ' on' : ''}" id="adminCoverVideoToggle" type="button" role="switch" aria-checked="${coverVideo}" aria-label="Allow uploaded cover videos"><i></i></button>
+        </div>
+        <div class="admin-setting">
+          <div>
+            <div class="admin-setting-name">Video posts</div>
+            <div class="admin-setting-desc">Members can attach a video to a post. Turn it off and the Video button disappears from every composer.</div>
+          </div>
+          <button class="admin-switch${videoPosts ? ' on' : ''}" id="adminVideoPostToggle" type="button" role="switch" aria-checked="${videoPosts}" aria-label="Allow video posts"><i></i></button>
+        </div>
+        <div class="admin-setting">
+          <div>
             <div class="admin-setting-name">Message moderation</div>
             <div class="admin-setting-desc">Admins can read every message from the Messages tab and delete a message from all devices.</div>
           </div>
@@ -758,36 +774,39 @@ var Pages = window.Pages || {};
       </section>`;
 
     body.querySelector('#adminRefresh').addEventListener('click', refresh);
-    body.querySelector('#adminOverlayToggle').addEventListener('click', async () => {
-      const next = overlayBtn ? 'false' : 'true';
-      try {
-        const { error } = await sb.rpc('admin_set_setting', {
-          p_admin_id: me.id, p_key: 'overlay_button', p_value: next
-        });
-        if (error) throw new Error(/Unknown setting/.test(error.message)
-          ? 'Run 020_add_overlay_button_setting.sql in Supabase, then try again'
-          : error.message);
-        state.settings.overlay_button = next;
-        showToast(next === 'true' ? 'Overlay button is on' : 'Overlay button is hidden from profiles', 'success');
-        renderBody();
-      } catch (e) {
-        toastError(e);
-      }
-    });
-    body.querySelector('#adminApprovalToggle').addEventListener('click', async () => {
-      const next = approval ? 'false' : 'true';
-      try {
-        const { error } = await sb.rpc('admin_set_setting', {
-          p_admin_id: me.id, p_key: 'require_media_approval', p_value: next
-        });
-        if (error) throw error;
-        state.settings.require_media_approval = next;
-        showToast(next === 'true' ? 'Media approval is on' : 'Media approval is off — new media goes live at once', 'success');
-        renderBody();
-      } catch (e) {
-        toastError(e);
-      }
-    });
+    // One switch: flip the stored value, then repaint the settings panel
+    function bindSwitch(selector, key, onMsg, offMsg, migration) {
+      const el = body.querySelector(selector);
+      if (!el) return;
+      el.addEventListener('click', async () => {
+        const next = el.getAttribute('aria-checked') === 'true' ? 'false' : 'true';
+        try {
+          const { error } = await sb.rpc('admin_set_setting', {
+            p_admin_id: me.id, p_key: key, p_value: next
+          });
+          if (error) throw new Error(migration && /Unknown setting/.test(error.message)
+            ? `Run ${migration} in Supabase, then try again`
+            : error.message);
+          state.settings[key] = next;
+          showToast(next === 'true' ? onMsg : offMsg, 'success');
+          renderBody();
+        } catch (e) {
+          toastError(e);
+        }
+      });
+    }
+
+    bindSwitch('#adminApprovalToggle', 'require_media_approval',
+      'Media approval is on', 'Media approval is off — new media goes live at once');
+    bindSwitch('#adminOverlayToggle', 'overlay_button',
+      'Overlay button is on', 'Overlay button is hidden from profiles',
+      '020_add_overlay_button_setting.sql');
+    bindSwitch('#adminCoverVideoToggle', 'cover_video',
+      'Members can use a cover video', 'Cover pictures only — video covers are off',
+      '021_add_cover_video_and_video_post_settings.sql');
+    bindSwitch('#adminVideoPostToggle', 'video_posts',
+      'Members can post videos', 'Video posts are off — the Video button is gone',
+      '021_add_cover_video_and_video_post_settings.sql');
   }
 
   // ===================== My profile =====================
