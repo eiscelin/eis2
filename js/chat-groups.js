@@ -75,7 +75,12 @@ window.GroupChat = (function () {
 
   function groupError(error) {
     const message = String((error && error.message) || error || 'Something went wrong');
-    if (/chat_group/.test(message)) {
+    const code = String((error && error.code) || '');
+    // Only a genuinely missing table points at the migration; any other failure
+    // (a permission, a stale page, a bad link) shows what actually went wrong
+    const missingTable = code === '42P01' || code === 'PGRST205' ||
+      (/chat_group/.test(message) && /does not exist|schema cache/i.test(message));
+    if (missingTable) {
       return new Error('Group chats are not set up yet. Run supabase/migrations/023_create_chat_groups.sql in Supabase.');
     }
     return new Error(message);
