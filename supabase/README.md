@@ -36,8 +36,11 @@ UPDATE public.users SET role = 'admin' WHERE username = 'your-username';
 The app stays connected but featureless (no login, no posts, no chat) until these tables exist.
 
 ## Google Drive storage (Vercel)
-Photos uploaded on the Vercel deployment are saved in the owner's own Google Drive; videos keep
-using Cloudinary there, because a Vercel function cannot stream them back from Drive.
+Photos and videos uploaded on the Vercel deployment are saved in the owner's own Google Drive.
+A video is sent straight from the browser to Drive through a resumable upload session, because a
+Vercel function cannot carry a whole video; playback streams back through `/api/drive/media/<id>`.
+When Drive is not connected, or an upload fails, the app falls back to Cloudflare R2 and then to
+Cloudinary.
 
 1. Run `022_create_storage_connection.sql` — the connected account is stored in that table.
 2. In Vercel > Project Settings > Environment Variables add:

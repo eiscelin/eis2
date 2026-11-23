@@ -141,6 +141,56 @@ async function driveError(res) {
   return (data.error && data.error.message) || 'Google Drive upload failed';
 }
 
+// A picture renders straight from Google's image CDN. A video streams back
+// through the app, because Drive's own download links refuse playback.
+export function driveMediaUrl(fileId, contentType) {
+  return isVideo(contentType)
+    ? '/api/drive/media/' + fileId
+    : 'https://lh3.googleusercontent.com/d/' + fileId;
+}
+
+// Starts a resumable upload and hands the session address to the browser, so a
+// video travels straight to Google instead of through a function's size limit.
+export async function uploadSession(contentType, size, filename, origin) {
+  const token = await accessToken();
+  if (!token) throw new Error('Google Drive is not connected');
+  const headers = {
+    Authorization: 'Bearer ' + token,
+    'Content-Type': 'application/json; charset=UTF-8',
+    'X-Upload-Content-Type': contentType,
+    'X-Upload-Content-Length': String(size)
+  };
+  // Naming the page lets Google answer the browser's own upload request
+  if (origin) headers.Origin = origin;
+  const start = await fetch(
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id',
+    {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ name: safeFilename(filename, contentType), mimeType: contentType })
+    }
+  );
+  if (!start.ok) throw new Error(await driveError(start));
+  const uploadUrl = start.headers.get('location');
+  if (!uploadUrl) throw new Error('Google Drive did not accept the upload');
+  return uploadUrl;
+}
+
+// Anyone with the link can open it, so a post keeps showing its media.
+export async function shareFile(fileId) {
+  const token = await accessToken();
+  if (!token) throw new Error('Google Drive is not connected');
+  try {
+    await fetch('https://www.googleapis.com/drive/v3/files/' + fileId + '/permissions', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: 'reader', type: 'anyone' })
+    });
+  } catch {
+    /* the file still uploads; only the public link is missing */
+  }
+}
+
 // Resumable upload into the connected Drive, then share it by link.
 export async function uploadToDrive(buffer, contentType, filename) {
   const token = await accessToken();
@@ -171,7 +221,7 @@ export async function uploadToDrive(buffer, contentType, filename) {
   const file = await put.json().catch(() => ({}));
   if (!file.id) throw new Error('Google Drive did not return the file');
 
-  // Anyone with the link can open it, so a post keeps showing its picture
+  // Anyone with the link can open it, so a post keeps showing its media
   try {
     await fetch('https://www.googleapis.com/drive/v3/files/' + file.id + '/permissions', {
       method: 'POST',
@@ -181,5 +231,5 @@ export async function uploadToDrive(buffer, contentType, filename) {
   } catch {
     /* the file still uploads; only the public link is missing */
   }
-  return 'https://lh3.googleusercontent.com/d/' + file.id;
+  return driveMediaUrl(file.id, contentType);
 }

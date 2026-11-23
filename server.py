@@ -206,6 +206,7 @@ GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 GOOGLE_SCOPE = 'https://www.googleapis.com/auth/drive.file'
 DRIVE_STATE_PATH = os.environ.get('DRIVE_STATE_PATH') or '/data/google-drive.json'
 DRIVE_MEDIA_PATH = re.compile(r'^/api/drive/media/([A-Za-z0-9_-]+)$')
+DRIVE_FILE_ID = re.compile(r'^[A-Za-z0-9_-]+$')
 
 # Short-lived OAuth attempts, so a stale callback link cannot be replayed
 _drive_states = {}
@@ -285,38 +286,42 @@ def drive_public_url(file_id, content_type):
     return 'https://lh3.googleusercontent.com/d/' + file_id
 
 
-def drive_upload(data, content_type, filename):
-    """Resumable upload into the connected Drive, then share it by link."""
-    token = drive_access_token()
+def drive_upload_session(content_type, size, filename, origin=None, token=None):
+    """Start a resumable upload and hand back its address, so the browser can
+    send a big video straight to Google instead of through this server."""
+    token = token or drive_access_token()
     if not token:
         raise RuntimeError('Google Drive is not connected')
-    name = safe_filename(filename, content_type)
+    headers = {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json; charset=UTF-8',
+        'X-Upload-Content-Type': content_type,
+        'X-Upload-Content-Length': str(size)
+    }
+    # Naming the page lets Google answer the browser's own upload request
+    if origin:
+        headers['Origin'] = origin
     start = urllib.request.Request(
         'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id',
-        data=json.dumps({'name': name, 'mimeType': content_type}).encode(),
-        headers={
-            'Authorization': 'Bearer ' + token,
-            'Content-Type': 'application/json; charset=UTF-8',
-            'X-Upload-Content-Type': content_type,
-            'X-Upload-Content-Length': str(len(data))
-        },
+        data=json.dumps({
+            'name': safe_filename(filename, content_type),
+            'mimeType': content_type
+        }).encode(),
+        headers=headers,
         method='POST'
     )
     with urllib.request.urlopen(start, timeout=60) as res:
         upload_url = res.headers.get('Location')
     if not upload_url:
         raise RuntimeError('Google Drive did not accept the upload')
-    put = urllib.request.Request(
-        upload_url,
-        data=data,
-        headers={'Content-Type': content_type, 'Content-Length': str(len(data))},
-        method='PUT'
-    )
-    with urllib.request.urlopen(put, timeout=600) as res:
-        file_id = json.loads(res.read().decode()).get('id')
-    if not file_id:
-        raise RuntimeError('Google Drive did not return the file')
-    # Anyone with the link can open it, so a post keeps showing its media
+    return upload_url
+
+
+def drive_share(file_id, token=None):
+    """Anyone with the link can open it, so a post keeps showing its media."""
+    token = token or drive_access_token()
+    if not token:
+        raise RuntimeError('Google Drive is not connected')
     try:
         share = urllib.request.Request(
             'https://www.googleapis.com/drive/v3/files/%s/permissions' % file_id,
@@ -327,6 +332,25 @@ def drive_upload(data, content_type, filename):
         urllib.request.urlopen(share, timeout=30).read()
     except Exception:
         pass
+
+
+def drive_upload(data, content_type, filename):
+    """Upload a small file into the connected Drive, then share it by link."""
+    token = drive_access_token()
+    if not token:
+        raise RuntimeError('Google Drive is not connected')
+    upload_url = drive_upload_session(content_type, len(data), filename, token=token)
+    put = urllib.request.Request(
+        upload_url,
+        data=data,
+        headers={'Content-Type': content_type, 'Content-Length': str(len(data))},
+        method='PUT'
+    )
+    with urllib.request.urlopen(put, timeout=600) as res:
+        file_id = json.loads(res.read().decode()).get('id')
+    if not file_id:
+        raise RuntimeError('Google Drive did not return the file')
+    drive_share(file_id, token=token)
     return drive_public_url(file_id, content_type)
 
 
@@ -454,6 +478,57 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         except Exception as e:
             return self.send_json(502, {'error': str(e)})
         return self.send_json(200, {'url': url})
+
+    def read_json_body(self):
+        length = int(self.headers.get('Content-Length') or 0)
+        if length <= 0 or length > 16384:
+            return None
+        try:
+            return json.loads(self.rfile.read(length).decode())
+        except ValueError:
+            return None
+
+    def drive_session_request(self):
+        """Hands the browser a Drive upload address for a file it will send."""
+        if not google_oauth_settings() or not drive_state().get('refresh_token'):
+            return self.send_json(501, {'error': 'Google Drive is not connected'})
+        payload = self.read_json_body()
+        if not isinstance(payload, dict):
+            return self.send_json(400, {'error': 'Invalid request'})
+        content_type = str(payload.get('contentType') or '')
+        if not (content_type.startswith('video/') or content_type.startswith('image/')):
+            return self.send_json(400, {'error': 'Unsupported file type'})
+        try:
+            size = int(payload.get('size') or 0)
+        except (TypeError, ValueError):
+            size = 0
+        limit = MAX_VIDEO_BYTES if is_video(content_type) else MAX_UPLOAD_BYTES
+        if size <= 0 or size > limit:
+            return self.send_json(413, {'error': 'File must be smaller than %d MB' % (limit // (1024 * 1024))})
+        try:
+            upload_url = drive_upload_session(
+                content_type, size, payload.get('name') or '', self.headers.get('Origin')
+            )
+        except Exception as e:
+            return self.send_json(502, {'error': str(e) or 'Google Drive upload failed'})
+        return self.send_json(200, {'uploadUrl': upload_url})
+
+    def drive_finish_request(self):
+        """Shares a file the browser has just put into Drive."""
+        if not google_oauth_settings() or not drive_state().get('refresh_token'):
+            return self.send_json(501, {'error': 'Google Drive is not connected'})
+        payload = self.read_json_body()
+        if not isinstance(payload, dict):
+            return self.send_json(400, {'error': 'Invalid request'})
+        file_id = str(payload.get('id') or '')
+        content_type = str(payload.get('contentType') or '')
+        if not DRIVE_FILE_ID.match(file_id):
+            return self.send_json(400, {'error': 'Invalid file'})
+        try:
+            drive_share(file_id)
+        except Exception as e:
+            return self.send_json(502, {'error': str(e) or 'Google Drive upload failed'})
+        return self.send_json(200, {'url': drive_public_url(file_id, content_type)})
 
     def drive_disconnect(self):
         token = drive_state().get('refresh_token')
@@ -607,6 +682,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         path = self.path.split('?')[0]
         if path == '/api/drive/upload':
             return self.drive_upload_request()
+        if path == '/api/drive/session':
+            return self.drive_session_request()
+        if path == '/api/drive/finish':
+            return self.drive_finish_request()
         if path == '/api/drive/disconnect':
             return self.drive_disconnect()
         if path != '/api/upload':

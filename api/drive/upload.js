@@ -1,6 +1,7 @@
-// Uploads a photo into the connected Google Drive. Returns 501 when Drive is
-// not connected, so the browser falls back to Cloudinary.
-import { settings, canStore, readConnection, uploadToDrive, isVideo } from '../_drive.js';
+// Uploads a photo — or a small video — into the connected Google Drive. A big
+// video uses the resumable session in session.js instead. Returns 501 when
+// Drive is not connected, so the browser falls back to Cloudinary.
+import { settings, canStore, readConnection, uploadToDrive } from '../_drive.js';
 
 export const config = { api: { bodyParser: false } };
 
@@ -10,12 +11,6 @@ export default async function handler(req, res) {
     return;
   }
   const contentType = req.headers['content-type'] || 'image/jpeg';
-  // A Vercel function caps its response size, so video playback cannot be
-  // streamed back from Drive here: videos keep using Cloudinary.
-  if (isVideo(contentType)) {
-    res.status(501).json({ error: 'Videos are stored with Cloudinary' });
-    return;
-  }
   const connection = settings() && canStore() ? await readConnection() : {};
   if (!connection.refresh_token) {
     res.status(501).json({ error: 'Google Drive is not connected' });

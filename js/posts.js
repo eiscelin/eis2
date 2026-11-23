@@ -495,11 +495,13 @@ Posts.composer = function (root, opts) {
   const wrap = root.matches('[data-composer]') ? root : root.querySelector('[data-composer]');
   if (!wrap) return;
 
-  // Admins can turn video posts off; the Video button then leaves the composer
+  // Admins can turn video posts off; the Video button then leaves the composer.
+  // A missing row (or a failed lookup) means the default, so video posts stay
+  // on and only an explicit "false" takes the button away.
   if (sb) {
     sb.from('app_settings').select('value').eq('key', 'video_posts').maybeSingle()
       .then(({ data }) => {
-        if (data && data.value !== 'false') return;
+        if (!data || data.value !== 'false') return;
         const videoBtn = wrap.querySelector('[data-pick="video"]');
         if (videoBtn) videoBtn.remove();
       })
