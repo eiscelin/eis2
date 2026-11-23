@@ -83,6 +83,11 @@ async function cloudinaryUploadViaServer(blob, onProgress) {
 }
 
 async function cloudinaryUpload(blob, onProgress) {
+  // The owner's own Google Drive wins once the account is connected.
+  if (typeof gdriveUpload === 'function') {
+    const driveUrl = await gdriveUpload(blob, onProgress);
+    if (driveUrl) return driveUrl;
+  }
   // Cloudflare R2 wins when the server can sign for it; otherwise Cloudinary as before.
   if (typeof r2Upload === 'function') {
     const r2Url = await r2Upload(blob, onProgress);

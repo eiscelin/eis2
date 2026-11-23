@@ -8,6 +8,9 @@ import datetime
 import gzip
 import mimetypes
 import email.utils
+import re
+import shutil
+import time
 import urllib.request
 import urllib.parse
 import urllib.error
@@ -194,6 +197,139 @@ def r2_presign(cfg, key, content_type):
     return 'https://%s%s?%s&X-Amz-Signature=%s' % (host, path, query, signature)
 
 
+# ---- Google Drive storage ------------------------------------------------
+# Uploads are kept in the owner's own Google Drive. The account is connected
+# once from Admin > Settings; the refresh token lives on a writable volume so
+# the connection survives a restart.
+GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
+GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
+GOOGLE_SCOPE = 'https://www.googleapis.com/auth/drive.file'
+DRIVE_STATE_PATH = os.environ.get('DRIVE_STATE_PATH') or '/data/google-drive.json'
+DRIVE_MEDIA_PATH = re.compile(r'^/api/drive/media/([A-Za-z0-9_-]+)$')
+
+# Short-lived OAuth attempts, so a stale callback link cannot be replayed
+_drive_states = {}
+
+
+def google_oauth_settings():
+    """Client id and secret of the Google Cloud OAuth client, once configured."""
+    client_id = os.environ.get('GOOGLE_CLIENT_ID', '')
+    client_secret = os.environ.get('GOOGLE_CLIENT_SECRET', '')
+    if not client_id or not client_secret:
+        return None
+    return {'client_id': client_id, 'client_secret': client_secret}
+
+
+def drive_state():
+    try:
+        with open(DRIVE_STATE_PATH, encoding='utf-8') as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return {}
+
+
+def save_drive_state(state):
+    folder = os.path.dirname(DRIVE_STATE_PATH)
+    if folder:
+        os.makedirs(folder, exist_ok=True)
+    tmp = DRIVE_STATE_PATH + '.tmp'
+    with open(tmp, 'w', encoding='utf-8') as fh:
+        json.dump(state, fh)
+    os.replace(tmp, DRIVE_STATE_PATH)
+
+
+def clear_drive_state():
+    try:
+        os.remove(DRIVE_STATE_PATH)
+    except OSError:
+        pass
+
+
+def google_token_request(payload):
+    body = urllib.parse.urlencode(payload).encode()
+    req = urllib.request.Request(
+        GOOGLE_TOKEN_URL,
+        data=body,
+        headers={'Content-Type': 'application/x-www-form-urlencoded'}
+    )
+    with urllib.request.urlopen(req, timeout=30) as res:
+        return json.loads(res.read().decode())
+
+
+def drive_access_token():
+    """A fresh access token from the stored refresh token, or None when not connected."""
+    settings = google_oauth_settings()
+    state = drive_state()
+    if not settings or not state.get('refresh_token'):
+        return None
+    try:
+        data = google_token_request({
+            'client_id': settings['client_id'],
+            'client_secret': settings['client_secret'],
+            'refresh_token': state['refresh_token'],
+            'grant_type': 'refresh_token'
+        })
+        return data.get('access_token')
+    except urllib.error.HTTPError as e:
+        if e.code in (400, 401):
+            # Revoked or expired: forget the dead connection so the UI can offer a new one
+            clear_drive_state()
+        raise
+
+
+def drive_public_url(file_id, content_type):
+    # A picture renders straight from Google's image CDN. Videos stream back
+    # through this server, because Drive's own download links refuse playback.
+    if is_video(content_type):
+        return '/api/drive/media/' + file_id
+    return 'https://lh3.googleusercontent.com/d/' + file_id
+
+
+def drive_upload(data, content_type, filename):
+    """Resumable upload into the connected Drive, then share it by link."""
+    token = drive_access_token()
+    if not token:
+        raise RuntimeError('Google Drive is not connected')
+    name = safe_filename(filename, content_type)
+    start = urllib.request.Request(
+        'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id',
+        data=json.dumps({'name': name, 'mimeType': content_type}).encode(),
+        headers={
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/json; charset=UTF-8',
+            'X-Upload-Content-Type': content_type,
+            'X-Upload-Content-Length': str(len(data))
+        },
+        method='POST'
+    )
+    with urllib.request.urlopen(start, timeout=60) as res:
+        upload_url = res.headers.get('Location')
+    if not upload_url:
+        raise RuntimeError('Google Drive did not accept the upload')
+    put = urllib.request.Request(
+        upload_url,
+        data=data,
+        headers={'Content-Type': content_type, 'Content-Length': str(len(data))},
+        method='PUT'
+    )
+    with urllib.request.urlopen(put, timeout=600) as res:
+        file_id = json.loads(res.read().decode()).get('id')
+    if not file_id:
+        raise RuntimeError('Google Drive did not return the file')
+    # Anyone with the link can open it, so a post keeps showing its media
+    try:
+        share = urllib.request.Request(
+            'https://www.googleapis.com/drive/v3/files/%s/permissions' % file_id,
+            data=json.dumps({'role': 'reader', 'type': 'anyone'}).encode(),
+            headers={'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'},
+            method='POST'
+        )
+        urllib.request.urlopen(share, timeout=30).read()
+    except Exception:
+        pass
+    return drive_public_url(file_id, content_type)
+
+
 class Handler(http.server.SimpleHTTPRequestHandler):
     # HTTP/1.1 keeps the connection open for every script, style and picture, so
     # a phone on a slow network opens one connection instead of dozens
@@ -207,6 +343,170 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_header('Cache-Control', 'no-store')
         self.end_headers()
         self.wfile.write(body)
+
+    def redirect(self, location):
+        self.send_response(302)
+        self.send_header('Location', location)
+        self.send_header('Content-Length', '0')
+        self.end_headers()
+
+    def public_origin(self):
+        """The address the browser sees, which the Google callback must match."""
+        suffix = os.environ.get('BASE44_PUBLIC_HOST_SUFFIX', '')
+        if suffix:
+            return 'https://3000-' + suffix
+        proto = self.headers.get('X-Forwarded-Proto') or 'https'
+        host = self.headers.get('X-Forwarded-Host') or self.headers.get('Host') or 'localhost'
+        return proto + '://' + host
+
+    def drive_redirect_uri(self):
+        return self.public_origin() + '/oauth/google/callback'
+
+    def serve_drive_status(self):
+        settings = google_oauth_settings()
+        state = drive_state()
+        self.send_json(200, {
+            'configured': bool(settings),
+            'connected': bool(settings and state.get('refresh_token')),
+            'email': state.get('email', ''),
+            'redirectUri': self.drive_redirect_uri()
+        })
+
+    def start_drive_oauth(self):
+        settings = google_oauth_settings()
+        if not settings:
+            return self.redirect('/?drive=missing#/Admin')
+        state = uuid.uuid4().hex
+        now = time.time()
+        for key, started in list(_drive_states.items()):
+            if now - started > 900:
+                _drive_states.pop(key, None)
+        _drive_states[state] = now
+        query = urllib.parse.urlencode({
+            'client_id': settings['client_id'],
+            'redirect_uri': self.drive_redirect_uri(),
+            'response_type': 'code',
+            'scope': GOOGLE_SCOPE,
+            'access_type': 'offline',
+            'prompt': 'consent',
+            'include_granted_scopes': 'true',
+            'state': state
+        })
+        return self.redirect(GOOGLE_AUTH_URL + '?' + query)
+
+    def finish_drive_oauth(self):
+        query = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+        code = (query.get('code') or [''])[0]
+        state = (query.get('state') or [''])[0]
+        settings = google_oauth_settings()
+        if not settings or not code or not _drive_states.pop(state, None):
+            return self.redirect('/?drive=error#/Admin')
+        try:
+            tokens = google_token_request({
+                'client_id': settings['client_id'],
+                'client_secret': settings['client_secret'],
+                'code': code,
+                'grant_type': 'authorization_code',
+                'redirect_uri': self.drive_redirect_uri()
+            })
+        except Exception:
+            return self.redirect('/?drive=error#/Admin')
+        refresh = tokens.get('refresh_token') or drive_state().get('refresh_token')
+        if not refresh:
+            return self.redirect('/?drive=error#/Admin')
+        email = ''
+        access = tokens.get('access_token')
+        if access:
+            try:
+                info = urllib.request.Request(
+                    'https://www.googleapis.com/oauth2/v3/userinfo',
+                    headers={'Authorization': 'Bearer ' + access}
+                )
+                with urllib.request.urlopen(info, timeout=20) as res:
+                    email = json.loads(res.read().decode()).get('email', '')
+            except Exception:
+                pass
+        save_drive_state({
+            'refresh_token': refresh,
+            'email': email,
+            'connected_at': datetime.datetime.now(datetime.timezone.utc).isoformat()
+        })
+        return self.redirect('/?drive=connected#/Admin')
+
+    def drive_upload_request(self):
+        if not google_oauth_settings() or not drive_state().get('refresh_token'):
+            return self.send_json(501, {'error': 'Google Drive is not connected'})
+        content_type = self.headers.get('Content-Type') or 'image/jpeg'
+        limit = MAX_VIDEO_BYTES if is_video(content_type) else MAX_UPLOAD_BYTES
+        length = int(self.headers.get('Content-Length') or 0)
+        if length <= 0 or length > limit:
+            return self.send_json(413, {'error': 'File must be smaller than %d MB' % (limit // (1024 * 1024))})
+        data = self.rfile.read(length)
+        try:
+            url = drive_upload(data, content_type, self.headers.get('X-File-Name') or '')
+        except urllib.error.HTTPError as e:
+            message = 'Google Drive upload failed'
+            try:
+                message = json.loads(e.read().decode())['error']['message'] or message
+            except Exception:
+                pass
+            return self.send_json(502, {'error': message})
+        except Exception as e:
+            return self.send_json(502, {'error': str(e)})
+        return self.send_json(200, {'url': url})
+
+    def drive_disconnect(self):
+        token = drive_state().get('refresh_token')
+        if token:
+            try:
+                revoke = urllib.request.Request(
+                    'https://oauth2.googleapis.com/revoke?token=' + urllib.parse.quote(token),
+                    data=b'',
+                    method='POST'
+                )
+                urllib.request.urlopen(revoke, timeout=15).read()
+            except Exception:
+                pass
+        clear_drive_state()
+        return self.send_json(200, {'ok': True})
+
+    def serve_drive_media(self, file_id):
+        """Stream a stored video back, passing the browser's Range requests along."""
+        try:
+            token = drive_access_token()
+        except Exception:
+            return self.send_error(502)
+        if not token:
+            return self.send_error(404)
+        headers = {'Authorization': 'Bearer ' + token}
+        if self.headers.get('Range'):
+            headers['Range'] = self.headers.get('Range')
+        request = urllib.request.Request(
+            'https://www.googleapis.com/drive/v3/files/%s?alt=media' % file_id,
+            headers=headers
+        )
+        try:
+            upstream = urllib.request.urlopen(request, timeout=60)
+        except urllib.error.HTTPError as e:
+            return self.send_error(e.code if e.code in (401, 403, 404) else 502)
+        except Exception:
+            return self.send_error(502)
+        with upstream:
+            self.send_response(upstream.status)
+            self.send_header('Content-Type', upstream.headers.get('Content-Type') or 'application/octet-stream')
+            for name in ('Content-Length', 'Content-Range'):
+                value = upstream.headers.get(name)
+                if value:
+                    self.send_header(name, value)
+            self.send_header('Accept-Ranges', 'bytes')
+            self.send_header('Cache-Control', 'public, max-age=3600')
+            self.end_headers()
+            if self.command == 'HEAD':
+                return
+            try:
+                shutil.copyfileobj(upstream, self.wfile)
+            except (BrokenPipeError, ConnectionResetError):
+                pass
 
     def serve_config(self, head=False):
         config = {
@@ -304,7 +604,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(data)
 
     def do_POST(self):
-        if self.path.split('?')[0] != '/api/upload':
+        path = self.path.split('?')[0]
+        if path == '/api/drive/upload':
+            return self.drive_upload_request()
+        if path == '/api/drive/disconnect':
+            return self.drive_disconnect()
+        if path != '/api/upload':
             return self.send_error(404)
         content_type = self.headers.get('Content-Type') or 'image/jpeg'
         limit = MAX_VIDEO_BYTES if is_video(content_type) else MAX_UPLOAD_BYTES
@@ -331,11 +636,24 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         path = self.path.split('?')[0]
         if path == '/config.js':
             return self.serve_config(head=True)
+        media = DRIVE_MEDIA_PATH.match(path)
+        if media:
+            return self.serve_drive_media(media.group(1))
         return self.serve_static(head=True)
 
     def do_GET(self):
         if self.path == '/config.js' or self.path.startswith('/config.js?'):
             return self.serve_config()
+        path = self.path.split('?')[0]
+        if path == '/oauth/google/start':
+            return self.start_drive_oauth()
+        if path == '/oauth/google/callback':
+            return self.finish_drive_oauth()
+        if path == '/api/drive/status':
+            return self.serve_drive_status()
+        media = DRIVE_MEDIA_PATH.match(path)
+        if media:
+            return self.serve_drive_media(media.group(1))
         if self.path.split('?')[0] == '/api/r2-sign':
             cfg = r2_settings()
             if not cfg:
