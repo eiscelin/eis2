@@ -13,13 +13,64 @@ window.GroupChat = (function () {
     return location.origin + location.pathname + '#/Join/' + encodeURIComponent(code || '');
   }
 
-  function newInviteCode() {
+  function randomCode(length) {
     const alphabet = 'abcdefghijkmnpqrstuvwxyz23456789';
-    const bytes = new Uint8Array(10);
+    const bytes = new Uint8Array(length);
     if (window.crypto && crypto.getRandomValues) crypto.getRandomValues(bytes);
     let code = '';
     for (let i = 0; i < bytes.length; i++) code += alphabet[bytes[i] % alphabet.length];
     return code;
+  }
+
+  function newInviteCode() { return randomCode(10); }
+
+  // A guest opened the invite link without a MeDay account. Their identity lives
+  // in this browser and their chosen name travels inside their id — the id reads
+  // "guest:<name>:<random>" — so the group can show who replied without an account.
+  const GUEST_PREFIX = 'guest:';
+  const GUEST_KEY = 'meday.guest';
+
+  function isGuest(id) { return String(id == null ? '' : id).indexOf(GUEST_PREFIX) === 0; }
+
+  function guestName(id) {
+    const raw = String(id == null ? '' : id);
+    if (!isGuest(raw)) return '';
+    try {
+      return decodeURIComponent(raw.slice(GUEST_PREFIX.length).split(':')[0]) || 'Guest';
+    } catch (e) {
+      return 'Guest';
+    }
+  }
+
+  function storedGuest() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(GUEST_KEY) || 'null');
+      return saved && saved.id && saved.name ? saved : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // The name a guest typed, kept in this browser so the next invite link remembers it
+  function saveGuest(name) {
+    const clean = String(name || '').replace(/\s+/g, ' ').trim().slice(0, 24);
+    if (!clean) throw new Error('Type a name so the group knows who you are');
+    const saved = storedGuest();
+    const guest = saved && guestName(saved.id) === clean
+      ? saved
+      : { id: GUEST_PREFIX + encodeURIComponent(clean) + ':' + randomCode(6), name: clean };
+    try { localStorage.setItem(GUEST_KEY, JSON.stringify(guest)); } catch (e) { /* storage blocked */ }
+    return guest;
+  }
+
+  // Links and media are what a guest may see; the rest of the chat stays private
+  function hasLink(text) {
+    return /(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/.test(String(text || ''));
+  }
+
+  function isShared(message) {
+    if (!message) return false;
+    return !!message.attachment_url || hasLink(message.message);
   }
 
   function groupError(error) {
@@ -117,12 +168,33 @@ window.GroupChat = (function () {
     if (!sb) return [];
     const { data: rows, error } = await sb.from('chat_group_members').select('user_id').eq('group_id', groupId);
     if (error) throw groupError(error);
-    const ids = [...new Set((rows || []).map(row => asId(row.user_id)).filter(Boolean))];
-    if (!ids.length) return [];
+    const all = (rows || []).map(row => asId(row.user_id)).filter(Boolean);
+    const guests = [...new Set(all.filter(isGuest))]
+      .map(id => ({ id, full_name: guestName(id), guest: true }));
+    const ids = [...new Set(all.filter(id => !isGuest(id)))];
+    if (!ids.length) return guests;
     const { data } = await sb.from('users')
       .select('id, username, full_name, avatar_url, role')
       .in('id', ids);
-    return (data || []).filter(person => person.role !== 'admin');
+    return (data || []).filter(person => person.role !== 'admin').concat(guests);
+  }
+
+  // Anyone holding the invite link can step into the group as a guest
+  async function joinAsGuest(code, name) {
+    if (!sb) throw new Error('Database not configured');
+    const invite = String(code || '').trim();
+    if (!invite) throw new Error('This invite link is incomplete');
+    const { data: group, error } = await sb.from('chat_groups')
+      .select('*')
+      .eq('invite_code', invite)
+      .maybeSingle();
+    if (error) throw groupError(error);
+    if (!group) throw new Error('This invite link is no longer valid');
+    const guest = saveGuest(name);
+    const { error: joinError } = await sb.from('chat_group_members')
+      .upsert([{ group_id: group.id, user_id: guest.id }], { onConflict: 'group_id,user_id' });
+    if (joinError) throw groupError(joinError);
+    return { group, guest };
   }
 
   // Links inside a message are clickable, everything else stays plain text
@@ -168,6 +240,53 @@ window.GroupChat = (function () {
 
   function formatTime(ts) {
     return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  // The name shown above a bubble; guests are marked so members know
+  function senderLabel(id, senderNames) {
+    const sender = senderNames && senderNames.get(id);
+    if (sender) return nameOf(sender) + (sender.guest ? ' (guest)' : '');
+    return isGuest(id) ? guestName(id) + ' (guest)' : 'Member';
+  }
+
+  function kindOf(file) {
+    const type = String((file && file.type) || '');
+    if (type.indexOf('image/') === 0) return 'image';
+    if (type.indexOf('video/') === 0) return 'video';
+    return 'file';
+  }
+
+  // Uploads one picked file and posts it into the group thread. A file that is
+  // too big says so and returns null; an upload or save failure throws.
+  async function postAttachment(groupId, senderId, file, onProgress) {
+    const kind = kindOf(file);
+    const limit = kind === 'image' ? MAX_IMAGE : kind === 'video' ? MAX_VIDEO : MAX_FILE;
+    const what = kind === 'image' ? 'Photo' : kind === 'video' ? 'Video' : 'File';
+    if (file.size > limit) {
+      showToast(`${what} must be ${Math.round(limit / (1024 * 1024))} MB or smaller`, 'error', 5000);
+      return null;
+    }
+    let payload = file;
+    if (kind === 'image' && typeof shrinkImage === 'function') {
+      payload = await shrinkImage(file, 1600).catch(() => file);
+    }
+    let url = '';
+    if (kind === 'file' && typeof cloudinaryUploadFile === 'function') {
+      url = await cloudinaryUploadFile(payload, onProgress);
+    } else {
+      url = await cloudinaryUpload(payload, onProgress);
+    }
+    if (!url) throw new Error('File hosting is not connected');
+    const { error } = await sb.from('chat_group_messages').insert([{
+      group_id: groupId,
+      sender_id: asId(senderId),
+      message: null,
+      attachment_url: url,
+      attachment_type: kind,
+      attachment_name: (file && file.name) || ''
+    }]);
+    if (error) throw groupError(error);
+    return kind;
   }
 
   // ---------- The group conversation ----------
@@ -282,7 +401,11 @@ window.GroupChat = (function () {
     container.querySelector('[data-invite-share]').addEventListener('click', shareInvite);
 
     async function loadSenders() {
-      const ids = [...new Set(messages.map(m => asId(m.sender_id)).filter(id => id && !senderNames.has(id)))];
+      const wanted = [...new Set(messages.map(m => asId(m.sender_id)).filter(id => id && !senderNames.has(id)))];
+      if (!wanted.length) return;
+      // Guests have no account row — their name is read straight from their id
+      wanted.filter(isGuest).forEach(id => senderNames.set(id, { id, full_name: guestName(id), guest: true }));
+      const ids = wanted.filter(id => !isGuest(id));
       if (!ids.length || !sb) return;
       const { data } = await sb.from('users').select('id, username, full_name, avatar_url').in('id', ids);
       (data || []).forEach(person => senderNames.set(asId(person.id), person));
@@ -296,8 +419,7 @@ window.GroupChat = (function () {
       const atBottom = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 90;
       messagesEl.innerHTML = messages.map(message => {
         const mine = asId(message.sender_id) === asId(user.id);
-        const sender = senderNames.get(asId(message.sender_id));
-        const name = sender ? nameOf(sender) : 'Member';
+        const name = senderLabel(asId(message.sender_id), senderNames);
         return `<div class="chat-bubble chat-group-bubble ${mine ? 'chat-bubble-me' : 'chat-bubble-them'}">
           ${mine ? '' : `<div class="chat-bubble-sender">${fbEscape(name)}</div>`}
           ${message.message ? `<div class="chat-bubble-text">${linkify(message.message)}</div>` : ''}
@@ -368,15 +490,7 @@ window.GroupChat = (function () {
 
     async function sendAttachment(file) {
       if (!file || busy) return;
-      const type = String(file.type || '');
-      const kind = type.indexOf('image/') === 0 ? 'image' : type.indexOf('video/') === 0 ? 'video' : 'file';
-      const limit = kind === 'image' ? MAX_IMAGE : kind === 'video' ? MAX_VIDEO : MAX_FILE;
-      const what = kind === 'image' ? 'Photo' : kind === 'video' ? 'Video' : 'File';
-      if (file.size > limit) {
-        showToast(`${what} must be ${Math.round(limit / (1024 * 1024))} MB or smaller`, 'error', 5000);
-        fileInput.value = '';
-        return;
-      }
+      const kind = kindOf(file);
       if (window.ReadOnlyMode && ReadOnlyMode.block('Sending attachments')) {
         fileInput.value = '';
         return;
@@ -386,28 +500,8 @@ window.GroupChat = (function () {
       const label = kind === 'image' ? 'Uploading photo…' : kind === 'video' ? 'Uploading video…' : 'Uploading file…';
       showUpload(label, 0);
       try {
-        let payload = file;
-        if (kind === 'image' && typeof shrinkImage === 'function') {
-          payload = await shrinkImage(file, 1600).catch(() => file);
-        }
-        const onProgress = fraction => showUpload(label, fraction);
-        let url = '';
-        if (kind === 'file' && typeof cloudinaryUploadFile === 'function') {
-          url = await cloudinaryUploadFile(payload, onProgress);
-        } else {
-          url = await cloudinaryUpload(payload, onProgress);
-        }
-        if (!url) throw new Error('File hosting is not connected');
-        const { error } = await sb.from('chat_group_messages').insert([{
-          group_id: group.id,
-          sender_id: asId(user.id),
-          message: null,
-          attachment_url: url,
-          attachment_type: kind,
-          attachment_name: file.name || ''
-        }]);
-        if (error) throw error;
-        await loadMessages(true);
+        const sent = await postAttachment(group.id, user.id, file, fraction => showUpload(label, fraction));
+        if (sent) await loadMessages(true);
       } catch (error) {
         showToast(`Could not send that ${kind === 'file' ? 'file' : kind}: ${groupError(error).message}`, 'error', 7000);
       } finally {
@@ -548,15 +642,54 @@ window.GroupChat = (function () {
   async function joinPage(el, code) {
     const user = typeof Auth !== 'undefined' ? Auth.currentUser : null;
     if (!user) {
-      try { localStorage.setItem('meday.pendingInvite', code); } catch (e) { /* storage blocked */ }
+      const saved = storedGuest();
       el.innerHTML = `<div class="fb-feed"><section class="fb-card chat-join-card">
         <h3>Join this group chat</h3>
-        <p>Log in or create an account, then you will join the group automatically.</p>
+        <p>You do not need a MeDay account. Join as a guest to see the links, photos, videos and files shared in this group and reply to them.</p>
+        <label class="chat-group-field">
+          <span>Your name</span>
+          <input data-guest-name type="text" maxlength="24" placeholder="Aya" autocomplete="nickname" value="${fbEscape(saved ? saved.name : '')}">
+        </label>
         <div class="chat-join-actions">
-          <a class="fb-btn fb-btn-primary" href="#/Login">Log in</a>
-          <a class="fb-btn fb-btn-secondary" href="#/Register">Create account</a>
+          <button class="fb-btn fb-btn-primary" type="button" data-guest-join>Join as guest</button>
         </div>
+        <p class="chat-join-note">Guest chat shows links, photos, videos, files and guest replies only — the rest of the group chat stays private.
+          <a href="#/Login" data-guest-account>Log in</a> or <a href="#/Register" data-guest-account>create an account</a> to join the full chat.</p>
       </section></div>`;
+
+      const nameInput = el.querySelector('[data-guest-name]');
+      const joinBtn = el.querySelector('[data-guest-join]');
+      // An account holder lands back on this link after signing in and joins as a member
+      el.querySelectorAll('[data-guest-account]').forEach(link => {
+        link.addEventListener('click', () => {
+          try { localStorage.setItem('meday.pendingInvite', code); } catch (e) { /* storage blocked */ }
+        });
+      });
+
+      let working = false;
+      async function enterAsGuest() {
+        if (working) return;
+        working = true;
+        joinBtn.disabled = true;
+        joinBtn.textContent = 'Joining…';
+        try {
+          const { group, guest } = await joinAsGuest(code, nameInput.value);
+          if (window.GuestChat) {
+            window.GuestChat.open(el, group, guest);
+          } else {
+            el.innerHTML = '<div class="empty-state"><p>Guest chat could not load. Check your connection and try again.</p></div>';
+          }
+        } catch (error) {
+          showToast(groupError(error).message, 'error', 7000);
+          working = false;
+          joinBtn.disabled = false;
+          joinBtn.textContent = 'Join as guest';
+        }
+      }
+
+      joinBtn.addEventListener('click', enterAsGuest);
+      nameInput.addEventListener('keypress', event => { if (event.key === 'Enter') enterAsGuest(); });
+      nameInput.focus();
       return;
     }
 
@@ -590,10 +723,22 @@ window.GroupChat = (function () {
     myGroups,
     create,
     join,
+    joinAsGuest,
     members,
     open,
     openCreate,
     joinPage,
-    inviteLink
+    inviteLink,
+    linkify,
+    attachmentHTML,
+    formatTime,
+    hasLink,
+    isShared,
+    isGuest,
+    guestName,
+    storedGuest,
+    kindOf,
+    postAttachment,
+    groupError
   };
 })();

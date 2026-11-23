@@ -401,6 +401,15 @@ tr:last-child td { border-bottom: none; }
 .chat-join-card h3 { font-size:1.05rem; }
 .chat-join-card p { font-size:.88rem; color:var(--fb-muted); }
 .chat-join-actions { display:flex; gap:.5rem; flex-wrap:wrap; }
+.chat-join-card .chat-join-note { font-size:.8rem; line-height:1.45; }
+.chat-join-card .chat-join-note a { color:var(--fb-blue); font-weight:600; }
+
+/* ===== Guest group chat (invite link, no account) ===== */
+.guest-chat-card { padding:0; display:flex; flex-direction:column; height:min(78vh,720px); }
+.guest-chat-card .chat-group-head { padding:.7rem 1rem; }
+.guest-chat-card .chat-messages { min-height:0; }
+.guest-chat-note { margin:0; padding:.55rem 1rem; font-size:.78rem; line-height:1.45; color:var(--fb-muted); background:var(--fb-elevated); border-bottom:1px solid var(--fb-line); }
+.guest-chat-note a { color:var(--fb-blue); font-weight:600; }
 
 @media (max-width: 768px) {
   .chat-panel { width:calc(100vw - 2rem); right:1rem; bottom:4.5rem; }
