@@ -781,7 +781,7 @@ var Pages = window.Pages || {};
         <div class="admin-setting">
           <div>
             <div class="admin-setting-name">Google Drive</div>
-            <div class="admin-setting-desc">New photos and videos are saved in your own Google account, so they use your Google One storage.</div>
+            <div class="admin-setting-desc">New photos are saved in your own Google account, so they use your Google One storage.</div>
           </div>
         </div>
         <div id="driveBody"></div>
@@ -863,6 +863,13 @@ var Pages = window.Pages || {};
       target.innerHTML = `
         <p class="admin-hint">Google sign-in is not set up yet. In Google Cloud Console, enable the Google Drive API and create an OAuth client of type “Web application”, add this authorized redirect URI, then set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET for the app:</p>
         <p class="admin-hint"><code class="admin-redirect">${fbEscape(redirectUri)}</code></p>`;
+      return;
+    }
+
+    // Vercel keeps no disk, so the connection needs a place to be saved
+    if (status.store === false) {
+      target.innerHTML = `
+        <p class="admin-hint">Add SUPABASE_SERVICE_ROLE_KEY to your hosting environment variables so the connection can be saved, then reload this page.</p>`;
       return;
     }
 
