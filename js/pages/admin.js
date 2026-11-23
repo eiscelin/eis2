@@ -730,6 +730,7 @@ var Pages = window.Pages || {};
     const overlayBtn = state.settings.overlay_button !== 'false';
     const coverVideo = state.settings.cover_video !== 'false';
     const videoPosts = state.settings.video_posts !== 'false';
+    const guestSend = state.settings.guest_chat_send !== 'false';
     body.innerHTML = `
       <section class="admin-card">
         <div class="admin-toolbar">
@@ -763,6 +764,13 @@ var Pages = window.Pages || {};
             <div class="admin-setting-desc">Members can attach a video to a post. Turn it off and the Video button disappears from every composer.</div>
           </div>
           <button class="admin-switch${videoPosts ? ' on' : ''}" id="adminVideoPostToggle" type="button" role="switch" aria-checked="${videoPosts}" aria-label="Allow video posts"><i></i></button>
+        </div>
+        <div class="admin-setting">
+          <div>
+            <div class="admin-setting-name">Guest sending in group chats</div>
+            <div class="admin-setting-desc">Guests who join a group through an invite link can send links, photos, videos, files and text replies. Turn it off and a guest device can read what is shared but not send.</div>
+          </div>
+          <button class="admin-switch${guestSend ? ' on' : ''}" id="adminGuestSendToggle" type="button" role="switch" aria-checked="${guestSend}" aria-label="Allow guests to send in group chats"><i></i></button>
         </div>
         <div class="admin-setting">
           <div>
@@ -821,6 +829,9 @@ var Pages = window.Pages || {};
     bindSwitch('#adminVideoPostToggle', 'video_posts',
       'Members can post videos', 'Video posts are off — the Video button is gone',
       '021_add_cover_video_and_video_post_settings.sql');
+    bindSwitch('#adminGuestSendToggle', 'guest_chat_send',
+      'Guests can send in group chats', 'Guest sending is off — guests can read only',
+      '024_add_guest_chat_setting.sql');
 
     renderStorageCard(body);
   }

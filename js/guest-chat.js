@@ -1,8 +1,86 @@
 // Guest chat: someone who opened an invite link without a MeDay account joins
 // the group, sees the links, photos, videos and files shared there and replies
 // in text. The text chat between members stays private.
+//
+// The device keeps the groups it joined and the last messages of each thread,
+// so a guest who comes back picks the conversation up where it left off.
+
+window.GuestStore = (function () {
+  const CHATS_KEY = 'meday.guest.chats';
+  const HISTORY_PREFIX = 'meday.guest.history.';
+  const MAX_HISTORY = 60;
+  const MAX_CHATS = 20;
+
+  function read(key, fallback) {
+    try {
+      const value = JSON.parse(localStorage.getItem(key) || 'null');
+      return value == null ? fallback : value;
+    } catch (e) {
+      return fallback;
+    }
+  }
+
+  function write(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* storage full or blocked */ }
+  }
+
+  // The guest chats this device joined, newest activity first
+  function chats() {
+    const list = read(CHATS_KEY, []);
+    return Array.isArray(list) ? list : [];
+  }
+
+  function find(inviteCode) {
+    const code = String(inviteCode || '');
+    return chats().find(chat => chat.invite_code === code) || null;
+  }
+
+  function remember(group, guest) {
+    const list = chats().filter(chat => String(chat.id) !== String(group.id));
+    list.unshift({
+      id: group.id,
+      name: group.name,
+      invite_code: group.invite_code,
+      guest_name: guest.name,
+      last_at: new Date().toISOString(),
+      preview: ''
+    });
+    write(CHATS_KEY, list.slice(0, MAX_CHATS));
+  }
+
+  function touch(groupId, preview) {
+    const list = chats();
+    const chat = list.find(item => String(item.id) === String(groupId));
+    if (!chat) return;
+    chat.last_at = new Date().toISOString();
+    chat.preview = preview || '';
+    list.sort((a, b) => new Date(b.last_at || 0) - new Date(a.last_at || 0));
+    write(CHATS_KEY, list);
+  }
+
+  function history(groupId) {
+    const list = read(HISTORY_PREFIX + groupId, []);
+    return Array.isArray(list) ? list : [];
+  }
+
+  function saveHistory(groupId, messages) {
+    write(HISTORY_PREFIX + groupId, (messages || []).slice(-MAX_HISTORY));
+  }
+
+  return { chats, find, remember, touch, history, saveHistory };
+})();
+
 window.GuestChat = (function () {
   const MESSAGE_COLUMNS = 'id, group_id, sender_id, message, attachment_url, attachment_type, attachment_name, created_at';
+
+  function previewOf(message) {
+    if (!message) return '';
+    if (message.message) return String(message.message).slice(0, 60);
+    if (message.attachment_type === 'video') return '🎬 Video';
+    if (message.attachment_type === 'file') return '📎 File';
+    if (message.attachment_type === 'image') return '📷 Photo';
+    return '';
+  }
 
   function open(el, group, guest) {
     const G = window.GroupChat;
@@ -13,7 +91,11 @@ window.GuestChat = (function () {
     let people = new Map();
     let pollTimer = null;
     let busy = false;
+    let locked = false;
+    let lockCheckedAt = 0;
     let firstRender = true;
+
+    GuestStore.remember(group, guest);
 
     el.innerHTML = `<div class="fb-feed"><section class="fb-card guest-chat-card">
       <div class="chat-group-head">
@@ -35,6 +117,7 @@ window.GuestChat = (function () {
       <p class="guest-chat-note">You are a guest here. You see the links, photos, videos and files shared in this group and can reply in text — the rest of the chat stays private.
         <a href="#/Login" data-guest-account>Log in</a> to join the full chat.</p>
       <div class="chat-messages chat-group-messages" data-guest-messages></div>
+      <p class="guest-chat-locked" data-guest-locked hidden>An admin has turned off sending for guest devices. You can still read what is shared here.</p>
       <div class="chat-upload" data-guest-upload hidden>
         <span class="chat-upload-text" data-guest-upload-text>Uploading…</span>
         <div class="chat-upload-bar"><div class="chat-upload-fill" data-guest-upload-fill></div></div>
@@ -54,6 +137,7 @@ window.GuestChat = (function () {
     const uploadEl = el.querySelector('[data-guest-upload]');
     const uploadText = el.querySelector('[data-guest-upload-text]');
     const uploadFill = el.querySelector('[data-guest-upload-fill]');
+    const lockNote = el.querySelector('[data-guest-locked]');
     const metaEl = el.querySelector('[data-guest-meta]');
 
     const fileInput = document.createElement('input');
@@ -71,6 +155,21 @@ window.GuestChat = (function () {
       accountLink.addEventListener('click', () => {
         try { localStorage.setItem('meday.pendingInvite', group.invite_code); } catch (e) { /* storage blocked */ }
       });
+    }
+
+    // The admin switch: when sending is off the composer stays visible but dead
+    function paintComposer() {
+      input.disabled = locked;
+      sendBtn.disabled = locked;
+      attachBtn.disabled = locked;
+      lockNote.hidden = !locked;
+      input.placeholder = locked ? 'Sending is turned off for guests' : 'Reply to the group...';
+    }
+
+    async function refreshLock() {
+      locked = !(await G.guestCanSend());
+      lockCheckedAt = Date.now();
+      paintComposer();
     }
 
     function showUpload(label, fraction) {
@@ -169,6 +268,7 @@ window.GuestChat = (function () {
       }
       if (document.hidden) return;
       try {
+        if (Date.now() - lockCheckedAt > 30000) await refreshLock();
         let query = sb.from('chat_group_messages').select(MESSAGE_COLUMNS)
           .eq('group_id', group.id)
           .order('created_at', { ascending: true });
@@ -189,6 +289,10 @@ window.GuestChat = (function () {
         if (newest && newest.created_at) lastAt = newest.created_at;
         if (messages.some(message => !people.has(String(message.sender_id)))) await loadPeople();
         renderMessages();
+        // The device keeps the thread, so the conversation survives a reload
+        GuestStore.saveHistory(group.id, messages);
+        const shown = messages.filter(visible);
+        GuestStore.touch(group.id, previewOf(shown[shown.length - 1]));
       } catch (error) {
         messagesEl.innerHTML = `<div class="chat-empty">${fbEscape(G.groupError(error).message)}</div>`;
       }
@@ -197,6 +301,10 @@ window.GuestChat = (function () {
     async function sendText() {
       const text = input.value.trim();
       if (!text || busy) return;
+      if (locked) {
+        showToast('An admin turned off sending for guests', '', 5000);
+        return;
+      }
       input.value = '';
       // The reply shows the moment it is sent, before the save comes back
       const temp = {
@@ -225,6 +333,11 @@ window.GuestChat = (function () {
 
     async function sendAttachment(file) {
       if (!file || busy) return;
+      if (locked) {
+        showToast('An admin turned off sending for guests', '', 5000);
+        fileInput.value = '';
+        return;
+      }
       const kind = G.kindOf(file);
       busy = true;
       sendBtn.disabled = true;
@@ -237,7 +350,7 @@ window.GuestChat = (function () {
         showToast(`Could not send that ${kind === 'file' ? 'file' : kind}: ${G.groupError(error).message}`, 'error', 7000);
       } finally {
         busy = false;
-        sendBtn.disabled = false;
+        sendBtn.disabled = locked;
         hideUpload();
         fileInput.value = '';
       }
@@ -258,6 +371,15 @@ window.GuestChat = (function () {
       }
     }
 
+    // The thread saved on this device paints at once, then the server catches up
+    const cached = GuestStore.history(group.id);
+    if (cached.length) {
+      messages = cached;
+      renderMessages();
+    }
+
+    paintComposer();
+    refreshLock();
     loadPeople();
     loadMessages(true);
     pollTimer = setInterval(() => loadMessages(false), 3000);
@@ -265,5 +387,55 @@ window.GuestChat = (function () {
     return { stop };
   }
 
-  return { open };
+  // The guest chats this device remembers: #/Guest
+  function list(el) {
+    const chats = window.GuestStore ? GuestStore.chats() : [];
+    const guest = window.GroupChat ? GroupChat.storedGuest() : null;
+
+    if (!chats.length) {
+      el.innerHTML = `<div class="fb-feed"><section class="fb-card chat-join-card">
+        <h3>No guest chats on this device</h3>
+        <p>Open a group invite link to join a chat as a guest. The groups you join stay on this device, so you can come back to them.</p>
+        <div class="chat-join-actions">
+          <a class="fb-btn fb-btn-primary" href="#/">Go home</a>
+        </div>
+      </section></div>`;
+      return;
+    }
+
+    el.innerHTML = `<div class="fb-feed"><section class="fb-card guest-chats-card">
+      <div class="chat-group-head">
+        <div class="chat-group-title">
+          <div class="chat-group-name">Your guest chats</div>
+          <div class="chat-group-meta">You are ${fbEscape(guest ? guest.name : (chats[0].guest_name || 'a guest'))} on this device</div>
+        </div>
+      </div>
+      <div class="guest-chat-list">
+        ${chats.map(chat => `<button class="guest-chat-item" type="button" data-chat="${fbEscape(chat.id)}">
+          <span class="guest-chat-avatar" aria-hidden="true">${fbEscape((chat.name || '?')[0].toUpperCase())}</span>
+          <span class="guest-chat-info">
+            <span class="guest-chat-name">${fbEscape(chat.name)}</span>
+            <span class="guest-chat-preview">${fbEscape(chat.preview || 'Tap to continue the conversation')}</span>
+          </span>
+        </button>`).join('')}
+      </div>
+    </section></div>`;
+
+    el.querySelectorAll('[data-chat]').forEach(item => {
+      item.addEventListener('click', async () => {
+        const chat = chats.find(entry => String(entry.id) === String(item.dataset.chat));
+        if (!chat) return;
+        item.disabled = true;
+        try {
+          const resumed = await GroupChat.joinAsGuest(chat.invite_code, guest ? guest.name : chat.guest_name);
+          open(el, resumed.group, resumed.guest);
+        } catch (error) {
+          item.disabled = false;
+          showToast(GroupChat.groupError(error).message, 'error', 7000);
+        }
+      });
+    });
+  }
+
+  return { open, list };
 })();

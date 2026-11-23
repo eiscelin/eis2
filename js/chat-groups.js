@@ -179,6 +179,16 @@ window.GroupChat = (function () {
     return (data || []).filter(person => person.role !== 'admin').concat(guests);
   }
 
+  // An admin can turn sending off for every guest device
+  async function guestCanSend() {
+    if (!sb) return true;
+    const { data } = await sb.from('app_settings')
+      .select('value')
+      .eq('key', 'guest_chat_send')
+      .maybeSingle();
+    return !data || data.value !== 'false';
+  }
+
   // Anyone holding the invite link can step into the group as a guest
   async function joinAsGuest(code, name) {
     if (!sb) throw new Error('Database not configured');
@@ -191,9 +201,19 @@ window.GroupChat = (function () {
     if (error) throw groupError(error);
     if (!group) throw new Error('This invite link is no longer valid');
     const guest = saveGuest(name);
-    const { error: joinError } = await sb.from('chat_group_members')
-      .upsert([{ group_id: group.id, user_id: guest.id }], { onConflict: 'group_id,user_id' });
-    if (joinError) throw groupError(joinError);
+    // A returning guest is already a member: the table takes new rows only, so
+    // an existing membership is left alone instead of being written again
+    const { data: member, error: memberError } = await sb.from('chat_group_members')
+      .select('id')
+      .eq('group_id', group.id)
+      .eq('user_id', guest.id)
+      .maybeSingle();
+    if (memberError) throw groupError(memberError);
+    if (!member) {
+      const { error: joinError } = await sb.from('chat_group_members')
+        .insert([{ group_id: group.id, user_id: guest.id }]);
+      if (joinError) throw groupError(joinError);
+    }
     return { group, guest };
   }
 
@@ -643,6 +663,20 @@ window.GroupChat = (function () {
     const user = typeof Auth !== 'undefined' ? Auth.currentUser : null;
     if (!user) {
       const saved = storedGuest();
+      // A device that already joined this group goes straight back into the chat
+      const remembered = window.GuestStore ? window.GuestStore.find(code) : null;
+      if (saved && remembered) {
+        el.innerHTML = '<div class="fb-feed"><section class="fb-card chat-join-card"><div class="loading">Opening your guest chat…</div></section></div>';
+        try {
+          const resumed = await joinAsGuest(code, saved.name);
+          if (window.GuestChat) {
+            window.GuestChat.open(el, resumed.group, resumed.guest);
+            return;
+          }
+        } catch (error) {
+          showToast(groupError(error).message, 'error', 7000);
+        }
+      }
       el.innerHTML = `<div class="fb-feed"><section class="fb-card chat-join-card">
         <h3>Join this group chat</h3>
         <p>You do not need a MeDay account. Join as a guest to see the links, photos, videos and files shared in this group and reply to them.</p>
@@ -724,6 +758,7 @@ window.GroupChat = (function () {
     create,
     join,
     joinAsGuest,
+    guestCanSend,
     members,
     open,
     openCreate,
