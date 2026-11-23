@@ -763,26 +763,10 @@ Posts.mount = function (listEl, opts) {
   const SPOTLIGHT_TOP_BAR = 72; // height of the sticky top bar
   let spotlightTimer = 0;
   let spotlightScrollTimer = 0;
-  let spotlightIgnoreScrollUntil = 0;
   let spotlightPost = null; // the post on screen that owns the highlight
   let spotlightIndex = 0;
   let spotlightCommentId = ''; // the comment lit right now
   let spotlightEndsAt = 0;     // when its turn ends
-  // The page never pans by itself before the visitor scrolls: arriving on a
-  // profile keeps the bar, the logo and the cover on screen
-  let spotlightUserScrolled = false;
-  // These listeners drop themselves once this feed is off the page, so a long
-  // session never piles up handlers behind the scrolling
-  ['wheel', 'touchmove', 'keydown'].forEach(type => {
-    const markScrolled = () => {
-      if (!listEl.isConnected) {
-        window.removeEventListener(type, markScrolled);
-        return;
-      }
-      spotlightUserScrolled = true;
-    };
-    window.addEventListener(type, markScrolled, { passive: true });
-  });
 
   // The post being viewed: the first one starting in the upper part of the
   // screen. When none starts there (only the tail of a previous post shows),
@@ -815,53 +799,11 @@ Posts.mount = function (listEl, opts) {
     return best;
   }
 
-  // The spotlit comment is lifted to the first line of its thread so it never
-  // stays buried; it drops back into its own place when its turn is over.
-  let spotlightLifted = null; // { el, homePrev }
-
-  function lowerSpotlightComment() {
-    if (!spotlightLifted) return;
-    const { el, homePrev } = spotlightLifted;
-    spotlightLifted = null;
-    if (!el.isConnected || !el.parentNode) return;
-    if (homePrev && homePrev.isConnected && homePrev.parentNode === el.parentNode) {
-      homePrev.after(el);
-    } else {
-      el.parentNode.prepend(el);
-    }
-  }
-
-  function liftSpotlightComment(comment) {
-    const thread = comment.parentNode;
-    const firstComment = thread ? thread.querySelector('.fb-comment') : null;
-    if (!firstComment || firstComment === comment) return;
-    spotlightLifted = { el: comment, homePrev: comment.previousElementSibling };
-    thread.insertBefore(comment, firstComment);
-  }
-
+  // The lit comment is highlighted exactly where it sits: the page itself never
+  // moves, so the member alone decides when to scroll.
   function clearSpotlightMark() {
     listEl.querySelectorAll('.fb-comment-spotlight')
       .forEach(el => el.classList.remove('fb-comment-spotlight'));
-    lowerSpotlightComment();
-  }
-
-  // The page only moves when the lit comment is actually out of view, and a
-  // downward scroll stops as soon as the post's own top reaches the top bar —
-  // so the author, the text and the action buttons stay put on screen.
-  function keepSpotlightVisible(comment) {
-    const card = comment.closest('.fb-post-card') || spotlightPost;
-    const topLimit = SPOTLIGHT_TOP_BAR + 8;
-    const bottomLimit = window.innerHeight - 8;
-    const rect = comment.getBoundingClientRect();
-    // Already in view: leave the page completely still
-    if (rect.top >= topLimit && rect.bottom <= bottomLimit) return;
-    let delta = rect.bottom > bottomLimit ? rect.bottom - bottomLimit : rect.top - topLimit;
-    if (delta > 0 && card) {
-      // Never shove the post's own top — and the member who wrote it — away
-      const room = card.getBoundingClientRect().top - topLimit;
-      delta = Math.min(delta, Math.max(0, room));
-    }
-    if (delta) window.scrollBy({ top: delta, behavior: 'smooth' });
   }
 
   function clearSpotlight() {
@@ -882,11 +824,6 @@ Posts.mount = function (listEl, opts) {
       clearSpotlightMark();
       return;
     }
-    // The turns keep coming while the member is writing or editing a comment —
-    // only the automatic scroll waits, so the page never jumps under them
-    const active = document.activeElement;
-    const typing = !!(active && listEl.contains(active)
-      && active.closest('.fb-comment-form, .fb-comment-edit'));
     if (!spotlightPost || !spotlightPost.isConnected) spotlightPost = focusedPost();
     clearSpotlightMark();
     // A post without comments has nothing to highlight — just wait for one.
@@ -901,18 +838,8 @@ Posts.mount = function (listEl, opts) {
     if (spotlightIndex >= comments.length) spotlightIndex = 0;
     const comment = comments[spotlightIndex];
     comment.classList.add('fb-comment-spotlight');
-    // The lit comment follows to the first line of its thread on every screen,
-    // phones included, so a comment buried deep is never lit out of sight
-    liftSpotlightComment(comment);
     spotlightCommentId = String(comment.dataset.comment);
     spotlightEndsAt = Date.now() + COMMENT_SPOTLIGHT_MS;
-    // Keep the lit comment readable without scrolling the post away: the page
-    // only moves if the comment is out of view. The scroll it causes must not
-    // be mistaken for the member choosing another post.
-    if (!typing && spotlightUserScrolled) {
-      spotlightIgnoreScrollUntil = Date.now() + 1200;
-      keepSpotlightVisible(comment);
-    }
     spotlightIndex = (spotlightIndex + 1) % comments.length;
     spotlightTimer = setTimeout(spotlightNext, COMMENT_SPOTLIGHT_MS);
   }
@@ -932,9 +859,6 @@ Posts.mount = function (listEl, opts) {
         if (el !== lit) el.classList.remove('fb-comment-spotlight');
       });
       lit.classList.add('fb-comment-spotlight');
-      // Its old node is gone with the repaint, so the lift starts over
-      if (spotlightLifted && !spotlightLifted.el.isConnected) spotlightLifted = null;
-      if (window.innerWidth > 900) liftSpotlightComment(lit);
       spotlightPost = lit.closest('[data-post]') || spotlightPost;
       spotlightTimer = setTimeout(spotlightNext, left);
       return;
@@ -961,7 +885,6 @@ Posts.mount = function (listEl, opts) {
         window.removeEventListener('scroll', onScroll);
         return;
       }
-      if (Date.now() < spotlightIgnoreScrollUntil) return;
       clearTimeout(spotlightScrollTimer);
       spotlightScrollTimer = setTimeout(() => {
         const post = focusedPost();
