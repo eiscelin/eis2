@@ -210,6 +210,10 @@ DRIVE_MEDIA_PATH = re.compile(r'^/api/drive/media/([A-Za-z0-9_-]+)$')
 # Short-lived OAuth attempts, so a stale callback link cannot be replayed
 _drive_states = {}
 
+# The Drive access token already fetched, so streaming a video does not wait on
+# a fresh token for every range the player asks for
+_drive_token_cache = {'token': '', 'refresh': '', 'expires': 0.0}
+
 
 def google_oauth_settings():
     """Client id and secret of the Google Cloud OAuth client, once configured."""
@@ -243,6 +247,7 @@ def clear_drive_state():
         os.remove(DRIVE_STATE_PATH)
     except OSError:
         pass
+    _drive_token_cache.update(token='', refresh='', expires=0.0)
 
 
 def google_token_request(payload):
@@ -256,21 +261,35 @@ def google_token_request(payload):
         return json.loads(res.read().decode())
 
 
-def drive_access_token():
-    """A fresh access token from the stored refresh token, or None when not connected."""
+def drive_access_token(force=False):
+    """An access token from the stored refresh token, or None when not connected.
+
+    A token lasts an hour, and a video player asks for a new range every few
+    seconds: asking Google for a token on each of those would delay the first
+    frame, so the token is reused until shortly before it expires.
+    """
     settings = google_oauth_settings()
     state = drive_state()
-    if not settings or not state.get('refresh_token'):
+    refresh = state.get('refresh_token')
+    if not settings or not refresh:
         return None
+    cached = _drive_token_cache
+    if not force and cached['token'] and cached['refresh'] == refresh and cached['expires'] > time.time():
+        return cached['token']
     try:
         data = google_token_request({
             'client_id': settings['client_id'],
             'client_secret': settings['client_secret'],
-            'refresh_token': state['refresh_token'],
+            'refresh_token': refresh,
             'grant_type': 'refresh_token'
         })
-        return data.get('access_token')
+        token = data.get('access_token')
+        if token:
+            cached.update(token=token, refresh=refresh,
+                          expires=time.time() + max(60, int(data.get('expires_in') or 3600) - 120))
+        return token
     except urllib.error.HTTPError as e:
+        cached.update(token='', refresh='', expires=0.0)
         if e.code in (400, 401):
             # Revoked or expired: forget the dead connection so the UI can offer a new one
             clear_drive_state()
@@ -478,19 +497,29 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self.send_error(502)
         if not token:
             return self.send_error(404)
-        headers = {'Authorization': 'Bearer ' + token}
-        if self.headers.get('Range'):
-            headers['Range'] = self.headers.get('Range')
-        request = urllib.request.Request(
-            'https://www.googleapis.com/drive/v3/files/%s?alt=media' % file_id,
-            headers=headers
-        )
-        try:
-            upstream = urllib.request.urlopen(request, timeout=60)
-        except urllib.error.HTTPError as e:
-            return self.send_error(e.code if e.code in (401, 403, 404) else 502)
-        except Exception:
-            return self.send_error(502)
+        for attempt in (0, 1):
+            headers = {'Authorization': 'Bearer ' + token}
+            if self.headers.get('Range'):
+                headers['Range'] = self.headers.get('Range')
+            request = urllib.request.Request(
+                'https://www.googleapis.com/drive/v3/files/%s?alt=media' % file_id,
+                headers=headers
+            )
+            try:
+                upstream = urllib.request.urlopen(request, timeout=60)
+                break
+            except urllib.error.HTTPError as e:
+                # A reused token can be revoked early: fetch a new one and retry once
+                if e.code == 401 and not attempt:
+                    try:
+                        token = drive_access_token(force=True)
+                    except Exception:
+                        token = None
+                    if token:
+                        continue
+                return self.send_error(e.code if e.code in (401, 403, 404) else 502)
+            except Exception:
+                return self.send_error(502)
         with upstream:
             self.send_response(upstream.status)
             self.send_header('Content-Type', upstream.headers.get('Content-Type') or 'application/octet-stream')

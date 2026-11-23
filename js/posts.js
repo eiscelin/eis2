@@ -291,7 +291,7 @@ function postReactionPicker(media) {
 function postMediaHtml(post) {
   if (!post.media_url) return '';
   return `<div class="fb-post-media">${post.media_type === 'video'
-    ? `<video class="fb-post-media-el" src="${fbEscape(post.media_url)}" controls playsinline preload="metadata"></video>`
+    ? `<video class="fb-post-media-el" src="${fbEscape(post.media_url)}" controls playsinline preload="metadata" data-video-warm></video>`
     : `<img class="fb-post-media-el" src="${fbEscape(fbImageUrl(post.media_url, 720))}" alt="" loading="lazy" decoding="async">`}</div>`;
 }
 
@@ -967,6 +967,27 @@ Posts.mount = function (listEl, opts) {
     ? '<div class="fb-card fb-feed-empty">No posts from your friends yet. Add friends from the Friends tab to see their posts here.</div>'
     : '';
 
+  // A video plays the moment it is tapped when its opening frames are already
+  // buffered, so a card that comes near the screen starts loading ahead
+  const videoWarmObserver = 'IntersectionObserver' in window ? new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      const video = entry.target;
+      videoWarmObserver.unobserve(video);
+      video.preload = 'auto';
+      if (video.paused && !video.currentTime) video.load();
+    });
+  }, { rootMargin: '600px 0px' }) : null;
+
+  function warmVideos() {
+    if (!videoWarmObserver) return;
+    listEl.querySelectorAll('video[data-video-warm]').forEach(video => {
+      if (video.dataset.warmWatched) return;
+      video.dataset.warmWatched = '1';
+      videoWarmObserver.observe(video);
+    });
+  }
+
   function renderAll() {
     const q = state.query.trim().toLowerCase();
     const shown = state.posts.filter(visibleToViewer).filter(p => !q
@@ -981,6 +1002,7 @@ Posts.mount = function (listEl, opts) {
     moreEl = listEl.querySelector('[data-feed-more]');
     paintMore();
     watchMore();
+    warmVideos();
     Posts.startReactionTurns();
     startCommentSpotlight();
   }
@@ -1142,6 +1164,7 @@ Posts.mount = function (listEl, opts) {
       || `${p.content || ''} ${p.author_name || ''}`.toLowerCase().includes(q));
     if (!shown.length) return;
     moreEl.insertAdjacentHTML('beforebegin', shown.map(p => Posts.card(p, ctxFor(p))).join(''));
+    warmVideos();
     Posts.startReactionTurns();
     startCommentSpotlight();
   }
