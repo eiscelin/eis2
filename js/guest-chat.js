@@ -118,12 +118,7 @@ window.GuestChat = (function () {
         <a href="#/Login" data-guest-account>Log in</a> to join the full chat.</p>
       <div class="chat-messages chat-group-messages" data-guest-messages></div>
       <p class="guest-chat-locked" data-guest-locked hidden>An admin has turned off sending for guest devices. You can still read what is shared here.</p>
-      <div class="chat-upload" data-guest-upload hidden>
-        <span class="chat-upload-text" data-guest-upload-text>Uploading…</span>
-        <div class="chat-upload-bar"><div class="chat-upload-fill" data-guest-upload-fill></div></div>
-      </div>
       <div class="chat-input-row chat-group-input-row">
-        <button class="chat-attach-btn" type="button" data-guest-attach title="Send a photo, video or file" aria-label="Send a photo, video or file">📎</button>
         <input type="text" data-guest-input placeholder="Reply to the group..." aria-label="Reply to the group">
         <button class="chat-send-btn" type="button" data-guest-send aria-label="Send">➤</button>
       </div>
@@ -132,19 +127,9 @@ window.GuestChat = (function () {
     const messagesEl = el.querySelector('[data-guest-messages]');
     const input = el.querySelector('[data-guest-input]');
     const sendBtn = el.querySelector('[data-guest-send]');
-    const attachBtn = el.querySelector('[data-guest-attach]');
     const inviteInput = el.querySelector('[data-guest-invite]');
-    const uploadEl = el.querySelector('[data-guest-upload]');
-    const uploadText = el.querySelector('[data-guest-upload-text]');
-    const uploadFill = el.querySelector('[data-guest-upload-fill]');
     const lockNote = el.querySelector('[data-guest-locked]');
     const metaEl = el.querySelector('[data-guest-meta]');
-
-    const fileInput = document.createElement('input');
-    fileInput.type = 'file';
-    fileInput.accept = 'image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar,.7z';
-    fileInput.hidden = true;
-    el.appendChild(fileInput);
 
     inviteInput.value = G.inviteLink(group.invite_code);
     inviteInput.addEventListener('click', () => inviteInput.select());
@@ -161,7 +146,6 @@ window.GuestChat = (function () {
     function paintComposer() {
       input.disabled = locked;
       sendBtn.disabled = locked;
-      attachBtn.disabled = locked;
       lockNote.hidden = !locked;
       input.placeholder = locked ? 'Sending is turned off for guests' : 'Reply to the group...';
     }
@@ -170,18 +154,6 @@ window.GuestChat = (function () {
       locked = !(await G.guestCanSend());
       lockCheckedAt = Date.now();
       paintComposer();
-    }
-
-    function showUpload(label, fraction) {
-      uploadEl.hidden = false;
-      const percent = Math.round((fraction || 0) * 100);
-      uploadText.textContent = percent > 0 ? `${label} ${percent}%` : label;
-      uploadFill.style.width = percent + '%';
-    }
-
-    function hideUpload() {
-      uploadEl.hidden = true;
-      uploadFill.style.width = '0%';
     }
 
     async function copyInvite() {
@@ -305,6 +277,11 @@ window.GuestChat = (function () {
         showToast('An admin turned off sending for guests', '', 5000);
         return;
       }
+      // Guests reply in text only — no links, photos, videos, audio or files
+      if (G.hasLink(text)) {
+        showToast('Guests can only reply in text — log in to share links', '', 6000);
+        return;
+      }
       input.value = '';
       // The reply shows the moment it is sent, before the save comes back
       const temp = {
@@ -331,38 +308,8 @@ window.GuestChat = (function () {
       }
     }
 
-    async function sendAttachment(file) {
-      if (!file || busy) return;
-      if (locked) {
-        showToast('An admin turned off sending for guests', '', 5000);
-        fileInput.value = '';
-        return;
-      }
-      const kind = G.kindOf(file);
-      busy = true;
-      sendBtn.disabled = true;
-      const label = kind === 'image' ? 'Uploading photo…' : kind === 'video' ? 'Uploading video…' : 'Uploading file…';
-      showUpload(label, 0);
-      try {
-        const sent = await G.postAttachment(group.id, guest.id, file, fraction => showUpload(label, fraction));
-        if (sent) await loadMessages(true);
-      } catch (error) {
-        showToast(`Could not send that ${kind === 'file' ? 'file' : kind}: ${G.groupError(error).message}`, 'error', 7000);
-      } finally {
-        busy = false;
-        sendBtn.disabled = locked;
-        hideUpload();
-        fileInput.value = '';
-      }
-    }
-
     sendBtn.addEventListener('click', sendText);
     input.addEventListener('keypress', event => { if (event.key === 'Enter') sendText(); });
-    attachBtn.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', () => {
-      const picked = fileInput.files && fileInput.files[0];
-      if (picked) sendAttachment(picked);
-    });
 
     function stop() {
       if (pollTimer) {
