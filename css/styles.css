@@ -343,6 +343,65 @@ tr:last-child td { border-bottom: none; }
 .chat-send-btn:hover { transform:scale(1.1); }
 .chat-empty { text-align:center; color:#999; font-size:.85rem; padding:2rem 1rem; }
 
+/* ===== Group chats ===== */
+.chat-header-actions { display:flex; align-items:center; gap:.4rem; }
+.chat-new-group { width:28px; height:28px; border-radius:50%; border:none; background:var(--fb-elevated); color:var(--fb-text); font-size:1rem; line-height:1; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:background .15s; }
+.chat-new-group:hover { background:var(--fb-hover); }
+.chat-list-view { flex:1; overflow-y:auto; display:flex; flex-direction:column; min-height:0; }
+.chat-list-view .chat-user-list { overflow:visible; flex:0 0 auto; }
+.chat-groups-label { font-size:.68rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--fb-muted); padding:.7rem 1rem .25rem; }
+.chat-groups-empty { padding:.75rem 1rem; text-align:left; }
+.chat-group-avatar { background:linear-gradient(135deg,#1877f2,#45bd62); color:#fff; font-weight:700; }
+.chat-group-item .chat-user-role { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:220px; }
+.chat-group-conversation { min-height:0; }
+.chat-group-head { display:flex; align-items:center; gap:.45rem; padding:.45rem .75rem .35rem; border-bottom:1px solid var(--fb-line); }
+.chat-group-head .chat-back { padding:.25rem .2rem; }
+.chat-group-title { min-width:0; flex:1; }
+.chat-group-name { font-size:.92rem; font-weight:700; color:var(--fb-text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.chat-group-meta { font-size:.72rem; color:var(--fb-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.chat-group-invite { display:flex; align-items:center; gap:.4rem; padding:.5rem .75rem; background:var(--fb-elevated); border-bottom:1px solid var(--fb-line); }
+.chat-group-invite-copy { flex:1; min-width:0; }
+.chat-group-invite-label { display:block; font-size:.62rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--fb-muted); }
+.chat-group-invite-input { width:100%; background:transparent; border:none; color:var(--fb-text); font-size:.78rem; padding:.1rem 0; outline:none; text-overflow:ellipsis; }
+.chat-group-invite-actions { display:flex; gap:.3rem; flex:0 0 auto; }
+.chat-invite-btn { border:none; background:var(--fb-blue); color:#fff; border-radius:999px; padding:.35rem .65rem; font-size:.72rem; font-weight:600; cursor:pointer; }
+.chat-invite-btn:hover { background:var(--fb-blue-hover); }
+.chat-group-messages { gap:.55rem; }
+.chat-group-bubble { max-width:84%; }
+.chat-bubble-sender { font-size:.68rem; font-weight:700; opacity:.85; margin-bottom:.15rem; }
+.chat-link { color:inherit; text-decoration:underline; word-break:break-all; }
+.chat-attachment-img { display:block; max-width:100%; max-height:220px; border-radius:10px; margin-top:.25rem; }
+.chat-attachment-video { display:block; width:100%; max-width:240px; max-height:220px; border-radius:10px; margin-top:.25rem; background:#000; }
+.chat-attachment-file { display:flex; align-items:center; gap:.45rem; margin-top:.25rem; padding:.45rem .55rem; border-radius:10px; background:rgba(127,127,127,.18); color:inherit; text-decoration:none; }
+.chat-attachment-name { font-size:.8rem; word-break:break-all; }
+.chat-upload { padding:.4rem .75rem; }
+.chat-upload-text { font-size:.72rem; color:var(--fb-muted); }
+.chat-upload-bar { height:4px; border-radius:999px; background:rgba(127,127,127,.25); overflow:hidden; margin-top:.3rem; }
+.chat-upload-fill { height:100%; width:0; background:var(--fb-blue); transition:width .2s; }
+.chat-group-input-row { gap:.4rem; }
+.chat-attach-btn { flex:0 0 auto; width:40px; height:40px; border-radius:50%; border:none; background:var(--fb-elevated); color:var(--fb-text); font-size:1rem; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+.chat-attach-btn:hover { background:var(--fb-hover); }
+.chat-group-overlay { position:fixed; inset:0; z-index:10050; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; padding:1rem; }
+.chat-group-modal { width:min(420px,100%); max-height:85vh; overflow-y:auto; background:var(--fb-card); color:var(--fb-text); border:1px solid var(--fb-line); border-radius:16px; padding:1rem; box-shadow:0 20px 60px rgba(0,0,0,.35); }
+.chat-group-modal-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:.75rem; }
+.chat-group-modal-head h3 { font-size:1.05rem; }
+.chat-group-close { background:var(--fb-elevated); color:var(--fb-text); border:none; width:28px; height:28px; border-radius:50%; cursor:pointer; }
+.chat-group-field { display:block; margin-bottom:.8rem; }
+.chat-group-field > span { display:block; font-size:.78rem; font-weight:600; color:var(--fb-muted); margin-bottom:.35rem; }
+.chat-group-field input[type="text"] { width:100%; padding:.6rem .7rem; border:1px solid var(--fb-line); border-radius:10px; background:var(--fb-elevated); color:var(--fb-text); font-size:.9rem; outline:none; }
+.chat-group-friends { max-height:220px; overflow-y:auto; border:1px solid var(--fb-line); border-radius:10px; padding:.25rem; }
+.chat-group-friend { display:flex; align-items:center; gap:.55rem; padding:.45rem .5rem; border-radius:8px; font-size:.85rem; color:var(--fb-text); cursor:pointer; }
+.chat-group-friend:hover { background:var(--fb-elevated); }
+.chat-group-friend input { width:16px; height:16px; flex:0 0 auto; }
+.chat-group-friend-pic { width:28px; height:28px; border-radius:50%; overflow:hidden; display:flex; align-items:center; justify-content:center; background:var(--fb-elevated); font-weight:700; flex:0 0 auto; }
+.chat-group-friend-pic img, .chat-group-friend-pic video { width:100%; height:100%; object-fit:cover; }
+.chat-group-empty { font-size:.8rem; color:var(--fb-muted); padding:.6rem .5rem; }
+.chat-group-modal-foot { display:flex; justify-content:flex-end; gap:.5rem; margin-top:.5rem; }
+.chat-join-card { padding:1.25rem; display:flex; flex-direction:column; gap:.55rem; }
+.chat-join-card h3 { font-size:1.05rem; }
+.chat-join-card p { font-size:.88rem; color:var(--fb-muted); }
+.chat-join-actions { display:flex; gap:.5rem; flex-wrap:wrap; }
+
 @media (max-width: 768px) {
   .chat-panel { width:calc(100vw - 2rem); right:1rem; bottom:4.5rem; }
 }
