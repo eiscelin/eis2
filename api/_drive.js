@@ -9,8 +9,9 @@ export const SCOPE = 'https://www.googleapis.com/auth/drive.file';
 export const AUTH_ENDPOINT = AUTH_URL;
 
 export function settings() {
-  const clientId = process.env.GOOGLE_CLIENT_ID || '';
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET || '';
+  // Pasted credentials sometimes arrive wrapped in quotes; Google rejects those.
+  const clientId = (process.env.GOOGLE_CLIENT_ID || '').trim().replace(/^["']|["']$/g, '');
+  const clientSecret = (process.env.GOOGLE_CLIENT_SECRET || '').trim().replace(/^["']|["']$/g, '');
   if (!clientId || !clientSecret) return null;
   return { clientId, clientSecret };
 }

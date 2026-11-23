@@ -213,8 +213,9 @@ _drive_states = {}
 
 def google_oauth_settings():
     """Client id and secret of the Google Cloud OAuth client, once configured."""
-    client_id = os.environ.get('GOOGLE_CLIENT_ID', '')
-    client_secret = os.environ.get('GOOGLE_CLIENT_SECRET', '')
+    # Pasted credentials sometimes arrive wrapped in quotes; Google rejects those.
+    client_id = (os.environ.get('GOOGLE_CLIENT_ID') or '').strip().strip('"').strip("'")
+    client_secret = (os.environ.get('GOOGLE_CLIENT_SECRET') or '').strip().strip('"').strip("'")
     if not client_id or not client_secret:
         return None
     return {'client_id': client_id, 'client_secret': client_secret}
