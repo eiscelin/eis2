@@ -771,6 +771,20 @@ var Pages = window.Pages || {};
           </div>
           <span class="admin-badge admin-badge-active">Always on</span>
         </div>
+      </section>
+
+      <section class="admin-card" id="adminStorage">
+        <div class="admin-toolbar">
+          <div class="admin-toolbar-title">☁️ Storage</div>
+          <span class="admin-badge" id="driveBadge">Checking…</span>
+        </div>
+        <div class="admin-setting">
+          <div>
+            <div class="admin-setting-name">Google Drive</div>
+            <div class="admin-setting-desc">New photos are saved in your own Google account, so they use your Google One storage.</div>
+          </div>
+        </div>
+        <div id="driveBody"></div>
       </section>`;
 
     body.querySelector('#adminRefresh').addEventListener('click', refresh);
@@ -807,6 +821,63 @@ var Pages = window.Pages || {};
     bindSwitch('#adminVideoPostToggle', 'video_posts',
       'Members can post videos', 'Video posts are off — the Video button is gone',
       '021_add_cover_video_and_video_post_settings.sql');
+
+    renderStorageCard(body);
+  }
+
+  // Google Drive storage — the account is connected and held by the app server
+  async function renderStorageCard(body) {
+    const badge = body.querySelector('#driveBadge');
+    const target = body.querySelector('#driveBody');
+    if (!badge || !target) return;
+    let status = { configured: false, connected: false };
+    try {
+      const res = await fetch('/api/drive/status');
+      if (res.ok) status = await res.json();
+    } catch { /* a server without Drive support */ }
+    badge.textContent = status.connected ? 'Connected' : 'Not connected';
+    badge.className = 'admin-badge ' + (status.connected ? 'admin-badge-active' : 'admin-badge-pending');
+
+    if (status.connected) {
+      target.innerHTML = `
+        <p class="admin-hint">Uploads are saved in ${fbEscape(status.email || 'your Google Drive')}.</p>
+        <div class="admin-me-actions">
+          <button class="admin-tool" id="driveDisconnect" type="button">Disconnect Google Drive</button>
+        </div>`;
+      target.querySelector('#driveDisconnect').addEventListener('click', async () => {
+        if (!confirm('Stop saving uploads to Google Drive?')) return;
+        try {
+          const res = await fetch('/api/drive/disconnect', { method: 'POST' });
+          if (!res.ok) throw new Error('Could not disconnect Google Drive');
+          showToast('Google Drive disconnected', 'success');
+        } catch (e) {
+          showToast(e.message || 'Could not disconnect Google Drive', 'error');
+        }
+        renderStorageCard(body);
+      });
+      return;
+    }
+
+    if (!status.configured) {
+      const redirectUri = status.redirectUri || location.origin + '/oauth/google/callback';
+      target.innerHTML = `
+        <p class="admin-hint">Google sign-in is not set up yet. In Google Cloud Console, enable the Google Drive API and create an OAuth client of type “Web application”, add this authorized redirect URI, then set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET for the app:</p>
+        <p class="admin-hint"><code class="admin-redirect">${fbEscape(redirectUri)}</code></p>`;
+      return;
+    }
+
+    // Vercel keeps no disk, so the connection needs a place to be saved
+    if (status.store === false) {
+      target.innerHTML = `
+        <p class="admin-hint">Add SUPABASE_SERVICE_ROLE_KEY to your hosting environment variables so the connection can be saved, then reload this page.</p>`;
+      return;
+    }
+
+    target.innerHTML = `
+      <p class="admin-hint">Sign in with the Google account whose storage you want to use. Only the files this app creates are visible to it.</p>
+      <div class="admin-me-actions">
+        <a class="admin-approve" href="/oauth/google/start">Connect Google Drive</a>
+      </div>`;
   }
 
   // ===================== My profile =====================
@@ -973,6 +1044,15 @@ var Pages = window.Pages || {};
       }
     } catch (e) {
       toastError(e);
+    }
+
+    // Coming back from Google: open the storage card and say what happened
+    const driveResult = new URLSearchParams(location.search).get('drive');
+    if (driveResult) {
+      history.replaceState(null, '', location.pathname + location.hash);
+      state.tab = 'settings';
+      if (driveResult === 'connected') showToast('Google Drive connected', 'success');
+      else if (driveResult === 'error') showToast('Google Drive was not connected', 'error', 6000);
     }
 
     await loadAll();

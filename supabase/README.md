@@ -24,6 +24,7 @@ Run each file in `migrations/` once in the Supabase dashboard (SQL Editor > New 
 13. `013_add_post_sharing.sql` / `014_create_reaction_media.sql` — shared posts and uploaded face reactions
 14. `015_add_page_background.sql` — account background picture that shows behind every page (and the `set_page_background` write function)
 15. `017_add_gallery_privacy.sql` — remembers whether a member locked their photo and video gallery
+16. `022_create_storage_connection.sql` — Google Drive connection used by the Vercel functions (service-role only, the browser cannot read it)
 
 After running `008`, open `#/Admin` while signed in. If no admin exists yet, the panel offers
 "Make me the first admin" once; otherwise set the role in SQL:
@@ -33,3 +34,18 @@ UPDATE public.users SET role = 'admin' WHERE username = 'your-username';
 ```
 
 The app stays connected but featureless (no login, no posts, no chat) until these tables exist.
+
+## Google Drive storage (Vercel)
+Photos uploaded on the Vercel deployment are saved in the owner's own Google Drive; videos keep
+using Cloudinary there, because a Vercel function cannot stream them back from Drive.
+
+1. Run `022_create_storage_connection.sql` — the connected account is stored in that table.
+2. In Vercel > Project Settings > Environment Variables add:
+   - `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` — the OAuth client from Google Cloud Console.
+   - `SUPABASE_SERVICE_ROLE_KEY` — Supabase > Project Settings > API > `service_role`. Server-side only, never served to the browser.
+3. In Google Cloud Console > Credentials > your OAuth client, add the redirect URI shown in
+   Admin > Settings > Storage (`https://<your-domain>/oauth/google/callback`).
+4. Redeploy, then Admin > Settings > Storage > Connect Google Drive.
+
+The sandbox preview does not need the service role key: `server.py` keeps the connection in a
+file on its own volume.

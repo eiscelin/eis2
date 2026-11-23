@@ -2,6 +2,8 @@
   "buildCommand": "exit 0",
   "outputDirectory": ".",
   "rewrites": [
-    { "source": "/config.js", "destination": "/api/config" }
+    { "source": "/config.js", "destination": "/api/config" },
+    { "source": "/oauth/google/start", "destination": "/api/oauth/google/start" },
+    { "source": "/oauth/google/callback", "destination": "/api/oauth/google/callback" }
   ]
 }

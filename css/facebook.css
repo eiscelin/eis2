@@ -1971,6 +1971,7 @@ a.fb-person-img:hover { filter: brightness(1.1); }
 a.admin-tool { text-decoration: none; display: inline-flex; align-items: center; }
 .admin-tool.active { background: rgba(24, 119, 242, 0.2); border-color: rgba(24, 119, 242, 0.6); color: var(--fb-blue-hover); }
 .admin-hint { margin: 0; padding: 0.55rem 0.95rem; color: var(--fb-muted); font-size: 0.8rem; }
+.admin-redirect { display: block; margin-top: 0.35rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.78rem; word-break: break-all; color: var(--fb-text); }
 .admin-empty { padding: 1.25rem; }
 
 .admin-row {
