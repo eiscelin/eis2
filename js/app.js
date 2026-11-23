@@ -27,6 +27,20 @@ Router.registerFallback(path => {
   if (!match) return null;
   return (el) => Pages.userProfile(el, decodeURIComponent(match[1]));
 });
+// Group chat invite link: #/Join/<code> — joins the group, then opens it
+Router.registerFallback(path => {
+  const match = path.match(/^\/Join\/([^/?#]+)$/);
+  if (!match) return null;
+  return (el) => {
+    if (window.GroupChat) window.GroupChat.joinPage(el, decodeURIComponent(match[1]));
+    else el.innerHTML = '<div class="empty-state"><p>Group chats could not load. Check your connection and try again.</p></div>';
+  };
+});
+// Guest chats this device remembers, so a guest can come back without the link
+Router.register('/Guest', (el) => {
+  if (window.GuestChat) window.GuestChat.list(el);
+  else el.innerHTML = '<div class="empty-state"><p>Guest chats could not load. Check your connection and try again.</p></div>';
+});
 Router.register('/404', (el) => {
   el.innerHTML = '<div style="text-align:center;padding:4rem;"><h1>404</h1><p>Page not found</p><a href="#/" style="color:#1877f2;">Go home</a></div>';
 });

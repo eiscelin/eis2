@@ -170,6 +170,9 @@ Pages.landing = function(el) {
                   <a class="fb-btn fb-btn-primary" href="#/Register">Create account</a>
                   <a class="fb-btn fb-btn-secondary" href="#/Login">Already a member?</a>
                 </div>
+                <div class="fb-profile-actions" data-guest-resume hidden>
+                  <a class="fb-btn fb-btn-secondary" href="#/Guest">Continue your guest chats</a>
+                </div>
               </div>
             </section>
           </div>
@@ -206,4 +209,10 @@ Pages.landing = function(el) {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     });
   });
+
+  // A device that joined a group as a guest can pick the conversation back up
+  if (window.GuestStore && window.GuestStore.chats().length) {
+    const resume = el.querySelector('[data-guest-resume]');
+    if (resume) resume.hidden = false;
+  }
 };

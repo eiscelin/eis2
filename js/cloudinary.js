@@ -82,6 +82,31 @@ async function cloudinaryUploadViaServer(blob, onProgress) {
   return data.url;
 }
 
+// Any other file (a PDF, a document, an archive) goes to Cloudinary's raw
+// endpoint, which accepts whatever the unsigned preset allows.
+async function cloudinaryUploadFile(blob, onProgress) {
+  let lastError = null;
+  for (const account of cloudinaryAccounts()) {
+    try {
+      const form = new FormData();
+      form.append('upload_preset', account.preset);
+      form.append('file', blob, uploadFileName(blob));
+      const res = await uploadRequest({
+        url: `https://api.cloudinary.com/v1_1/${account.cloud}/raw/upload`,
+        body: form,
+        onProgress
+      });
+      let data = {};
+      try { data = JSON.parse(res.text || '{}'); } catch { data = {}; }
+      if (res.ok && data.secure_url) return data.secure_url;
+      lastError = new Error((data.error && data.error.message) || 'File upload failed');
+    } catch (e) {
+      lastError = e;
+    }
+  }
+  throw lastError || new Error('File upload is not connected');
+}
+
 async function cloudinaryUpload(blob, onProgress) {
   // The owner's own Google Drive (Google One) wins once the account is
   // connected, for videos as well as photos. Cloudinary is the fallback when

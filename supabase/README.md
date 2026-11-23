@@ -25,6 +25,7 @@ Run each file in `migrations/` once in the Supabase dashboard (SQL Editor > New 
 14. `015_add_page_background.sql` — account background picture that shows behind every page (and the `set_page_background` write function)
 15. `017_add_gallery_privacy.sql` — remembers whether a member locked their photo and video gallery
 16. `022_create_storage_connection.sql` — Google Drive connection used by the Vercel functions (service-role only, the browser cannot read it)
+17. `023_create_chat_groups.sql` — group chats with friends: create a group, invite with a link, and send text, photos, videos and files
 
 After running `008`, open `#/Admin` while signed in. If no admin exists yet, the panel offers
 "Make me the first admin" once; otherwise set the role in SQL:

@@ -1,4 +1,4 @@
-// Messenger-style chat widget — functional across all accounts
+// Messenger-style chat widget — direct messages and group chats across all accounts
 window.ChatWidget = function(container, currentUser) {
   if (!sb || !currentUser) return;
 
@@ -6,52 +6,117 @@ window.ChatWidget = function(container, currentUser) {
   let pollTimer = null;
   let users = [];
   let messages = [];
+  let groups = [];
+  let groupsError = '';
+  let groupView = null;
 
   container.innerHTML = `
     <div class="chat-fab" id="chatFab"><img class="chat-fab-icon" src="/img/chat-bubble-logo.png" alt=""></div>
     <div class="chat-panel" id="chatPanel" style="display:none">
       <div class="chat-header">
         <div class="chat-header-title" id="chatHeaderTitle">Messages</div>
-        <button class="chat-close" id="chatClose">✕</button>
+        <button class="chat-group-btn" id="chatGroupBtn" type="button">Group Chat</button>
+        <div class="chat-header-actions">
+          <button class="chat-new-group" id="chatNewGroup" type="button" title="New group" aria-label="New group">＋</button>
+          <button class="chat-close" id="chatClose" type="button" aria-label="Close messages">✕</button>
+        </div>
       </div>
       <div class="chat-body">
-        <div class="chat-user-list" id="chatUserList"></div>
+        <div class="chat-list-view" id="chatListView">
+          <div class="chat-groups" id="chatGroupList"></div>
+          <div class="chat-user-list" id="chatUserList"></div>
+        </div>
+        <div class="chat-group-picker" id="chatGroupPicker" style="display:none">
+          <button class="chat-back" id="chatPickerBack" type="button">← Messages</button>
+          <div class="chat-group-picker-list" id="chatGroupPickerList"></div>
+        </div>
         <div class="chat-conversation" id="chatConversation" style="display:none">
           <button class="chat-back" id="chatBack">← Back</button>
           <div class="chat-messages" id="chatMessages"></div>
           <div class="chat-input-row">
             <input type="text" id="chatInput" placeholder="Type a message...">
-            <button id="chatSend" class="chat-send-btn">➤</button>
+            <button id="chatSend" class="chat-send-btn" aria-label="Send">➤</button>
           </div>
         </div>
+        <div class="chat-conversation chat-group-conversation" id="chatGroupConversation" style="display:none"></div>
       </div>
     </div>`;
 
   const fab = container.querySelector('#chatFab');
   const panel = container.querySelector('#chatPanel');
   const closeBtn = container.querySelector('#chatClose');
+  const newGroupBtn = container.querySelector('#chatNewGroup');
+  const groupBtn = container.querySelector('#chatGroupBtn');
+  const picker = container.querySelector('#chatGroupPicker');
+  const pickerList = container.querySelector('#chatGroupPickerList');
+  const pickerBack = container.querySelector('#chatPickerBack');
   const backBtn = container.querySelector('#chatBack');
+  const listView = container.querySelector('#chatListView');
   const userListView = container.querySelector('#chatUserList');
+  const groupListView = container.querySelector('#chatGroupList');
   const convoView = container.querySelector('#chatConversation');
+  const groupConvo = container.querySelector('#chatGroupConversation');
   const messagesEl = container.querySelector('#chatMessages');
   const input = container.querySelector('#chatInput');
   const sendBtn = container.querySelector('#chatSend');
   const headerTitle = container.querySelector('#chatHeaderTitle');
 
+  function closePanel() {
+    panel.style.display = 'none';
+    stopPolling();
+    stopGroupView();
+  }
+
+  function stopGroupView() {
+    if (groupView) {
+      groupView.stop();
+      groupView = null;
+    }
+  }
+
+  function showList() {
+    activeChat = null;
+    stopPolling();
+    stopGroupView();
+    headerTitle.textContent = 'Messages';
+    convoView.style.display = 'none';
+    groupConvo.style.display = 'none';
+    picker.style.display = 'none';
+    listView.style.display = '';
+  }
+
+  // The Group Chat button opens the groups this member belongs to
+  async function showGroupPicker() {
+    activeChat = null;
+    stopPolling();
+    stopGroupView();
+    headerTitle.textContent = 'Group chats';
+    convoView.style.display = 'none';
+    groupConvo.style.display = 'none';
+    listView.style.display = 'none';
+    picker.style.display = 'flex';
+    pickerList.innerHTML = '<div class="chat-empty">Loading group chats…</div>';
+    await loadGroups();
+    if (picker.style.display !== 'none') renderPicker();
+  }
+
   fab.addEventListener('click', () => {
     const open = panel.style.display === 'none';
     panel.style.display = open ? 'flex' : 'none';
-    if (open) loadUsers();
-    else stopPolling();
+    if (open) refreshList();
+    else closePanel();
   });
-  closeBtn.addEventListener('click', () => { panel.style.display = 'none'; stopPolling(); });
-  backBtn.addEventListener('click', () => {
-    activeChat = null;
-    stopPolling();
-    headerTitle.textContent = 'Messages';
-    userListView.style.display = '';
-    convoView.style.display = 'none';
+  closeBtn.addEventListener('click', closePanel);
+  backBtn.addEventListener('click', showList);
+  pickerBack.addEventListener('click', showList);
+  groupBtn.addEventListener('click', () => {
+    if (picker.style.display !== 'none') showList();
+    else showGroupPicker();
   });
+
+  async function refreshList() {
+    await Promise.all([loadUsers(), loadGroups()]);
+  }
 
   async function loadUsers() {
     try {
@@ -79,9 +144,69 @@ window.ChatWidget = function(container, currentUser) {
     }
   }
 
+  async function loadGroups() {
+    if (!window.GroupChat) { groups = []; renderGroupList(); return; }
+    try {
+      groups = await GroupChat.myGroups(currentUser.id);
+      groupsError = '';
+    } catch (e) {
+      groups = [];
+      groupsError = e.message;
+    }
+    renderGroupList();
+  }
+
+  function groupItemHTML(g) {
+    const initial = (g.name || '?')[0].toUpperCase();
+    const preview = String(g.last_message || '').slice(0, 48);
+    return `<div class="chat-user-item chat-group-item" data-gid="${escapeHtml(g.id)}">
+      <div class="chat-user-avatar chat-group-avatar">${escapeHtml(initial)}</div>
+      <div class="chat-user-info">
+        <div class="chat-user-name">${escapeHtml(g.name)}</div>
+        <div class="chat-user-role">${g.member_count} member${g.member_count === 1 ? '' : 's'}${preview ? ' · ' + escapeHtml(preview) : ''}</div>
+      </div>
+    </div>`;
+  }
+
+  function bindGroupItems(scope) {
+    scope.querySelectorAll('[data-gid]').forEach(item => {
+      item.addEventListener('click', () => {
+        const group = groups.find(g => String(g.id) === String(item.dataset.gid));
+        if (group) openGroupConversation(group);
+      });
+    });
+  }
+
+  function renderGroupList() {
+    if (groupsError) {
+      groupListView.innerHTML = `<div class="chat-empty chat-groups-empty">${escapeHtml(groupsError)}</div>`;
+      return;
+    }
+    if (!groups.length) { groupListView.innerHTML = ''; return; }
+    groupListView.innerHTML = '<div class="chat-groups-label">Group chats</div>' + groups.map(groupItemHTML).join('');
+    bindGroupItems(groupListView);
+  }
+
+  function renderPicker() {
+    if (!window.GroupChat) {
+      pickerList.innerHTML = '<div class="chat-empty">Group chats are not available.</div>';
+      return;
+    }
+    if (groupsError) {
+      pickerList.innerHTML = `<div class="chat-empty chat-groups-empty">${escapeHtml(groupsError)}</div>`;
+      return;
+    }
+    if (!groups.length) {
+      pickerList.innerHTML = '<div class="chat-empty">No group chats yet — tap ＋ to create one.</div>';
+      return;
+    }
+    pickerList.innerHTML = '<div class="chat-groups-label">Your group chats</div>' + groups.map(groupItemHTML).join('');
+    bindGroupItems(pickerList);
+  }
+
   function renderUserList() {
     if (users.length === 0) {
-      userListView.innerHTML = '<div class="chat-empty">No conversations yet</div>';
+      userListView.innerHTML = '<div class="chat-empty">No direct messages yet</div>';
       return;
     }
     userListView.innerHTML = users.map(u => {
@@ -112,11 +237,33 @@ window.ChatWidget = function(container, currentUser) {
 
   async function openConversation(user) {
     activeChat = user;
+    stopGroupView();
     headerTitle.textContent = user.full_name || user.username;
-    userListView.style.display = 'none';
+    listView.style.display = 'none';
+    picker.style.display = 'none';
+    groupConvo.style.display = 'none';
     convoView.style.display = 'flex';
     await loadMessages();
     startPolling();
+  }
+
+  function openGroupConversation(group) {
+    if (!window.GroupChat) return;
+    activeChat = null;
+    stopPolling();
+    stopGroupView();
+    headerTitle.textContent = group.name;
+    listView.style.display = 'none';
+    picker.style.display = 'none';
+    convoView.style.display = 'none';
+    groupConvo.style.display = 'flex';
+    groupView = GroupChat.open(groupConvo, group, currentUser, () => {
+      stopGroupView();
+      headerTitle.textContent = 'Messages';
+      groupConvo.style.display = 'none';
+      listView.style.display = '';
+      loadGroups();
+    });
   }
 
   // Only the columns a bubble shows travel on every refresh
@@ -190,16 +337,26 @@ window.ChatWidget = function(container, currentUser) {
   sendBtn.addEventListener('click', sendMessage);
   input.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendMessage(); });
 
+  newGroupBtn.addEventListener('click', () => {
+    if (!window.GroupChat) return;
+    GroupChat.openCreate(currentUser, group => {
+      loadGroups();
+      openGroupConversation(group);
+    });
+  });
+
   // Public hook so the top bar can open the message list
   window.ChatWidget.open = () => {
     panel.style.display = 'flex';
-    loadUsers();
+    showList();
+    refreshList();
   };
 
   // Public hook so other pages (e.g. the profile friends list) can open a conversation
   window.ChatWidget.openWith = async (uid) => {
     if (!uid) return;
     panel.style.display = 'flex';
+    showList();
     await loadUsers();
     let target = users.find(u => String(u.id) === String(uid));
     // A person picked from a profile or the people list has no thread yet
@@ -208,6 +365,20 @@ window.ChatWidget = function(container, currentUser) {
       if (data && data.role !== 'admin' && !data.deleted_at) target = data;
     }
     if (target) openConversation(target);
+  };
+
+  // Public hook so an invite link can open the group it just joined
+  window.ChatWidget.openGroup = async (gid) => {
+    if (!gid || !window.GroupChat) return;
+    panel.style.display = 'flex';
+    showList();
+    await loadGroups();
+    let group = groups.find(g => String(g.id) === String(gid));
+    if (!group) {
+      const { data } = await sb.from('chat_groups').select('*').eq('id', gid).maybeSingle();
+      if (data) group = data;
+    }
+    if (group) openGroupConversation(group);
   };
 
   function startPolling() { stopPolling(); pollTimer = setInterval(loadMessages, 3000); }

@@ -107,6 +107,15 @@ function passwordField(placeholder, autocomplete, submitLabel) {
 `;
 }
 
+// An invite link opened before logging in is finished right after the sign-in
+function authLandingPath() {
+  try {
+    const pending = localStorage.getItem('meday.pendingInvite');
+    if (pending) return '/Join/' + encodeURIComponent(pending);
+  } catch (e) { /* storage blocked */ }
+  return '/App';
+}
+
 // ===== Log in =====
 Pages.login = function (el) {
   authShell(el, {
@@ -122,7 +131,7 @@ Pages.login = function (el) {
     const password = fd.get('password');
     await Auth.login(username, password);
     LoginVault.remember(username, password);
-    Router.navigate('/App');
+    Router.navigate(authLandingPath());
   });
 };
 
@@ -182,7 +191,7 @@ Pages.register = function (el) {
     if (password.length < 6) throw new Error('Password must be at least 6 characters');
     await Auth.register({ username, password, role: 'member' });
     LoginVault.remember(username, password);
-    Router.navigate('/App');
+    Router.navigate(authLandingPath());
   });
 };
 
