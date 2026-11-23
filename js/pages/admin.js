@@ -838,6 +838,29 @@ var Pages = window.Pages || {};
     badge.textContent = status.connected ? 'Connected' : 'Not connected';
     badge.className = 'admin-badge ' + (status.connected ? 'admin-badge-active' : 'admin-badge-pending');
 
+    // Google only accepts a redirect address that is listed word for word on the
+    // OAuth client, so the address this app sends is always on show
+    const redirectBlock = status.redirectUri ? `
+      <p class="admin-hint">This address must be listed under “Authorized redirect URIs” on the Google OAuth client (Google Cloud Console → Credentials):</p>
+      <p class="admin-hint"><code class="admin-redirect">${fbEscape(status.redirectUri)}</code>
+        <button class="admin-tool" id="driveCopyUri" type="button">Copy</button></p>` : '';
+    const blocked = new URLSearchParams(location.search).get('drive') === 'error'
+      ? '<p class="admin-hint">Google blocked the sign-in. Add the redirect address below to the OAuth client, save it, then connect again.</p>'
+      : '';
+    const paint = html => {
+      target.innerHTML = blocked + html + redirectBlock;
+      const copy = target.querySelector('#driveCopyUri');
+      if (!copy) return;
+      copy.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(status.redirectUri);
+          showToast('Redirect address copied', 'success');
+        } catch {
+          showToast('Select the address and copy it', 'error');
+        }
+      });
+    };
+
     if (status.connected) {
       target.innerHTML = `
         <p class="admin-hint">Uploads are saved in ${fbEscape(status.email || 'your Google Drive')}.</p>
@@ -859,10 +882,8 @@ var Pages = window.Pages || {};
     }
 
     if (!status.configured) {
-      const redirectUri = status.redirectUri || location.origin + '/oauth/google/callback';
-      target.innerHTML = `
-        <p class="admin-hint">Google sign-in is not set up yet. In Google Cloud Console, enable the Google Drive API and create an OAuth client of type “Web application”, add this authorized redirect URI, then set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET for the app:</p>
-        <p class="admin-hint"><code class="admin-redirect">${fbEscape(redirectUri)}</code></p>`;
+      paint(`
+        <p class="admin-hint">Google sign-in is not set up yet. In Google Cloud Console, enable the Google Drive API and create an OAuth client of type “Web application”, add the authorized redirect URI below, then set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET for the app.</p>`);
       return;
     }
 
@@ -873,11 +894,11 @@ var Pages = window.Pages || {};
       return;
     }
 
-    target.innerHTML = `
+    paint(`
       <p class="admin-hint">Sign in with the Google account whose storage you want to use. Only the files this app creates are visible to it.</p>
       <div class="admin-me-actions">
         <a class="admin-approve" href="/oauth/google/start">Connect Google Drive</a>
-      </div>`;
+      </div>`);
   }
 
   // ===================== My profile =====================
