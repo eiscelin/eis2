@@ -315,7 +315,7 @@ tr:last-child td { border-bottom: none; }
 }
 .chat-panel { position:fixed; bottom:5.75rem; right:1.5rem; width:360px; height:480px; background:#fff; border-radius:16px; box-shadow:0 8px 32px rgba(0,0,0,.15); flex-direction:column; overflow:hidden; z-index:9998; border:1px solid #e5e7eb; }
 .chat-header { background:var(--gradient); color:#fff; padding:1rem 1.25rem; display:flex; align-items:center; justify-content:space-between; }
-.chat-header-title { font-weight:700; font-size:1rem; }
+.chat-header-title { font-weight:700; font-size:1rem; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .chat-close { background:rgba(255,255,255,.2); border:none; color:#fff; width:28px; height:28px; border-radius:50%; cursor:pointer; font-size:.85rem; display:flex; align-items:center; justify-content:center; transition:background .15s; }
 .chat-close:hover { background:rgba(255,255,255,.3); }
 .chat-body { flex:1; overflow:hidden; display:flex; flex-direction:column; }
@@ -347,6 +347,11 @@ tr:last-child td { border-bottom: none; }
 .chat-header-actions { display:flex; align-items:center; gap:.4rem; }
 .chat-new-group { width:28px; height:28px; border-radius:50%; border:none; background:var(--fb-elevated); color:var(--fb-text); font-size:1rem; line-height:1; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:background .15s; }
 .chat-new-group:hover { background:var(--fb-hover); }
+.chat-group-btn { margin-left:auto; margin-right:.45rem; flex:0 0 auto; border:none; border-radius:999px; padding:.32rem .7rem; background:rgba(255,255,255,.2); color:#fff; font-size:.75rem; font-weight:700; cursor:pointer; transition:background .15s; }
+.chat-group-btn:hover { background:rgba(255,255,255,.32); }
+.chat-group-picker { flex:1; display:flex; flex-direction:column; min-height:0; }
+.chat-group-picker .chat-back { flex:0 0 auto; padding:.5rem 1rem .15rem; }
+.chat-group-picker-list { flex:1; overflow-y:auto; min-height:0; }
 .chat-list-view { flex:1; overflow-y:auto; display:flex; flex-direction:column; min-height:0; }
 .chat-list-view .chat-user-list { overflow:visible; flex:0 0 auto; }
 .chat-groups-label { font-size:.68rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--fb-muted); padding:.7rem 1rem .25rem; }

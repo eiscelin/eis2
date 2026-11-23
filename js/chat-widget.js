@@ -15,6 +15,7 @@ window.ChatWidget = function(container, currentUser) {
     <div class="chat-panel" id="chatPanel" style="display:none">
       <div class="chat-header">
         <div class="chat-header-title" id="chatHeaderTitle">Messages</div>
+        <button class="chat-group-btn" id="chatGroupBtn" type="button">Group Chat</button>
         <div class="chat-header-actions">
           <button class="chat-new-group" id="chatNewGroup" type="button" title="New group" aria-label="New group">＋</button>
           <button class="chat-close" id="chatClose" type="button" aria-label="Close messages">✕</button>
@@ -24,6 +25,10 @@ window.ChatWidget = function(container, currentUser) {
         <div class="chat-list-view" id="chatListView">
           <div class="chat-groups" id="chatGroupList"></div>
           <div class="chat-user-list" id="chatUserList"></div>
+        </div>
+        <div class="chat-group-picker" id="chatGroupPicker" style="display:none">
+          <button class="chat-back" id="chatPickerBack" type="button">← Messages</button>
+          <div class="chat-group-picker-list" id="chatGroupPickerList"></div>
         </div>
         <div class="chat-conversation" id="chatConversation" style="display:none">
           <button class="chat-back" id="chatBack">← Back</button>
@@ -41,6 +46,10 @@ window.ChatWidget = function(container, currentUser) {
   const panel = container.querySelector('#chatPanel');
   const closeBtn = container.querySelector('#chatClose');
   const newGroupBtn = container.querySelector('#chatNewGroup');
+  const groupBtn = container.querySelector('#chatGroupBtn');
+  const picker = container.querySelector('#chatGroupPicker');
+  const pickerList = container.querySelector('#chatGroupPickerList');
+  const pickerBack = container.querySelector('#chatPickerBack');
   const backBtn = container.querySelector('#chatBack');
   const listView = container.querySelector('#chatListView');
   const userListView = container.querySelector('#chatUserList');
@@ -72,7 +81,23 @@ window.ChatWidget = function(container, currentUser) {
     headerTitle.textContent = 'Messages';
     convoView.style.display = 'none';
     groupConvo.style.display = 'none';
+    picker.style.display = 'none';
     listView.style.display = '';
+  }
+
+  // The Group Chat button opens the groups this member belongs to
+  async function showGroupPicker() {
+    activeChat = null;
+    stopPolling();
+    stopGroupView();
+    headerTitle.textContent = 'Group chats';
+    convoView.style.display = 'none';
+    groupConvo.style.display = 'none';
+    listView.style.display = 'none';
+    picker.style.display = 'flex';
+    pickerList.innerHTML = '<div class="chat-empty">Loading group chats…</div>';
+    await loadGroups();
+    if (picker.style.display !== 'none') renderPicker();
   }
 
   fab.addEventListener('click', () => {
@@ -83,6 +108,11 @@ window.ChatWidget = function(container, currentUser) {
   });
   closeBtn.addEventListener('click', closePanel);
   backBtn.addEventListener('click', showList);
+  pickerBack.addEventListener('click', showList);
+  groupBtn.addEventListener('click', () => {
+    if (picker.style.display !== 'none') showList();
+    else showGroupPicker();
+  });
 
   async function refreshList() {
     await Promise.all([loadUsers(), loadGroups()]);
@@ -126,29 +156,52 @@ window.ChatWidget = function(container, currentUser) {
     renderGroupList();
   }
 
+  function groupItemHTML(g) {
+    const initial = (g.name || '?')[0].toUpperCase();
+    const preview = String(g.last_message || '').slice(0, 48);
+    return `<div class="chat-user-item chat-group-item" data-gid="${escapeHtml(g.id)}">
+      <div class="chat-user-avatar chat-group-avatar">${escapeHtml(initial)}</div>
+      <div class="chat-user-info">
+        <div class="chat-user-name">${escapeHtml(g.name)}</div>
+        <div class="chat-user-role">${g.member_count} member${g.member_count === 1 ? '' : 's'}${preview ? ' · ' + escapeHtml(preview) : ''}</div>
+      </div>
+    </div>`;
+  }
+
+  function bindGroupItems(scope) {
+    scope.querySelectorAll('[data-gid]').forEach(item => {
+      item.addEventListener('click', () => {
+        const group = groups.find(g => String(g.id) === String(item.dataset.gid));
+        if (group) openGroupConversation(group);
+      });
+    });
+  }
+
   function renderGroupList() {
     if (groupsError) {
       groupListView.innerHTML = `<div class="chat-empty chat-groups-empty">${escapeHtml(groupsError)}</div>`;
       return;
     }
     if (!groups.length) { groupListView.innerHTML = ''; return; }
-    groupListView.innerHTML = '<div class="chat-groups-label">Group chats</div>' + groups.map(g => {
-      const initial = (g.name || '?')[0].toUpperCase();
-      const preview = String(g.last_message || '').slice(0, 48);
-      return `<div class="chat-user-item chat-group-item" data-gid="${escapeHtml(g.id)}">
-        <div class="chat-user-avatar chat-group-avatar">${escapeHtml(initial)}</div>
-        <div class="chat-user-info">
-          <div class="chat-user-name">${escapeHtml(g.name)}</div>
-          <div class="chat-user-role">${g.member_count} member${g.member_count === 1 ? '' : 's'}${preview ? ' · ' + escapeHtml(preview) : ''}</div>
-        </div>
-      </div>`;
-    }).join('');
-    groupListView.querySelectorAll('[data-gid]').forEach(item => {
-      item.addEventListener('click', () => {
-        const group = groups.find(g => String(g.id) === String(item.dataset.gid));
-        if (group) openGroupConversation(group);
-      });
-    });
+    groupListView.innerHTML = '<div class="chat-groups-label">Group chats</div>' + groups.map(groupItemHTML).join('');
+    bindGroupItems(groupListView);
+  }
+
+  function renderPicker() {
+    if (!window.GroupChat) {
+      pickerList.innerHTML = '<div class="chat-empty">Group chats are not available.</div>';
+      return;
+    }
+    if (groupsError) {
+      pickerList.innerHTML = `<div class="chat-empty chat-groups-empty">${escapeHtml(groupsError)}</div>`;
+      return;
+    }
+    if (!groups.length) {
+      pickerList.innerHTML = '<div class="chat-empty">No group chats yet — tap ＋ to create one.</div>';
+      return;
+    }
+    pickerList.innerHTML = '<div class="chat-groups-label">Your group chats</div>' + groups.map(groupItemHTML).join('');
+    bindGroupItems(pickerList);
   }
 
   function renderUserList() {
@@ -187,6 +240,7 @@ window.ChatWidget = function(container, currentUser) {
     stopGroupView();
     headerTitle.textContent = user.full_name || user.username;
     listView.style.display = 'none';
+    picker.style.display = 'none';
     groupConvo.style.display = 'none';
     convoView.style.display = 'flex';
     await loadMessages();
@@ -200,6 +254,7 @@ window.ChatWidget = function(container, currentUser) {
     stopGroupView();
     headerTitle.textContent = group.name;
     listView.style.display = 'none';
+    picker.style.display = 'none';
     convoView.style.display = 'none';
     groupConvo.style.display = 'flex';
     groupView = GroupChat.open(groupConvo, group, currentUser, () => {
