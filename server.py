@@ -412,7 +412,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             'response_type': 'code',
             'scope': GOOGLE_SCOPE,
             'access_type': 'offline',
-            'prompt': 'consent',
+            # select_account so the admin can pick another Google account, not
+            # only the one the browser happens to be signed in to
+            'prompt': 'consent select_account',
             'include_granted_scopes': 'true',
             'state': state
         })
