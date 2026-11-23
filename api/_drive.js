@@ -124,6 +124,13 @@ export function isVideo(contentType) {
   return (contentType || '').startsWith('video/');
 }
 
+// A picture renders straight from Google's image CDN. Videos stream back
+// through this app, because Drive's own download links refuse playback.
+export function drivePublicUrl(fileId, contentType) {
+  if (isVideo(contentType)) return '/api/drive/media/' + fileId;
+  return 'https://lh3.googleusercontent.com/d/' + fileId;
+}
+
 export function safeFilename(name, contentType) {
   const fallback = isVideo(contentType) ? 'upload.mp4' : 'upload.jpg';
   let decoded = '';
@@ -181,5 +188,5 @@ export async function uploadToDrive(buffer, contentType, filename) {
   } catch {
     /* the file still uploads; only the public link is missing */
   }
-  return 'https://lh3.googleusercontent.com/d/' + file.id;
+  return drivePublicUrl(file.id, contentType);
 }

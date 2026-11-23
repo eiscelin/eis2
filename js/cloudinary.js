@@ -83,10 +83,16 @@ async function cloudinaryUploadViaServer(blob, onProgress) {
 }
 
 async function cloudinaryUpload(blob, onProgress) {
-  // The owner's own Google Drive wins once the account is connected.
+  // The owner's own Google Drive (Google One) wins once the account is
+  // connected, for videos as well as photos. Cloudinary is the fallback when
+  // Drive is not connected or refuses the file.
   if (typeof gdriveUpload === 'function') {
-    const driveUrl = await gdriveUpload(blob, onProgress);
-    if (driveUrl) return driveUrl;
+    try {
+      const driveUrl = await gdriveUpload(blob, onProgress);
+      if (driveUrl) return driveUrl;
+    } catch (e) {
+      // Drive unreachable or refusing the upload: Cloudinary takes over.
+    }
   }
   // Cloudflare R2 wins when the server can sign for it; otherwise Cloudinary as before.
   if (typeof r2Upload === 'function') {

@@ -781,7 +781,7 @@ var Pages = window.Pages || {};
         <div class="admin-setting">
           <div>
             <div class="admin-setting-name">Google Drive</div>
-            <div class="admin-setting-desc">New photos are saved in your own Google account, so they use your Google One storage.</div>
+            <div class="admin-setting-desc">New photos and videos are saved in your own Google account, so they use your Google One storage. Cloudinary is the fallback when Drive is not connected.</div>
           </div>
         </div>
         <div id="driveBody"></div>

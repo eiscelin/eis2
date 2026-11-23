@@ -291,7 +291,7 @@ function postReactionPicker(media) {
 function postMediaHtml(post) {
   if (!post.media_url) return '';
   return `<div class="fb-post-media">${post.media_type === 'video'
-    ? `<video class="fb-post-media-el" src="${fbEscape(post.media_url)}" controls playsinline preload="metadata"></video>`
+    ? `<video class="fb-post-media-el" src="${fbEscape(post.media_url)}" controls playsinline preload="metadata" data-video-warm></video>`
     : `<img class="fb-post-media-el" src="${fbEscape(fbImageUrl(post.media_url, 720))}" alt="" loading="lazy" decoding="async">`}</div>`;
 }
 
@@ -761,26 +761,10 @@ Posts.mount = function (listEl, opts) {
   const SPOTLIGHT_TOP_BAR = 72; // height of the sticky top bar
   let spotlightTimer = 0;
   let spotlightScrollTimer = 0;
-  let spotlightIgnoreScrollUntil = 0;
   let spotlightPost = null; // the post on screen that owns the highlight
   let spotlightIndex = 0;
   let spotlightCommentId = ''; // the comment lit right now
   let spotlightEndsAt = 0;     // when its turn ends
-  // The page never pans by itself before the visitor scrolls: arriving on a
-  // profile keeps the bar, the logo and the cover on screen
-  let spotlightUserScrolled = false;
-  // These listeners drop themselves once this feed is off the page, so a long
-  // session never piles up handlers behind the scrolling
-  ['wheel', 'touchmove', 'keydown'].forEach(type => {
-    const markScrolled = () => {
-      if (!listEl.isConnected) {
-        window.removeEventListener(type, markScrolled);
-        return;
-      }
-      spotlightUserScrolled = true;
-    };
-    window.addEventListener(type, markScrolled, { passive: true });
-  });
 
   // The post being viewed: the first one starting in the upper part of the
   // screen. When none starts there (only the tail of a previous post shows),
@@ -843,25 +827,6 @@ Posts.mount = function (listEl, opts) {
     lowerSpotlightComment();
   }
 
-  // The page only moves when the lit comment is actually out of view, and a
-  // downward scroll stops as soon as the post's own top reaches the top bar —
-  // so the author, the text and the action buttons stay put on screen.
-  function keepSpotlightVisible(comment) {
-    const card = comment.closest('.fb-post-card') || spotlightPost;
-    const topLimit = SPOTLIGHT_TOP_BAR + 8;
-    const bottomLimit = window.innerHeight - 8;
-    const rect = comment.getBoundingClientRect();
-    // Already in view: leave the page completely still
-    if (rect.top >= topLimit && rect.bottom <= bottomLimit) return;
-    let delta = rect.bottom > bottomLimit ? rect.bottom - bottomLimit : rect.top - topLimit;
-    if (delta > 0 && card) {
-      // Never shove the post's own top — and the member who wrote it — away
-      const room = card.getBoundingClientRect().top - topLimit;
-      delta = Math.min(delta, Math.max(0, room));
-    }
-    if (delta) window.scrollBy({ top: delta, behavior: 'smooth' });
-  }
-
   function clearSpotlight() {
     clearTimeout(spotlightTimer);
     spotlightTimer = 0;
@@ -880,11 +845,6 @@ Posts.mount = function (listEl, opts) {
       clearSpotlightMark();
       return;
     }
-    // The turns keep coming while the member is writing or editing a comment —
-    // only the automatic scroll waits, so the page never jumps under them
-    const active = document.activeElement;
-    const typing = !!(active && listEl.contains(active)
-      && active.closest('.fb-comment-form, .fb-comment-edit'));
     if (!spotlightPost || !spotlightPost.isConnected) spotlightPost = focusedPost();
     clearSpotlightMark();
     // A post without comments has nothing to highlight — just wait for one.
@@ -904,13 +864,6 @@ Posts.mount = function (listEl, opts) {
     liftSpotlightComment(comment);
     spotlightCommentId = String(comment.dataset.comment);
     spotlightEndsAt = Date.now() + COMMENT_SPOTLIGHT_MS;
-    // Keep the lit comment readable without scrolling the post away: the page
-    // only moves if the comment is out of view. The scroll it causes must not
-    // be mistaken for the member choosing another post.
-    if (!typing && spotlightUserScrolled) {
-      spotlightIgnoreScrollUntil = Date.now() + 1200;
-      keepSpotlightVisible(comment);
-    }
     spotlightIndex = (spotlightIndex + 1) % comments.length;
     spotlightTimer = setTimeout(spotlightNext, COMMENT_SPOTLIGHT_MS);
   }
@@ -959,7 +912,6 @@ Posts.mount = function (listEl, opts) {
         window.removeEventListener('scroll', onScroll);
         return;
       }
-      if (Date.now() < spotlightIgnoreScrollUntil) return;
       clearTimeout(spotlightScrollTimer);
       spotlightScrollTimer = setTimeout(() => {
         const post = focusedPost();
@@ -1015,6 +967,27 @@ Posts.mount = function (listEl, opts) {
     ? '<div class="fb-card fb-feed-empty">No posts from your friends yet. Add friends from the Friends tab to see their posts here.</div>'
     : '';
 
+  // A video plays the moment it is tapped when its opening frames are already
+  // buffered, so a card that comes near the screen starts loading ahead
+  const videoWarmObserver = 'IntersectionObserver' in window ? new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      const video = entry.target;
+      videoWarmObserver.unobserve(video);
+      video.preload = 'auto';
+      if (video.paused && !video.currentTime) video.load();
+    });
+  }, { rootMargin: '600px 0px' }) : null;
+
+  function warmVideos() {
+    if (!videoWarmObserver) return;
+    listEl.querySelectorAll('video[data-video-warm]').forEach(video => {
+      if (video.dataset.warmWatched) return;
+      video.dataset.warmWatched = '1';
+      videoWarmObserver.observe(video);
+    });
+  }
+
   function renderAll() {
     const q = state.query.trim().toLowerCase();
     const shown = state.posts.filter(visibleToViewer).filter(p => !q
@@ -1029,6 +1002,7 @@ Posts.mount = function (listEl, opts) {
     moreEl = listEl.querySelector('[data-feed-more]');
     paintMore();
     watchMore();
+    warmVideos();
     Posts.startReactionTurns();
     startCommentSpotlight();
   }
@@ -1190,6 +1164,7 @@ Posts.mount = function (listEl, opts) {
       || `${p.content || ''} ${p.author_name || ''}`.toLowerCase().includes(q));
     if (!shown.length) return;
     moreEl.insertAdjacentHTML('beforebegin', shown.map(p => Posts.card(p, ctxFor(p))).join(''));
+    warmVideos();
     Posts.startReactionTurns();
     startCommentSpotlight();
   }
