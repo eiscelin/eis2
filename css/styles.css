@@ -345,8 +345,8 @@ tr:last-child td { border-bottom: none; }
 
 /* ===== Group chats ===== */
 .chat-header-actions { display:flex; align-items:center; gap:.4rem; }
-.chat-new-group { width:28px; height:28px; border-radius:50%; border:none; background:var(--fb-elevated); color:var(--fb-text); font-size:1rem; line-height:1; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:background .15s; }
-.chat-new-group:hover { background:var(--fb-hover); }
+.chat-new-group { width:30px; height:30px; border-radius:50%; border:none; background:var(--fb-blue,#1877f2); color:#fff; font-size:1.2rem; font-weight:700; line-height:1; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 2px 8px rgba(24,119,242,.45); transition:background .15s, transform .15s; }
+.chat-new-group:hover { background:var(--fb-blue-hover,#2d88ff); transform:scale(1.06); }
 .chat-group-btn { margin-left:auto; margin-right:.45rem; flex:0 0 auto; border:none; border-radius:999px; padding:.32rem .7rem; background:rgba(255,255,255,.2); color:#fff; font-size:.75rem; font-weight:700; cursor:pointer; transition:background .15s; }
 .chat-group-btn:hover { background:rgba(255,255,255,.32); }
 .chat-group-picker { flex:1; display:flex; flex-direction:column; min-height:0; }
