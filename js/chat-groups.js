@@ -4,7 +4,8 @@ window.GroupChat = (function () {
   const MAX_IMAGE = 20 * 1024 * 1024;
   const MAX_VIDEO = 100 * 1024 * 1024;
   const MAX_FILE = 25 * 1024 * 1024;
-  const MESSAGE_COLUMNS = 'id, group_id, sender_id, message, attachment_url, attachment_type, attachment_name, created_at';
+  // Star so a database that has not run the reply/pin migration yet still loads
+  const MESSAGE_COLUMNS = '*';
 
   const asId = value => String(value == null ? '' : value);
   const nameOf = person => (person && (person.full_name || person.username)) || 'Member';
@@ -75,7 +76,18 @@ window.GroupChat = (function () {
 
   function groupError(error) {
     const message = String((error && error.message) || error || 'Something went wrong');
-    if (/chat_group/.test(message)) {
+    const code = String((error && error.code) || '');
+    // A missing reply/pin/admin column means this update's SQL has not been run yet
+    const missingColumn = /(reply_to_id|pinned_message_id|is_admin)/.test(message) &&
+      /does not exist|schema cache|column/i.test(message);
+    if (missingColumn) {
+      return new Error('Replies, @everyone and pins need the latest update. Run supabase/migrations/025_add_group_replies_pins_admins.sql in Supabase.');
+    }
+    // Only a genuinely missing table points at the migration; any other failure
+    // (a permission, a stale page, a bad link) shows what actually went wrong
+    const missingTable = code === '42P01' || code === 'PGRST205' ||
+      (/chat_group/.test(message) && /does not exist|schema cache/i.test(message));
+    if (missingTable) {
       return new Error('Group chats are not set up yet. Run supabase/migrations/023_create_chat_groups.sql in Supabase.');
     }
     return new Error(message);
@@ -142,8 +154,17 @@ window.GroupChat = (function () {
     if (error) throw groupError(error);
 
     const ids = [...new Set([asId(user.id), ...(memberIds || []).map(asId)])].filter(Boolean);
-    const { error: memberError } = await sb.from('chat_group_members')
-      .upsert(ids.map(uid => ({ group_id: group.id, user_id: uid })), { onConflict: 'group_id,user_id' });
+    let { error: memberError } = await sb.from('chat_group_members')
+      .upsert(ids.map(uid => ({
+        group_id: group.id,
+        user_id: uid,
+        is_admin: uid === asId(user.id)
+      })), { onConflict: 'group_id,user_id' });
+    // A database that has not run the admin migration yet still gets its members
+    if (memberError && /is_admin/.test(String(memberError.message || ''))) {
+      ({ error: memberError } = await sb.from('chat_group_members')
+        .upsert(ids.map(uid => ({ group_id: group.id, user_id: uid })), { onConflict: 'group_id,user_id' }));
+    }
     if (memberError) throw groupError(memberError);
     return group;
   }
@@ -166,17 +187,30 @@ window.GroupChat = (function () {
 
   async function members(groupId) {
     if (!sb) return [];
-    const { data: rows, error } = await sb.from('chat_group_members').select('user_id').eq('group_id', groupId);
+    let { data: rows, error } = await sb.from('chat_group_members')
+      .select('user_id, is_admin')
+      .eq('group_id', groupId);
+    // Older databases have no admin column yet
+    if (error && /is_admin/.test(String(error.message || ''))) {
+      ({ data: rows, error } = await sb.from('chat_group_members')
+        .select('user_id')
+        .eq('group_id', groupId));
+    }
     if (error) throw groupError(error);
+    const flags = new Map();
+    (rows || []).forEach(row => flags.set(asId(row.user_id), !!row.is_admin));
     const all = (rows || []).map(row => asId(row.user_id)).filter(Boolean);
     const guests = [...new Set(all.filter(isGuest))]
-      .map(id => ({ id, full_name: guestName(id), guest: true }));
+      .map(id => ({ id, full_name: guestName(id), guest: true, is_admin: flags.get(id) || false }));
     const ids = [...new Set(all.filter(id => !isGuest(id)))];
     if (!ids.length) return guests;
     const { data } = await sb.from('users')
       .select('id, username, full_name, avatar_url, role')
       .in('id', ids);
-    return (data || []).filter(person => person.role !== 'admin').concat(guests);
+    return (data || [])
+      .filter(person => person.role !== 'admin')
+      .map(person => ({ ...person, is_admin: flags.get(asId(person.id)) || false }))
+      .concat(guests);
   }
 
   // An admin can turn sending off for every guest device
@@ -319,13 +353,15 @@ window.GroupChat = (function () {
     let busy = false;
     let destroyed = false;
     let firstRender = true;
+    let replyTo = null;
+    let isAdmin = false;
 
     container.innerHTML = `
       <div class="chat-group-head">
         <button class="chat-back" type="button" data-group-back>← Back</button>
         <div class="chat-group-title">
           <div class="chat-group-name">${fbEscape(group.name)}</div>
-          <div class="chat-group-meta" data-group-meta>Loading members…</div>
+          <button class="chat-group-meta chat-group-meta-btn" type="button" data-group-meta title="View members and admins">Loading members…</button>
         </div>
       </div>
       <div class="chat-group-invite">
@@ -338,10 +374,25 @@ window.GroupChat = (function () {
           <button class="chat-invite-btn" type="button" data-invite-share>Share</button>
         </div>
       </div>
+      <div class="chat-pinned" data-pinned hidden>
+        <span class="chat-pinned-ico" aria-hidden="true">📌</span>
+        <div class="chat-pinned-body">
+          <span class="chat-pinned-label">Pinned message</span>
+          <span class="chat-pinned-text" data-pinned-text></span>
+        </div>
+        <button class="chat-pinned-close" type="button" data-unpin title="Unpin message" aria-label="Unpin message">✕</button>
+      </div>
       <div class="chat-messages chat-group-messages" data-group-messages></div>
       <div class="chat-upload" data-group-upload hidden>
         <span class="chat-upload-text" data-upload-text>Uploading…</span>
         <div class="chat-upload-bar"><div class="chat-upload-fill" data-upload-fill></div></div>
+      </div>
+      <div class="chat-reply-preview" data-reply-preview hidden>
+        <div class="chat-reply-preview-body">
+          <span class="chat-reply-preview-name" data-reply-name></span>
+          <span class="chat-reply-preview-text" data-reply-text></span>
+        </div>
+        <button class="chat-reply-cancel" type="button" data-reply-cancel title="Cancel reply" aria-label="Cancel reply">✕</button>
       </div>
       <div class="chat-input-row chat-group-input-row">
         <button class="chat-attach-btn" type="button" data-group-attach title="Send a photo, video or file" aria-label="Send a photo, video or file">📎</button>
@@ -358,6 +409,12 @@ window.GroupChat = (function () {
     const uploadText = container.querySelector('[data-upload-text]');
     const uploadFill = container.querySelector('[data-upload-fill]');
     const metaEl = container.querySelector('[data-group-meta]');
+    const pinnedEl = container.querySelector('[data-pinned]');
+    const pinnedText = container.querySelector('[data-pinned-text]');
+    const unpinBtn = container.querySelector('[data-unpin]');
+    const replyPreview = container.querySelector('[data-reply-preview]');
+    const replyName = container.querySelector('[data-reply-name]');
+    const replyText = container.querySelector('[data-reply-text]');
 
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
@@ -431,25 +488,123 @@ window.GroupChat = (function () {
       (data || []).forEach(person => senderNames.set(asId(person.id), person));
     }
 
+    function mentionsEveryone(message) {
+      return /(^|\s)@everyone\b/i.test(String((message && message.message) || ''));
+    }
+
+    function replyQuoteHTML(message, byId) {
+      if (!message.reply_to_id) return '';
+      const parent = byId.get(asId(message.reply_to_id));
+      const name = parent ? senderLabel(asId(parent.sender_id), senderNames) : 'Earlier message';
+      const text = parent ? previewOf(parent) : 'Not in this thread';
+      return `<div class="chat-reply-quote" data-jump="${fbEscape(message.reply_to_id)}">
+        <span class="chat-reply-quote-name">${fbEscape(name)}</span>
+        <span class="chat-reply-quote-text">${fbEscape(text)}</span>
+      </div>`;
+    }
+
+    function paintPinned() {
+      const id = asId(group.pinned_message_id);
+      const message = id ? messages.find(item => asId(item.id) === id) : null;
+      pinnedEl.hidden = !message;
+      unpinBtn.hidden = !isAdmin || !message;
+      if (!message) return;
+      pinnedText.textContent = senderLabel(asId(message.sender_id), senderNames) + ': ' + previewOf(message);
+    }
+
     function renderMessages() {
       if (!messages.length) {
         messagesEl.innerHTML = '<div class="chat-empty">No messages yet. Say hi to the group! 👋</div>';
+        paintPinned();
         return;
       }
       const atBottom = messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 90;
+      const byId = new Map(messages.map(item => [asId(item.id), item]));
+      const pinnedId = asId(group.pinned_message_id);
       messagesEl.innerHTML = messages.map(message => {
         const mine = asId(message.sender_id) === asId(user.id);
         const name = senderLabel(asId(message.sender_id), senderNames);
-        return `<div class="chat-bubble chat-group-bubble ${mine ? 'chat-bubble-me' : 'chat-bubble-them'}">
+        const shout = mentionsEveryone(message);
+        const isPinned = pinnedId && pinnedId === asId(message.id);
+        return `<div class="chat-bubble chat-group-bubble ${mine ? 'chat-bubble-me' : 'chat-bubble-them'}${shout ? ' chat-bubble-everyone' : ''}" data-message="${fbEscape(message.id)}">
           ${mine ? '' : `<div class="chat-bubble-sender">${fbEscape(name)}</div>`}
+          ${replyQuoteHTML(message, byId)}
+          ${shout ? '<div class="chat-everyone">@everyone</div>' : ''}
           ${message.message ? `<div class="chat-bubble-text">${linkify(message.message)}</div>` : ''}
           ${attachmentHTML(message)}
-          <div class="chat-bubble-time">${formatTime(message.created_at)}</div>
+          <div class="chat-bubble-time">${formatTime(message.created_at)}${isPinned ? ' · 📌' : ''}</div>
+          <div class="chat-bubble-actions">
+            <button class="chat-bubble-action" type="button" data-reply="${fbEscape(message.id)}" title="Reply to this message" aria-label="Reply to this message">↩</button>
+            ${isAdmin ? `<button class="chat-bubble-action" type="button" data-pin="${fbEscape(message.id)}" title="${isPinned ? 'Unpin message' : 'Pin message'}" aria-label="${isPinned ? 'Unpin message' : 'Pin message'}">📌</button>` : ''}
+          </div>
         </div>`;
       }).join('');
       if (atBottom || firstRender) messagesEl.scrollTop = messagesEl.scrollHeight;
       firstRender = false;
+      paintPinned();
     }
+
+    function startReply(message) {
+      if (!message || String(message.id).indexOf('temp-') === 0) return;
+      replyTo = message;
+      replyPreview.hidden = false;
+      replyName.textContent = senderLabel(asId(message.sender_id), senderNames);
+      replyText.textContent = previewOf(message).slice(0, 120);
+      input.focus();
+    }
+
+    function clearReply() {
+      replyTo = null;
+      replyPreview.hidden = true;
+      replyName.textContent = '';
+      replyText.textContent = '';
+    }
+
+    async function togglePin(id) {
+      if (String(id).indexOf('temp-') === 0) return;
+      if (!isAdmin) {
+        showToast('Only group admins can pin messages', 'error');
+        return;
+      }
+      const next = asId(group.pinned_message_id) === asId(id) ? null : id;
+      const { error } = await sb.from('chat_groups').update({ pinned_message_id: next }).eq('id', group.id);
+      if (error) {
+        showToast(groupError(error).message, 'error', 6000);
+        return;
+      }
+      group.pinned_message_id = next;
+      renderMessages();
+      showToast(next ? 'Message pinned' : 'Message unpinned', 'success');
+    }
+
+    messagesEl.addEventListener('click', event => {
+      const replyBtn = event.target.closest('[data-reply]');
+      if (replyBtn) {
+        const found = messages.find(item => asId(item.id) === asId(replyBtn.getAttribute('data-reply')));
+        if (found) startReply(found);
+        return;
+      }
+      const pinBtn = event.target.closest('[data-pin]');
+      if (pinBtn) {
+        togglePin(pinBtn.getAttribute('data-pin'));
+        return;
+      }
+      const quote = event.target.closest('[data-jump]');
+      if (quote) {
+        const target = messagesEl.querySelector(`[data-message="${asId(quote.getAttribute('data-jump'))}"]`);
+        if (target) target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
+    });
+
+    container.querySelector('[data-reply-cancel]').addEventListener('click', clearReply);
+    unpinBtn.addEventListener('click', () => {
+      if (group.pinned_message_id) togglePin(group.pinned_message_id);
+    });
+    pinnedEl.addEventListener('click', event => {
+      if (event.target.closest('[data-unpin]')) return;
+      const target = messagesEl.querySelector(`[data-message="${asId(group.pinned_message_id)}"]`);
+      if (target) target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    });
 
     async function loadMessages(force) {
       if (destroyed || document.hidden) return;
@@ -460,13 +615,17 @@ window.GroupChat = (function () {
         if (!force && lastAt) query = query.gt('created_at', lastAt);
         const { data, error } = await query;
         if (error) throw error;
+        const fresh = [];
         if (force) {
           messages = data || [];
         } else {
           if (!data || !data.length) return;
           const known = new Set(messages.map(m => asId(m.id)));
           data.forEach(message => {
-            if (!known.has(asId(message.id))) messages.push(message);
+            if (!known.has(asId(message.id))) {
+              messages.push(message);
+              fresh.push(message);
+            }
           });
           messages.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
         }
@@ -474,6 +633,13 @@ window.GroupChat = (function () {
         if (newest && newest.created_at) lastAt = newest.created_at;
         await loadSenders();
         renderMessages();
+        // An @everyone message pulls the whole group's attention
+        const shout = fresh
+          .filter(message => mentionsEveryone(message) && asId(message.sender_id) !== asId(user.id))
+          .pop();
+        if (shout) {
+          showToast(senderLabel(asId(shout.sender_id), senderNames) + ' mentioned @everyone: ' + previewOf(shout).slice(0, 60), '', 8000);
+        }
       } catch (error) {
         messagesEl.innerHTML = `<div class="chat-empty">${fbEscape(groupError(error).message)}</div>`;
       }
@@ -484,21 +650,25 @@ window.GroupChat = (function () {
       if (!text || busy) return;
       if (window.ReadOnlyMode && ReadOnlyMode.block('Sending messages')) return;
       input.value = '';
+      const payload = {
+        group_id: group.id,
+        sender_id: asId(user.id),
+        message: text
+      };
+      if (replyTo) payload.reply_to_id = replyTo.id;
       const temp = {
         id: 'temp-' + Date.now(),
         group_id: group.id,
         sender_id: user.id,
         message: text,
+        reply_to_id: payload.reply_to_id || null,
         created_at: new Date().toISOString()
       };
       messages.push(temp);
+      clearReply();
       renderMessages();
       try {
-        const { error } = await sb.from('chat_group_messages').insert([{
-          group_id: group.id,
-          sender_id: asId(user.id),
-          message: text
-        }]);
+        const { error } = await sb.from('chat_group_messages').insert([payload]);
         if (error) throw error;
         await loadMessages(true);
       } catch (error) {
@@ -540,15 +710,107 @@ window.GroupChat = (function () {
       if (picked) sendAttachment(picked);
     });
 
-    members(group.id).then(list => {
-      if (destroyed) return;
+    function paintMeta(list) {
       const count = list.length || group.member_count || 1;
+      const admins = list.filter(person => person.is_admin).map(nameOf);
       const names = list.slice(0, 3).map(nameOf).join(', ');
-      metaEl.textContent = `${count} member${count === 1 ? '' : 's'}${names ? ' · ' + names : ''}`;
-    }).catch(() => {
-      if (!destroyed) metaEl.textContent = `${group.member_count || 1} members`;
-    });
+      metaEl.textContent = `${count} member${count === 1 ? '' : 's'}` +
+        (admins.length ? ' · admin: ' + admins.slice(0, 2).join(', ') : '') +
+        (names ? ' · ' + names : '');
+    }
 
+    async function refreshMembers() {
+      try {
+        const list = await members(group.id);
+        if (!destroyed) paintMeta(list);
+        return list;
+      } catch (e) {
+        if (!destroyed) metaEl.textContent = `${group.member_count || 1} members`;
+        return [];
+      }
+    }
+
+    // The creator is the first admin, and admins can make other members admins
+    function openMembers() {
+      const overlay = document.createElement('div');
+      overlay.className = 'chat-group-overlay';
+      overlay.innerHTML = `<div class="chat-group-modal" role="dialog" aria-modal="true" aria-label="Group members">
+        <div class="chat-group-modal-head">
+          <h3>Members</h3>
+          <button class="chat-group-close" type="button" data-close aria-label="Close">✕</button>
+        </div>
+        <p class="chat-members-hint">${isAdmin
+          ? 'You are a group admin — you can pin messages and make other members admins.'
+          : 'Group admins can pin messages and make other members admins.'}</p>
+        <div class="chat-members-list" data-list><p class="chat-group-empty">Loading members…</p></div>
+      </div>`;
+      document.body.appendChild(overlay);
+      const listEl = overlay.querySelector('[data-list]');
+
+      overlay.addEventListener('click', event => {
+        if (event.target === overlay || event.target.closest('[data-close]')) overlay.remove();
+      });
+
+      async function paint() {
+        const list = await members(group.id).catch(() => []);
+        listEl.innerHTML = list.map(person => {
+          const admin = !!person.is_admin;
+          const isMe = asId(person.id) === asId(user.id);
+          const canToggle = isAdmin && !person.guest && !isMe;
+          return `<div class="chat-member-row">
+            <span class="chat-member-name">${fbEscape(nameOf(person))}${person.guest ? ' (guest)' : ''}${isMe ? ' (you)' : ''}</span>
+            ${admin ? '<span class="chat-member-badge">Admin</span>' : ''}
+            ${canToggle ? `<button class="chat-member-toggle" type="button" data-admin="${fbEscape(person.id)}" data-make="${admin ? 'false' : 'true'}">${admin ? 'Remove admin' : 'Make admin'}</button>` : ''}
+          </div>`;
+        }).join('') || '<p class="chat-group-empty">No members yet.</p>';
+      }
+
+      listEl.addEventListener('click', async event => {
+        const btn = event.target.closest('[data-admin]');
+        if (!btn) return;
+        btn.disabled = true;
+        const make = btn.getAttribute('data-make') === 'true';
+        const { error } = await sb.from('chat_group_members')
+          .update({ is_admin: make })
+          .eq('group_id', group.id)
+          .eq('user_id', btn.getAttribute('data-admin'));
+        if (error) {
+          showToast(groupError(error).message, 'error', 6000);
+          btn.disabled = false;
+          return;
+        }
+        showToast(make ? 'Member is now a group admin' : 'Admin removed', 'success');
+        await paint();
+        refreshMembers();
+      });
+
+      paint();
+    }
+
+    metaEl.addEventListener('click', openMembers);
+
+    // The group row carries the pinned message; my membership row says if I am an admin
+    async function loadGroupState() {
+      try {
+        const [groupRes, memberRes] = await Promise.all([
+          sb.from('chat_groups').select('*').eq('id', group.id).maybeSingle(),
+          sb.from('chat_group_members').select('user_id, is_admin').eq('group_id', group.id)
+        ]);
+        if (groupRes.data) {
+          group.pinned_message_id = groupRes.data.pinned_message_id || null;
+          group.created_by = group.created_by || groupRes.data.created_by;
+        }
+        const mine = (memberRes.data || []).find(row => asId(row.user_id) === asId(user.id));
+        isAdmin = !!(mine && mine.is_admin) || asId(group.created_by) === asId(user.id);
+      } catch (e) {
+        isAdmin = asId(group.created_by) === asId(user.id);
+      }
+      if (destroyed) return;
+      renderMessages();
+    }
+
+    refreshMembers();
+    loadGroupState();
     loadMessages(true);
     pollTimer = setInterval(() => loadMessages(false), 3000);
 
