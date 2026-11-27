@@ -6,7 +6,7 @@ function fbPlayFullVideo(url) {
   overlay.className = 'cover-player';
   overlay.innerHTML = `
     <button class="cover-player-close" type="button" aria-label="Close video">✕</button>
-    <video class="cover-player-video" src="${fbEscape(clean)}" controls playsinline preload="auto"></video>`;
+    <video class="cover-player-video" src="${fbEscape(fbVideoUrl(clean, 1280))}"${fbVideoPoster(clean, 1200) ? ` poster="${fbEscape(fbVideoPoster(clean, 1200))}"` : ''} controls playsinline preload="auto"></video>`;
   document.body.appendChild(overlay);
 
   const video = overlay.querySelector('video');

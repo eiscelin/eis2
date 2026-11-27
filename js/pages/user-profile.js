@@ -120,6 +120,7 @@ Pages.userProfile = async function (el, username) {
 
   const cover = person.cover_url || '';
   const coverIsVideo = upIsVideo(cover);
+  const coverPoster = coverIsVideo ? fbVideoPoster(cover, 1200) : '';
   const avatar = person.avatar_url || '';
   const avatarIsVideo = upIsVideo(avatar);
   const link = fbProfileLink(person.username);
@@ -133,7 +134,7 @@ Pages.userProfile = async function (el, username) {
       <div class="fb-cover${cover ? ' fb-cover--media' : ' fb-cover--default'}" id="upCover">
         ${cover
           ? coverIsVideo
-            ? `<video class="fb-cover-media" src="${fbEscape(cover)}" autoplay muted loop playsinline></video>`
+            ? `<video class="fb-cover-media" src="${fbEscape(fbVideoUrl(cover, 1280))}"${coverPoster ? ` poster="${fbEscape(coverPoster)}"` : ''} autoplay muted loop playsinline preload="metadata"></video>`
             : `<img class="fb-cover-media" src="${fbEscape(fbImageUrl(cover, 1200))}" alt="" decoding="async">`
           : `<img class="fb-cover-media" src="${FB_DEFAULT_COVER}" alt="">`}
         ${coverIsVideo
@@ -145,7 +146,7 @@ Pages.userProfile = async function (el, username) {
       <div class="fb-profile-head">
         <div class="fb-avatar fb-profile-avatar">${avatar
           ? avatarIsVideo
-            ? `<video class="fb-avatar-img" src="${fbEscape(avatar)}" autoplay muted loop playsinline></video>`
+            ? `<video class="fb-avatar-img" src="${fbEscape(fbVideoUrl(avatar, 240))}" autoplay muted loop playsinline preload="metadata"></video>`
             : `<img class="fb-avatar-img" src="${fbEscape(fbImageUrl(avatar, 200))}" alt="${fbEscape(name)}" decoding="async">`
           : fbBrandMark()}${avatar && window.AdminModerate ? AdminModerate.mediaButton('avatar', person.id) : ''}</div>
         <div class="fb-profile-id">

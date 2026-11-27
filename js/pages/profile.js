@@ -34,7 +34,7 @@ Pages.profileTab = function(main, user) {
     const isVid = video === undefined ? isVideo(avatarUrl) : video;
     if (!avatarUrl) return fbBrandMark();
     return isVid
-      ? `<video class="fb-avatar-img" src="${fbEscape(avatarUrl)}" autoplay muted loop playsinline></video>`
+      ? `<video class="fb-avatar-img" src="${fbEscape(fbVideoUrl(avatarUrl, 240))}" autoplay muted loop playsinline preload="metadata"></video>`
       : `<img class="fb-avatar-img" src="${fbEscape(fbImageUrl(avatarUrl, 200))}" alt="${fbEscape(name)}" decoding="async">`;
   }
 
@@ -43,7 +43,7 @@ Pages.profileTab = function(main, user) {
       <div class="fb-cover${coverUrl ? ' fb-cover--media' : ' fb-cover--default'}" id="pfCover">
         ${coverUrl
           ? isVideo(coverUrl)
-            ? `<video class="fb-cover-media" src="${fbEscape(coverUrl)}" autoplay muted loop playsinline></video>`
+            ? `<video class="fb-cover-media" src="${fbEscape(fbVideoUrl(coverUrl, 1280))}"${fbVideoPoster(coverUrl, 1200) ? ` poster="${fbEscape(fbVideoPoster(coverUrl, 1200))}"` : ''} autoplay muted loop playsinline preload="metadata"></video>`
             : `<img class="fb-cover-media" src="${fbEscape(fbImageUrl(coverUrl, 1200))}" alt="" decoding="async">`
           : `<img class="fb-cover-media" src="${FB_DEFAULT_COVER}" alt="" decoding="async">`}
         ${coverUrl && isVideo(coverUrl)
@@ -266,8 +266,8 @@ Pages.profileTab = function(main, user) {
     }
     const isVid = video === undefined ? isVideo(coverUrl) : video;
     cover.insertAdjacentHTML('afterbegin', isVid
-      ? `<video class="fb-cover-media" src="${fbEscape(coverUrl)}" autoplay muted loop playsinline></video>`
-      : `<img class="fb-cover-media" src="${fbEscape(coverUrl)}" alt="">`);
+      ? `<video class="fb-cover-media" src="${fbEscape(fbVideoUrl(coverUrl, 1280))}"${fbVideoPoster(coverUrl, 1200) ? ` poster="${fbEscape(fbVideoPoster(coverUrl, 1200))}"` : ''} autoplay muted loop playsinline preload="metadata"></video>`
+      : `<img class="fb-cover-media" src="${fbEscape(fbImageUrl(coverUrl, 1200))}" alt="">`);
     if (isVid) {
       cover.insertAdjacentHTML('beforeend',
         '<button class="fb-cover-expand" id="pfCoverExpand" type="button" aria-label="Play the whole video with sound" title="Play the whole video with sound">⤢</button>');

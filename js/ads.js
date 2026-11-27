@@ -115,6 +115,62 @@ window.Ads = (function () {
     return /video$/.test(String(ad.media_type || ''));
   }
 
+  // An ad interrupts a video that is already playing, so it must be small and
+  // ready: a lighter Cloudinary copy, a first-frame poster, and its bytes
+  // pulled ahead of the break
+  function adVideoSrc(ad) {
+    return fbVideoUrl(ad.media_url, 1280);
+  }
+
+  function adPoster(ad) {
+    return fbVideoPoster(ad.media_url, 960);
+  }
+
+  let warm = { adId: null, el: null };
+
+  function releaseWarm() {
+    if (!warm.el) return;
+    warm.el.pause();
+    warm.el.removeAttribute('src');
+    try { warm.el.load(); } catch (e) { /* nothing left to release */ }
+    warm = { adId: null, el: null };
+  }
+
+  function warmAd(ad) {
+    if (!ad || !isVideoAd(ad)) return;
+    if (warm.adId === String(ad.id) && warm.el) return;
+    releaseWarm();
+    const el = document.createElement('video');
+    el.className = 'fb-ad-video';
+    el.setAttribute('playsinline', '');
+    el.preload = 'auto';
+    el.muted = true;
+    const poster = adPoster(ad);
+    if (poster) el.setAttribute('poster', poster);
+    el.src = adVideoSrc(ad);
+    try { el.load(); } catch (e) { /* it still plays when the break starts */ }
+    warm = { adId: String(ad.id), el };
+  }
+
+  // A fresh player every time, reading the bytes the warm-up already pulled:
+  // a reused element that failed once would fail again and the ad would vanish
+  function adVideoElement(overlay, ad, poster) {
+    const box = overlay.querySelector('.fb-ad-media');
+    if (!box) return null;
+    releaseWarm();
+    const el = document.createElement('video');
+    el.className = 'fb-ad-video';
+    el.setAttribute('playsinline', '');
+    el.autoplay = true;
+    el.preload = 'auto';
+    el.muted = false;
+    el.volume = 1;
+    if (poster) el.setAttribute('poster', poster);
+    el.src = adVideoSrc(ad);
+    box.appendChild(el);
+    return el;
+  }
+
   // How many times an ad may play, and how long it waits before it plays again
   function playLimit(ad) {
     const limit = Number(ad.play_limit);
@@ -180,11 +236,14 @@ window.Ads = (function () {
     return targeted(video).filter(ad => waitFor(ad) === 0);
   }
 
-  function nextAd(video) {
+  function peekAd(video) {
     const list = eligible(video);
-    if (!list.length) return null;
-    const ad = list[cursor % list.length];
-    cursor += 1;
+    return list.length ? list[cursor % list.length] : null;
+  }
+
+  function nextAd(video) {
+    const ad = peekAd(video);
+    if (ad) cursor += 1;
     return ad;
   }
 
@@ -192,6 +251,8 @@ window.Ads = (function () {
     const timer = pending.get(video);
     if (timer) clearTimeout(timer);
     pending.delete(video);
+    // The break was called off, so its ad no longer needs to be downloaded
+    if (timer) releaseWarm();
   }
 
   // Only one clip makes sound: every other video on the page stops
@@ -216,6 +277,7 @@ window.Ads = (function () {
     pauseOthers(video);
     video.pause();
 
+    const poster = adPoster(ad);
     const overlay = document.createElement('div');
     overlay.className = 'fb-ad';
     overlay.setAttribute('role', 'group');
@@ -223,8 +285,8 @@ window.Ads = (function () {
     overlay.innerHTML = `
       <div class="fb-ad-media">
         ${mediaType === 'video'
-          ? '<video class="fb-ad-video" playsinline autoplay preload="auto"></video>'
-          : `<img class="fb-ad-image" src="${escapeHtml(ad.media_url)}" alt="${escapeHtml(ad.title || 'Advertisement')}">`}
+          ? ''
+          : `<img class="fb-ad-image" src="${escapeHtml(fbImageUrl(ad.media_url, 1080))}" alt="${escapeHtml(ad.title || 'Advertisement')}">`}
       </div>
       <div class="fb-ad-bar">
         <span class="fb-ad-tag">Ad</span>
@@ -239,8 +301,7 @@ window.Ads = (function () {
 
     const skipBtn = overlay.querySelector('.fb-ad-skip');
     const timeEl = overlay.querySelector('.fb-ad-time');
-    const adVideo = overlay.querySelector('.fb-ad-video');
-    if (adVideo) adVideo.src = ad.media_url;
+    const adVideo = mediaType === 'video' ? adVideoElement(overlay, ad, poster) : null;
 
     const breakState = { video, overlay, adVideo, done: false, ticker: 0, skipTimer: 0, endTimer: 0 };
     active = breakState;
@@ -259,6 +320,9 @@ window.Ads = (function () {
       if (adVideo) {
         adVideo.pause();
         adVideo.removeAttribute('src');
+        // Drop the rest of the clip from the connection so the member's own
+        // video gets the whole bandwidth back
+        try { adVideo.load(); } catch (e) { /* already empty */ }
       }
       overlay.remove();
       holder.classList.remove('fb-post-media-ad');
@@ -319,6 +383,12 @@ window.Ads = (function () {
       if (!waits.length) return;
       wait = Math.max(delay, Math.min.apply(null, waits));
     }
+    // A break that is about to happen pulls its ad ahead, so the ad starts
+    // instantly instead of buffering while the member waits
+    if (wait <= 8000) {
+      const ahead = peekAd(video);
+      if (ahead) warmAd(ahead);
+    }
     const timer = setTimeout(() => {
       pending.delete(video);
       if (video.paused || !video.isConnected || active) return;
@@ -374,7 +444,7 @@ window.Ads = (function () {
       <span class="fb-cover-ad-tag">Ad</span>
       ${videoAd
         ? '<video class="fb-cover-ad-media" playsinline muted autoplay preload="auto"></video>'
-        : `<img class="fb-cover-ad-media" src="${escapeHtml(ad.media_url)}" alt="${escapeHtml(ad.title || 'Advertisement')}">`}
+        : `<img class="fb-cover-ad-media" src="${escapeHtml(fbImageUrl(ad.media_url, 1200))}" alt="${escapeHtml(ad.title || 'Advertisement')}">`}
       ${ad.title ? `<span class="fb-cover-ad-title">${escapeHtml(ad.title)}</span>` : ''}
       ${adActions(ad, 'fb-cover-ad-contact')}`;
 
@@ -409,7 +479,9 @@ window.Ads = (function () {
       adMedia.addEventListener('loadedmetadata', fit, { once: true });
       adMedia.addEventListener('ended', () => restore());
       adMedia.addEventListener('error', () => restore(true));
-      adMedia.src = ad.media_url;
+      const coverPoster = adPoster(ad);
+      if (coverPoster) adMedia.setAttribute('poster', coverPoster);
+      adMedia.src = adVideoSrc(ad);
       const attempt = adMedia.play();
       if (attempt && attempt.catch) attempt.catch(() => restore(true));
     } else {
@@ -460,6 +532,7 @@ window.Ads = (function () {
       loading = null;
       pool = [];
       playedAds = new Map();
+      releaseWarm();
       return load();
     }
   };

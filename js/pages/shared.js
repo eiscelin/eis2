@@ -105,6 +105,27 @@ function fbImageUrl(url, width) {
   return src.replace('/image/upload/', '/image/upload/f_auto,q_auto,c_limit,w_' + width + '/');
 }
 
+// The same for a video: Cloudinary re-encodes it at the width the card shows
+// and at automatic quality, so a phone pulls a fraction of the original bytes
+// before the first frame plays
+function fbVideoUrl(url, width) {
+  const src = String(url || '');
+  if (!/res\.cloudinary\.com\/[^/]+\/video\/upload\//.test(src)) return src;
+  if (/\/video\/upload\/[^/]*(q_auto|w_\d|f_auto)/.test(src)) return src;
+  const params = 'q_auto,f_auto' + (width ? ',c_limit,w_' + width : '');
+  return src.replace('/video/upload/', '/video/upload/' + params + '/');
+}
+
+// A still frame of a Cloudinary video, so a card shows its picture at once and
+// nobody downloads a clip just to look at it
+function fbVideoPoster(url, width) {
+  const clean = String(url || '').split('#')[0];
+  const match = /^(https:\/\/res\.cloudinary\.com\/[^/]+\/video\/upload\/)(?:[^/]+\/)?([^/]+)$/.exec(clean);
+  if (!match) return '';
+  const name = match[2].replace(/\.[a-z0-9]+$/i, '') + '.jpg';
+  return match[1] + 'so_0,w_' + (width || 720) + ',q_auto/' + name;
+}
+
 // Loads a page script the first time that page is opened, so members who never
 // visit it never download it
 const fbLoadedScripts = {};
