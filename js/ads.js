@@ -71,27 +71,39 @@ window.Ads = (function () {
       parts.push(`<a class="${cls}-btn" href="${escapeHtml(fbPageUrl(value))}" target="_blank" rel="noopener" aria-label="Open the advertiser's Facebook page">f Facebook page</a>`);
     }
     if (ad.owner) {
-      const ownerName = ad.owner.full_name || ad.owner.username || 'the advertiser';
+      const ownerName = ad.owner.role === 'admin'
+        ? 'Support'
+        : (ad.owner.full_name || ad.owner.username || 'the advertiser');
       parts.push(`<button class="${cls}-btn ${cls}-msg" type="button" data-ad-chat="${escapeHtml(ad.owner.id)}" data-ad-owner="${escapeHtml(ownerName)}">💬 Message</button>`);
     }
     return parts.length ? `<span class="${cls}">${parts.join('')}</span>` : '';
   }
 
-  // The member behind each ad, so the ad can offer its Message button
+  // Who each ad's Message button talks to: the member who placed the ad, or the
+  // admin's support inbox for an ad the admin inserted, so the button is always
+  // there while an ad plays (in a video or on a profile cover)
   function attachOwners(list) {
+    if (!list.length || typeof sb === 'undefined' || !sb) return Promise.resolve();
     const ids = [...new Set(list.map(ad => ad.created_by).filter(id => id != null))];
-    if (!ids.length || typeof sb === 'undefined' || !sb) return Promise.resolve();
-    return sb.from('users').select('id, username, full_name, role, status, deleted_at').in('id', ids)
-      .then(({ data }) => {
-        const byId = new Map((data || []).map(user => [String(user.id), user]));
-        list.forEach(ad => {
-          const owner = byId.get(String(ad.created_by));
-          if (!owner || owner.role === 'admin' || owner.deleted_at) return;
-          if (owner.status === 'deleted' || owner.status === 'suspended') return;
+    const placed = ids.length
+      ? sb.from('users').select('id, username, full_name, role, status, deleted_at').in('id', ids)
+      : Promise.resolve({ data: [] });
+    return Promise.all([
+      placed,
+      sb.from('users').select('id, username, full_name, role, status, deleted_at').eq('role', 'admin').limit(1)
+    ]).then(([placedResult, adminResult]) => {
+      const byId = new Map((placedResult.data || []).map(user => [String(user.id), user]));
+      const admin = (adminResult.data || []).find(user => !user.deleted_at
+        && user.status !== 'deleted' && user.status !== 'suspended') || null;
+      list.forEach(ad => {
+        const owner = byId.get(String(ad.created_by));
+        if (owner && !owner.deleted_at && owner.status !== 'deleted' && owner.status !== 'suspended') {
           ad.owner = owner;
-        });
-      })
-      .catch(() => {});
+        } else if (admin) {
+          ad.owner = admin;
+        }
+      });
+    }).catch(() => {});
   }
 
   // A click on the ad's Message button opens the chat of the ad's owner
