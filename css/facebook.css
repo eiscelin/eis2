@@ -3177,6 +3177,10 @@ label {
   border-radius: 0 0 var(--fb-radius) var(--fb-radius);
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5);
 }
+/* A cover ad holds the page still while it plays, so the device is not asked to
+   decode the ad and scroll at the same time; the page scrolls again the moment
+   the ad ends */
+html.fb-ad-hold, html.fb-ad-hold body { overflow: hidden; }
 .fb-cover-ad {
   position: absolute; inset: 0; z-index: 4;
   display: flex; align-items: center; justify-content: center;
