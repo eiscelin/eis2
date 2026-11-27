@@ -291,7 +291,7 @@ function postReactionPicker(media) {
 function postMediaHtml(post) {
   if (!post.media_url) return '';
   return `<div class="fb-post-media">${post.media_type === 'video'
-    ? `<video class="fb-post-media-el" src="${fbEscape(post.media_url)}" controls playsinline preload="metadata" data-video-warm></video>`
+    ? `<video class="fb-post-media-el" src="${fbEscape(post.media_url)}" controls playsinline preload="metadata" data-video-warm data-post-id="${fbEscape(post.id || '')}" data-post-user="${fbEscape(post.user_id || '')}"></video>`
     : `<img class="fb-post-media-el" src="${fbEscape(fbImageUrl(post.media_url, 720))}" alt="" loading="lazy" decoding="async">`}</div>`;
 }
 

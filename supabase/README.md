@@ -27,6 +27,7 @@ Run each file in `migrations/` once in the Supabase dashboard (SQL Editor > New 
 16. `022_create_storage_connection.sql` — Google Drive connection used by the Vercel functions (service-role only, the browser cannot read it)
 17. `023_create_chat_groups.sql` — group chats with friends: create a group, invite with a link, and send text, photos, videos and files
 18. `026_create_ads.sql` — ads: upload an image or video in Admin > Ads, approve it, and it plays as an ad break inside member videos
+19. `027_ad_targeting.sql` — choose where each ad plays: every member video, all videos from one member, or one specific video
 
 After running `008`, open `#/Admin` while signed in. If no admin exists yet, the panel offers
 "Make me the first admin" once; otherwise set the role in SQL:

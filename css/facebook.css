@@ -2027,6 +2027,7 @@ a.admin-tool { text-decoration: none; display: inline-flex; align-items: center;
 .admin-badge-deleted { background: rgba(239, 68, 68, 0.16); color: #fca5a5; }
 .admin-badge-pending { background: rgba(240, 180, 41, 0.16); color: #f5cd6b; }
 .admin-badge-rejected { background: rgba(239, 68, 68, 0.16); color: #fca5a5; }
+.admin-badge-target { background: rgba(59, 130, 246, 0.16); color: #93c5fd; }
 
 .admin-actions { display: flex; align-items: center; gap: 0.3rem; justify-content: flex-end; }
 .admin-act {
@@ -3082,6 +3083,8 @@ label {
 .admin-ad-actions .admin-approve, .admin-ad-actions .admin-reject { flex: 0 0 auto; cursor: pointer; border: none; }
 .admin-ad-actions .admin-tool { cursor: pointer; }
 .admin-ad-pick-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-ad-target { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.admin-ad-target select { flex: 1 1 180px; min-width: 0; }
 
 /* The ad covers the member's paused video and keeps the player's shape */
 .fb-post-media { position: relative; }

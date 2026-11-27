@@ -21,16 +21,29 @@ window.Ads = (function () {
     }[c]));
   }
 
+  function adsQuery(columns) {
+    return sb.from('ads').select(columns)
+      .eq('status', 'approved')
+      .eq('is_active', true)
+      .order('created_at', { ascending: true });
+  }
+
+  // Before 027_ad_targeting.sql runs the target columns are missing, so the
+  // ads keep playing everywhere instead of stopping
+  function fetchAds() {
+    return adsQuery('id, title, media_url, media_type, skip_seconds, target_user_id, target_post_id')
+      .then(result => (result && result.error)
+        ? adsQuery('id, title, media_url, media_type, skip_seconds')
+        : result);
+  }
+
   // The ads that may play, and the admin's on/off switch, read once per page
   function load() {
     if (loading) return loading;
     if (!window.sb) return Promise.resolve();
     loading = Promise.all([
       sb.from('app_settings').select('value').eq('key', 'video_ads').maybeSingle(),
-      sb.from('ads').select('id, title, media_url, media_type, skip_seconds')
-        .eq('status', 'approved')
-        .eq('is_active', true)
-        .order('created_at', { ascending: true })
+      fetchAds()
     ]).then(([setting, ads]) => {
       enabled = !(setting && setting.data && setting.data.value === 'false');
       pool = (ads && !ads.error && ads.data) || [];
@@ -40,9 +53,22 @@ window.Ads = (function () {
     return loading;
   }
 
-  function nextAd() {
-    if (!pool.length) return null;
-    const ad = pool[cursor % pool.length];
+  // An ad with no target plays everywhere, one with a member plays only in that
+  // member's videos, one with a video plays only in that exact uploaded video
+  function eligible(video) {
+    const postId = video.dataset.postId || '';
+    const userId = video.dataset.postUser || '';
+    return pool.filter(ad => {
+      if (ad.target_post_id != null) return !!postId && String(ad.target_post_id) === postId;
+      if (ad.target_user_id != null) return !!userId && String(ad.target_user_id) === userId;
+      return true;
+    });
+  }
+
+  function nextAd(video) {
+    const list = eligible(video);
+    if (!list.length) return null;
+    const ad = list[cursor % list.length];
     cursor += 1;
     return ad;
   }
@@ -63,7 +89,7 @@ window.Ads = (function () {
 
   function startBreak(video) {
     if (active || !video.isConnected) return;
-    const ad = nextAd();
+    const ad = nextAd(video);
     const holder = video.parentElement;
     if (!ad || !holder) return;
 
@@ -174,8 +200,9 @@ window.Ads = (function () {
       active = null;
     }
     load().then(() => {
-      if (!enabled || !pool.length || active) return;
+      if (!enabled || active) return;
       if (video.paused || video.dataset.adBreakShown === '1') return;
+      if (!eligible(video).length) return;
       cancelPending(video);
       const timer = setTimeout(() => {
         pending.delete(video);

@@ -131,6 +131,9 @@ var Pages = window.Pages || {};
 
   function toastError(e) {
     const message = String((e && e.message) || e || 'Something went wrong');
+    if (/target_user_id|target_post_id|target_label/i.test(message)) {
+      return showToast('Run 027_ad_targeting.sql in Supabase, then try again', 'error', 6000);
+    }
     if (/admin_review_ad|admin_set_ad_active|public\.ads|relation "ads"|table 'public\.ads'/i.test(message)) {
       return showToast('Run 026_create_ads.sql in Supabase, then try again', 'error', 6000);
     }
@@ -520,6 +523,13 @@ var Pages = window.Pages || {};
       : '<span class="admin-badge admin-badge-suspended">Paused</span>';
   }
 
+  function adTargetLabel(ad) {
+    if (ad.target_label) return ad.target_label;
+    if (ad.target_post_id) return 'One specific video';
+    if (ad.target_user_id) return "One member's videos";
+    return 'All member videos';
+  }
+
   function adCard(ad) {
     const isVideo = ad.media_type === 'video';
     const acts = [];
@@ -543,6 +553,7 @@ var Pages = window.Pages || {};
       <div class="admin-ad-body">
         <div class="admin-ad-title">${fbEscape(ad.title || 'Untitled ad')}</div>
         <div class="admin-ad-meta">${adStatusBadge(ad)}
+          <span class="admin-badge admin-badge-target">🎯 ${fbEscape(adTargetLabel(ad))}</span>
           <span class="admin-handle">${isVideo ? 'Video ad' : 'Image ad'} · ${fbEscape(fmtWhen(ad.created_at))}</span>
         </div>
         <div class="admin-ad-actions">${acts.join('')}</div>
@@ -571,6 +582,15 @@ var Pages = window.Pages || {};
         </div>
         <div class="admin-compose">
           <input id="adminAdTitle" type="text" placeholder="Ad name (e.g. Summer sale)" aria-label="Ad name">
+          <div class="admin-ad-target">
+            <select id="adminAdScope" aria-label="Where this ad plays">
+              <option value="all">Play in all member videos</option>
+              <option value="user">Play in all videos from one member</option>
+              <option value="video">Play in one specific video</option>
+            </select>
+            <select id="adminAdUser" aria-label="Member whose videos play this ad" hidden></select>
+            <select id="adminAdPost" aria-label="The video that plays this ad" hidden></select>
+          </div>
           <input id="adminAdFile" type="file" accept="image/*,video/*" hidden>
           <div class="admin-compose-foot">
             <button class="admin-tool" id="adminAdPick" type="button">🎞 Choose image or video</button>
@@ -578,7 +598,7 @@ var Pages = window.Pages || {};
             <button class="admin-approve" id="adminAdUpload" type="button">Upload ad</button>
           </div>
         </div>
-        ${state.adsMissing ? '<p class="admin-hint">Run <code>026_create_ads.sql</code> in your Supabase SQL Editor to create the ads table, then refresh.</p>' : ''}
+        ${state.adsMissing ? '<p class="admin-hint">Run <code>026_create_ads.sql</code> and <code>027_ad_targeting.sql</code> in your Supabase SQL Editor to create the ads table, then refresh.</p>' : ''}
         ${pending ? `<p class="admin-hint">${pending} ad${pending === 1 ? '' : 's'} waiting for your review.</p>` : ''}
         <div id="adminAdList" class="admin-ads">
           ${state.ads.length ? state.ads.map(adCard).join('') : `<div class="admin-empty">${emptyState('📺', 'No ads yet. Upload an image or video above to start an ad break.')}</div>`}
@@ -602,12 +622,74 @@ var Pages = window.Pages || {};
         : 'No file chosen';
     });
 
+    // Where the ad plays: every member video, one member's videos, or one video
+    const scopeSel = body.querySelector('#adminAdScope');
+    const userSel = body.querySelector('#adminAdUser');
+    const postSel = body.querySelector('#adminAdPost');
+    const members = state.users.filter(u => statusOf(u) !== 'deleted');
+    userSel.innerHTML = members.map(u =>
+      `<option value="${fbEscape(u.id)}">${fbEscape(nameOf(u))}${u.username ? ` (@${fbEscape(u.username)})` : ''}</option>`
+    ).join('');
+    let memberVideos = [];
+
+    function videoPostLabel(post) {
+      const text = String(post.content || '').trim().replace(/\s+/g, ' ').slice(0, 50);
+      return `${text || `Video #${post.id}`} · ${fmtWhen(post.created_at)}`;
+    }
+
+    async function fillMemberVideos() {
+      memberVideos = [];
+      postSel.innerHTML = '<option value="">Loading videos…</option>';
+      if (!userSel.value) return;
+      const { data } = await sb.from('posts')
+        .select('id, content, created_at')
+        .eq('user_id', Number(userSel.value))
+        .eq('media_type', 'video')
+        .order('created_at', { ascending: false })
+        .limit(100);
+      memberVideos = data || [];
+      postSel.innerHTML = memberVideos.length
+        ? memberVideos.map(p => `<option value="${fbEscape(p.id)}">${fbEscape(videoPostLabel(p))}</option>`).join('')
+        : '<option value="">This member has no uploaded videos</option>';
+    }
+
+    function syncScope() {
+      const scope = scopeSel.value;
+      userSel.hidden = scope === 'all';
+      postSel.hidden = scope !== 'video';
+    }
+
+    scopeSel.addEventListener('change', () => {
+      syncScope();
+      if (scopeSel.value !== 'all') fillMemberVideos();
+    });
+    userSel.addEventListener('change', () => {
+      if (scopeSel.value !== 'all') fillMemberVideos();
+    });
+    syncScope();
+
     body.querySelector('#adminAdUpload').addEventListener('click', async () => {
       if (state.adsMissing) return showToast('Run 026_create_ads.sql in Supabase, then try again', 'error', 6000);
       if (!pickedAdFile) return showToast('Choose an ad image or video first', 'error');
       const isVideo = String(pickedAdFile.type || '').startsWith('video/');
       if (isVideo && pickedAdFile.size > 100 * 1024 * 1024) return showToast('Videos must be 100 MB or smaller', 'error', 5000);
       if (!isVideo && pickedAdFile.size > 20 * 1024 * 1024) return showToast('Photos must be 20 MB or smaller', 'error', 5000);
+
+      const scope = scopeSel.value;
+      const target = { target_user_id: null, target_post_id: null, target_label: 'All member videos' };
+      if (scope !== 'all') {
+        const member = members.find(u => String(u.id) === String(userSel.value));
+        if (!member) return showToast('Choose the member whose videos play this ad', 'error');
+        target.target_user_id = member.id;
+        target.target_label = `${nameOf(member)} · all their videos`;
+        if (scope === 'video') {
+          const post = memberVideos.find(p => String(p.id) === String(postSel.value));
+          if (!post) return showToast('Choose the video that plays this ad', 'error');
+          target.target_post_id = post.id;
+          target.target_label = `${nameOf(member)} · ${videoPostLabel(post)}`;
+        }
+      }
+
       const btn = body.querySelector('#adminAdUpload');
       btn.disabled = true;
       btn.textContent = 'Uploading…';
@@ -622,7 +704,8 @@ var Pages = window.Pages || {};
           media_type: isVideo ? 'video' : 'image',
           status: 'pending',
           is_active: true,
-          created_by: me.id
+          created_by: me.id,
+          ...target
         }]);
         if (error) throw error;
         showToast('Ad uploaded — approve it to start the ad break', 'success');
