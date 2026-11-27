@@ -134,6 +134,9 @@ var Pages = window.Pages || {};
     if (/target_user_id|target_post_id|target_label/i.test(message)) {
       return showToast('Run 027_ad_targeting.sql in Supabase, then try again', 'error', 6000);
     }
+    if (/play_limit|gap_minutes/i.test(message)) {
+      return showToast('Run 028_ad_play_schedule.sql in Supabase, then try again', 'error', 6000);
+    }
     if (/admin_review_ad|admin_set_ad_active|public\.ads|relation "ads"|table 'public\.ads'/i.test(message)) {
       return showToast('Run 026_create_ads.sql in Supabase, then try again', 'error', 6000);
     }
@@ -540,6 +543,26 @@ var Pages = window.Pages || {};
     return isCoverAd(ad) ? '🖼️ Profile cover' : '🎬 Inside videos';
   }
 
+  // How often an ad runs and how long it waits before it runs again
+  function playLabel(ad) {
+    const limit = Number(ad.play_limit);
+    const times = ad.play_limit == null || !isFinite(limit)
+      ? 'Once'
+      : limit === 0 ? 'Unlimited' : limit === 1 ? 'Once' : `${limit} times`;
+    const gap = Number(ad.gap_minutes) || 0;
+    return gap > 0 ? `${times} · repeat after ${gap} min` : times;
+  }
+
+  function playsOptions(value, attr) {
+    const n = Number(value);
+    const current = isFinite(n) && n >= 0 ? n : 1;
+    const values = [1, 2, 3, 5, 10, 0];
+    if (values.indexOf(current) === -1) values.splice(values.length - 1, 0, current);
+    return `<select ${attr} aria-label="How many times this ad plays">${values.map(v =>
+      `<option value="${v}"${v === current ? ' selected' : ''}>${v === 0 ? 'Unlimited' : v === 1 ? 'Once' : `${v} times`}</option>`
+    ).join('')}</select>`;
+  }
+
   function adCard(ad) {
     const isVideo = /video$/.test(String(ad.media_type || ''));
     const acts = [];
@@ -565,7 +588,16 @@ var Pages = window.Pages || {};
         <div class="admin-ad-meta">${adStatusBadge(ad)}
           <span class="admin-badge admin-badge-target">${fbEscape(adPlacementLabel(ad))}</span>
           <span class="admin-badge admin-badge-target">🎯 ${fbEscape(adTargetLabel(ad))}</span>
+          <span class="admin-badge admin-badge-target">🔁 ${fbEscape(playLabel(ad))}</span>
           <span class="admin-handle">${isVideo ? 'Video ad' : 'Image ad'} · ${fbEscape(fmtWhen(ad.created_at))}</span>
+        </div>
+        <div class="admin-ad-schedule">
+          <label>Plays ${playsOptions(ad.play_limit, `data-ad-plays="${fbEscape(ad.id)}"`)}</label>
+          <label>Repeat after
+            <input type="number" min="0" max="1440" step="1" value="${fbEscape(Number(ad.gap_minutes) || 0)}" data-ad-gap="${fbEscape(ad.id)}" aria-label="Minutes before this ad plays again">
+            min
+          </label>
+          <button class="admin-tool" type="button" data-save-ad="${fbEscape(ad.id)}">Save</button>
         </div>
         <div class="admin-ad-actions">${acts.join('')}</div>
       </div>
@@ -605,6 +637,13 @@ var Pages = window.Pages || {};
             </select>
             <select id="adminAdUser" aria-label="Member whose videos play this ad" hidden></select>
             <select id="adminAdPost" aria-label="The video that plays this ad" hidden></select>
+          </div>
+          <div class="admin-ad-schedule">
+            <label>Plays ${playsOptions(1, 'id="adminAdPlays"')}</label>
+            <label>Repeat after
+              <input id="adminAdGap" type="number" min="0" max="1440" step="1" value="0" aria-label="Minutes before this ad plays again">
+              min
+            </label>
           </div>
           <input id="adminAdFile" type="file" accept="image/*,video/*" hidden>
           <div class="admin-compose-foot">
@@ -732,6 +771,8 @@ var Pages = window.Pages || {};
         const url = await cloudinaryUpload(payload);
         if (!url) throw new Error('image hosting is not connected');
         const title = body.querySelector('#adminAdTitle').value.trim();
+        const playsEl = body.querySelector('#adminAdPlays');
+        const gapEl = body.querySelector('#adminAdGap');
         const { error } = await sb.from('ads').insert([{
           title: title || 'Sponsored',
           media_url: url,
@@ -739,6 +780,8 @@ var Pages = window.Pages || {};
           status: 'pending',
           is_active: true,
           created_by: me.id,
+          play_limit: Math.max(0, Number(playsEl && playsEl.value) || 0),
+          gap_minutes: Math.max(0, Math.floor(Number(gapEl && gapEl.value) || 0)),
           ...target
         }]);
         if (error) throw error;
@@ -780,6 +823,28 @@ var Pages = window.Pages || {};
           });
           if (error) throw error;
           showToast(play ? 'Ad is back in the rotation' : 'Ad paused', 'success');
+          if (window.Ads) window.Ads.refresh();
+          await refresh();
+        } catch (e) {
+          btn.disabled = false;
+          toastError(e);
+        }
+      });
+    });
+
+    body.querySelectorAll('[data-save-ad]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.saveAd;
+        const plays = body.querySelector(`[data-ad-plays="${id}"]`);
+        const gap = body.querySelector(`[data-ad-gap="${id}"]`);
+        btn.disabled = true;
+        try {
+          const { error } = await sb.from('ads').update({
+            play_limit: Math.max(0, Number(plays && plays.value) || 0),
+            gap_minutes: Math.max(0, Math.floor(Number(gap && gap.value) || 0))
+          }).eq('id', id);
+          if (error) throw error;
+          showToast('Ad schedule saved', 'success');
           if (window.Ads) window.Ads.refresh();
           await refresh();
         } catch (e) {

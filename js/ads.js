@@ -14,6 +14,7 @@ window.Ads = (function () {
   let cursor = 0;
   let active = null;                 // the ad break on screen right now
   const pending = new WeakMap();     // member video -> its scheduled break timer
+  let playedAds = new Map();         // ad id -> { count, lastAt } this session
 
   function escapeHtml(value) {
     return String(value == null ? '' : value).replace(/[&<>"']/g, c => ({
@@ -28,10 +29,13 @@ window.Ads = (function () {
       .order('created_at', { ascending: true });
   }
 
-  // Before 027_ad_targeting.sql runs the target columns are missing, so the
-  // ads keep playing everywhere instead of stopping
+  // Before 027_ad_targeting.sql or 028_ad_play_schedule.sql run their columns are
+  // missing, so the ads keep playing (once, everywhere) instead of stopping
   function fetchAds() {
-    return adsQuery('id, title, media_url, media_type, skip_seconds, target_user_id, target_post_id')
+    return adsQuery('id, title, media_url, media_type, skip_seconds, play_limit, gap_minutes, target_user_id, target_post_id')
+      .then(result => (result && result.error)
+        ? adsQuery('id, title, media_url, media_type, skip_seconds, target_user_id, target_post_id')
+        : result)
       .then(result => (result && result.error)
         ? adsQuery('id, title, media_url, media_type, skip_seconds')
         : result);
@@ -45,6 +49,35 @@ window.Ads = (function () {
 
   function isVideoAd(ad) {
     return /video$/.test(String(ad.media_type || ''));
+  }
+
+  // How many times an ad may play, and how long it waits before it plays again
+  function playLimit(ad) {
+    const limit = Number(ad.play_limit);
+    if (ad.play_limit == null || !isFinite(limit)) return 1;
+    return limit;
+  }
+
+  function gapMs(ad) {
+    const minutes = Number(ad.gap_minutes);
+    return isFinite(minutes) && minutes > 0 ? minutes * 60000 : 0;
+  }
+
+  function adState(ad) {
+    return playedAds.get(String(ad.id)) || { count: 0, lastAt: 0 };
+  }
+
+  // 0 = may play right now, Infinity = done for this session
+  function waitFor(ad) {
+    const state = adState(ad);
+    const limit = playLimit(ad);
+    if (limit > 0 && state.count >= limit) return Infinity;
+    return Math.max(0, state.lastAt + gapMs(ad) - Date.now());
+  }
+
+  function markPlayed(ad) {
+    const state = adState(ad);
+    playedAds.set(String(ad.id), { count: state.count + 1, lastAt: Date.now() });
   }
 
   // The ads that may play, and the admin's on/off switch, read once per page
@@ -66,7 +99,7 @@ window.Ads = (function () {
 
   // An ad with no target plays everywhere, one with a member plays only in that
   // member's videos, one with a video plays only in that exact uploaded video
-  function eligible(video) {
+  function targeted(video) {
     const postId = video.dataset.postId || '';
     const userId = video.dataset.postUser || '';
     return pool.filter(ad => {
@@ -75,6 +108,11 @@ window.Ads = (function () {
       if (ad.target_user_id != null) return !!userId && String(ad.target_user_id) === userId;
       return true;
     });
+  }
+
+  // Of those, the ones whose play count and repeat gap allow them right now
+  function eligible(video) {
+    return targeted(video).filter(ad => waitFor(ad) === 0);
   }
 
   function nextAd(video) {
@@ -104,6 +142,7 @@ window.Ads = (function () {
     const ad = nextAd(video);
     const holder = video.parentElement;
     if (!ad || !holder) return;
+    markPlayed(ad);
 
     const mediaType = isVideoAd(ad) ? 'video' : 'image';
     const skipSeconds = Math.max(0, Number(ad.skip_seconds));
@@ -157,6 +196,9 @@ window.Ads = (function () {
       overlay.remove();
       holder.classList.remove('fb-post-media-ad');
       if (active === breakState) active = null;
+      // Another ad may follow (a different one, or this one once its repeat gap
+      // has passed); when nothing is left the member's video simply plays on
+      armBreak(video, BREAK_AFTER_MS);
       if (video.isConnected) video.play().catch(() => {});
     }
 
@@ -200,6 +242,24 @@ window.Ads = (function () {
     }
   }
 
+  // Arm the next break for this video: as soon as an ad is allowed it waits
+  // `delay`; an ad still inside its repeat gap pushes the break to when it ends
+  function armBreak(video, delay) {
+    if (!video.isConnected || video.paused || active || pending.has(video)) return;
+    let wait = delay;
+    if (!eligible(video).length) {
+      const waits = targeted(video).map(waitFor).filter(ms => isFinite(ms));
+      if (!waits.length) return;
+      wait = Math.max(delay, Math.min.apply(null, waits));
+    }
+    const timer = setTimeout(() => {
+      pending.delete(video);
+      if (video.paused || !video.isConnected || active) return;
+      startBreak(video);
+    }, wait);
+    pending.set(video, timer);
+  }
+
   // A member video that starts playing earns an ad break a few seconds in
   document.addEventListener('play', event => {
     const video = event.target;
@@ -212,17 +272,8 @@ window.Ads = (function () {
       active = null;
     }
     load().then(() => {
-      if (!enabled || active) return;
-      if (video.paused || video.dataset.adBreakShown === '1') return;
-      if (!eligible(video).length) return;
-      cancelPending(video);
-      const timer = setTimeout(() => {
-        pending.delete(video);
-        if (video.paused || !video.isConnected) return;
-        video.dataset.adBreakShown = '1';
-        startBreak(video);
-      }, BREAK_AFTER_MS);
-      pending.set(video, timer);
+      if (!enabled) return;
+      armBreak(video, BREAK_AFTER_MS);
     });
   }, true);
 
@@ -234,23 +285,18 @@ window.Ads = (function () {
     cancelPending(video);
   }, true);
 
-  document.addEventListener('ended', event => {
-    const video = event.target;
-    if (video && video.matches && video.matches(VIDEO_SELECTOR)) delete video.dataset.adBreakShown;
-  }, true);
-
   // ---------- Ads on a member's profile cover ----------
 
   // A cover ad with no target plays on every profile, one with a member plays
   // only on that member's profile
-  function coverAd(ownerId) {
-    return pool.find(ad => isCoverAd(ad)
+  function coverAds(ownerId) {
+    return pool.filter(ad => isCoverAd(ad)
       && (ad.target_user_id == null || String(ad.target_user_id) === String(ownerId)));
   }
 
-  // The cover takes the ad's own shape so the whole image or video shows, and a
-  // video ad plays through once before the member's own cover comes back
-  function paintCoverAd(cover, ad) {
+  // The cover takes the ad's own shape so the whole image or video shows; when
+  // the ad ends onEnd runs so the next ad (or the member's cover) can take over
+  function paintCoverAd(cover, ad, onEnd) {
     const ownCover = cover.querySelector('.fb-cover-media');
     const videoAd = isVideoAd(ad);
     const layer = document.createElement('div');
@@ -265,6 +311,7 @@ window.Ads = (function () {
       ${ad.title ? `<span class="fb-cover-ad-title">${escapeHtml(ad.title)}</span>` : ''}`;
 
     const adMedia = layer.querySelector('.fb-cover-ad-media');
+    let imageTimer = 0;
 
     function fit() {
       const width = adMedia.videoWidth || adMedia.naturalWidth;
@@ -272,11 +319,17 @@ window.Ads = (function () {
       if (width && height) cover.style.aspectRatio = width + ' / ' + height;
     }
 
-    function restore() {
+    let finished = false;
+
+    function restore(failed) {
+      if (finished) return;
+      finished = true;
+      clearTimeout(imageTimer);
       layer.remove();
       cover.classList.remove('fb-cover--ad');
       cover.style.removeProperty('aspect-ratio');
       if (ownCover && ownCover.tagName === 'VIDEO') ownCover.play().catch(() => {});
+      if (onEnd) onEnd(!!failed);
     }
 
     cover.classList.add('fb-cover--ad');
@@ -285,25 +338,48 @@ window.Ads = (function () {
 
     if (videoAd) {
       adMedia.addEventListener('loadedmetadata', fit, { once: true });
-      adMedia.addEventListener('ended', restore);
-      adMedia.addEventListener('error', restore);
+      adMedia.addEventListener('ended', () => restore());
+      adMedia.addEventListener('error', () => restore(true));
       adMedia.src = ad.media_url;
       const attempt = adMedia.play();
-      if (attempt && attempt.catch) attempt.catch(restore);
-    } else if (adMedia.complete) {
-      fit();
+      if (attempt && attempt.catch) attempt.catch(() => restore(true));
     } else {
-      adMedia.addEventListener('load', fit, { once: true });
+      if (adMedia.complete) fit();
+      else adMedia.addEventListener('load', fit, { once: true });
+      adMedia.addEventListener('error', () => restore(true), { once: true });
+      imageTimer = setTimeout(() => restore(), IMAGE_AD_MS);
     }
   }
 
-  // Called by the profile pages once the cover is painted
+  // Called by the profile pages once the cover is painted: the ads take turns
+  // until their play counts run out, then the member's own cover comes back
   function mountCover(cover, ownerId) {
     if (!cover) return Promise.resolve();
     return load().then(() => {
       if (!cover.isConnected || cover.querySelector('.fb-cover-ad')) return;
-      const ad = coverAd(ownerId);
-      if (ad) paintCoverAd(cover, ad);
+      const failed = new Set();
+      let timer = 0;
+
+      function next() {
+        clearTimeout(timer);
+        if (!cover.isConnected) return;
+        const list = coverAds(ownerId).filter(ad => !failed.has(String(ad.id)));
+        const ready = list.filter(ad => waitFor(ad) === 0);
+        if (ready.length) {
+          const ad = ready[cursor++ % ready.length];
+          markPlayed(ad);
+          paintCoverAd(cover, ad, failedAd => {
+            if (failedAd) failed.add(String(ad.id));
+            next();
+          });
+          return;
+        }
+        // Nothing may play yet: an ad still inside its repeat gap gets another turn
+        const waits = list.map(waitFor).filter(ms => isFinite(ms));
+        if (waits.length) timer = setTimeout(next, Math.min.apply(null, waits));
+      }
+
+      next();
     });
   }
 
@@ -314,6 +390,7 @@ window.Ads = (function () {
     refresh() {
       loading = null;
       pool = [];
+      playedAds = new Map();
       return load();
     }
   };
