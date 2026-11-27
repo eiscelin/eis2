@@ -16,6 +16,46 @@ window.Ads = (function () {
   const pending = new WeakMap();     // member video -> its scheduled break timer
   let playedAds = new Map();         // ad id -> { count, lastAt } this session
 
+  // A cover ad holds a phone's page still while it plays, so the device is not
+  // asked to decode the ad and scroll at the same time. The hold ends with the
+  // ad (or after HOLD_MAX_MS) and does not come back on the same page
+  const HOLD_MAX_MS = 12000;      // a clip that never ends still lets go by then
+  let holdUsed = false;
+  let holdTimer = 0;
+  let holdCover = null;           // the cover whose ad is holding the page
+  let holdToken = null;           // the ad that put the hold there
+  let goneTicks = 0;
+
+  // Only the ad that holds may let go, so an ad left over from an earlier page
+  // cannot free the page under the ad that is playing now
+  function releaseScroll(token) {
+    if (token && token !== holdToken) return;
+    clearInterval(holdTimer);
+    holdCover = null;
+    holdToken = null;
+    goneTicks = 0;
+    document.documentElement.classList.remove('fb-ad-hold');
+    document.body.classList.remove('fb-ad-hold');
+  }
+
+  // The page stands still while the ad plays, then scrolls again. A hold never
+  // outlives its ad: once the page has no cover ad on it for half a second the
+  // page is free again
+  function holdScroll(token, cover, ms) {
+    holdCover = cover;
+    holdToken = token;
+    goneTicks = 0;
+    document.documentElement.classList.add('fb-ad-hold');
+    document.body.classList.add('fb-ad-hold');
+    const until = Date.now() + Math.min(ms > 0 ? ms : HOLD_MAX_MS, HOLD_MAX_MS);
+    clearInterval(holdTimer);
+    holdTimer = setInterval(() => {
+      const adUp = !!document.querySelector('.fb-cover-ad');
+      goneTicks = (!adUp && (!holdCover || !holdCover.isConnected)) ? goneTicks + 1 : 0;
+      if (Date.now() >= until || goneTicks >= 2) releaseScroll();
+    }, 250);
+  }
+
   function escapeHtml(value) {
     return String(value == null ? '' : value).replace(/[&<>"']/g, c => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -564,11 +604,14 @@ window.Ads = (function () {
     }
 
     let finished = false;
+    const holdMark = {};    // marks this ad as the one holding the page
+    let heldHere = false;
 
     function restore(failed) {
       if (finished) return;
       finished = true;
       clearTimeout(imageTimer);
+      if (heldHere) releaseScroll(holdMark);
       layer.remove();
       spacer.remove();
       cover.classList.remove('fb-cover--ad');
@@ -588,6 +631,12 @@ window.Ads = (function () {
     if (!cover.style.aspectRatio) cover.style.aspectRatio = '16 / 9';
     cover.appendChild(layer);
     bindChatButtons(layer);
+    // The first cover ad on this page holds the page still until it ends
+    if (!holdUsed) {
+      holdUsed = true;
+      heldHere = true;
+      holdScroll(holdMark, cover, videoAd ? HOLD_MAX_MS : imageMs(ad));
+    }
     if (ownCover && ownCover.tagName === 'VIDEO') ownCover.pause();
 
     if (videoAd) {
@@ -648,6 +697,7 @@ window.Ads = (function () {
   // open (only when there is no cover ad at all does the member's own cover show)
   function mountCover(cover, ownerId) {
     if (!cover) return Promise.resolve();
+    holdUsed = false;
     return load().then(() => {
       if (!cover.isConnected || cover.querySelector('.fb-cover-ad')) return;
       const failed = new Set();
