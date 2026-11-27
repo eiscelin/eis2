@@ -40,7 +40,8 @@ window.Ads = (function () {
   // The ads that may play, and the admin's on/off switch, read once per page
   function load() {
     if (loading) return loading;
-    if (!window.sb) return Promise.resolve();
+    // `sb` is a top-level const in supabase.js, so it is not a window property
+    if (typeof sb === 'undefined' || !sb) return Promise.resolve();
     loading = Promise.all([
       sb.from('app_settings').select('value').eq('key', 'video_ads').maybeSingle(),
       fetchAds()
