@@ -462,6 +462,15 @@ window.Ads = (function () {
 
     const adMedia = layer.querySelector('.fb-cover-ad-media');
     let imageTimer = 0;
+    // The ad leaves the page flow for a bar pinned under the top bar, so it
+    // keeps playing and stays in view while the profile scrolls; the spacer
+    // keeps the page from jumping
+    const spacer = document.createElement('div');
+    spacer.className = 'fb-cover-ad-spacer';
+    spacer.style.height = cover.offsetHeight + 'px';
+    cover.parentElement.insertBefore(spacer, cover);
+    const topbar = document.querySelector('.fb-topbar');
+    cover.style.top = (topbar ? topbar.getBoundingClientRect().height : 0) + 'px';
 
     function fit() {
       const width = adMedia.videoWidth || adMedia.naturalWidth;
@@ -476,13 +485,19 @@ window.Ads = (function () {
       finished = true;
       clearTimeout(imageTimer);
       layer.remove();
+      spacer.remove();
       cover.classList.remove('fb-cover--ad');
+      cover.classList.remove('fb-cover--pinned');
       cover.style.removeProperty('aspect-ratio');
+      cover.style.removeProperty('top');
       if (ownCover && ownCover.tagName === 'VIDEO') ownCover.play().catch(() => {});
       if (onEnd) onEnd(!!failed);
     }
 
     cover.classList.add('fb-cover--ad');
+    cover.classList.add('fb-cover--pinned');
+    // A shape to pin with until the ad's own one is known
+    if (!cover.style.aspectRatio) cover.style.aspectRatio = '16 / 9';
     cover.appendChild(layer);
     bindChatButtons(layer);
     if (ownCover && ownCover.tagName === 'VIDEO') ownCover.pause();

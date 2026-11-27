@@ -3148,6 +3148,16 @@ label {
 
 /* A cover ad takes the profile cover, shaped like the ad so nothing is cropped */
 .fb-cover.fb-cover--ad { height: auto; }
+/* While it plays the ad leaves the page flow and pins under the top bar, so it
+   keeps playing and stays in view when the profile is scrolled */
+.fb-cover-ad-spacer { width: 100%; }
+.fb-cover.fb-cover--pinned {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  width: min(100%, 1120px); max-height: 42vh;
+  z-index: 115;
+  border-radius: 0 0 var(--fb-radius) var(--fb-radius);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5);
+}
 .fb-cover-ad {
   position: absolute; inset: 0; z-index: 4;
   display: flex; align-items: center; justify-content: center;
