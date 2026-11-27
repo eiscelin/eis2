@@ -1169,9 +1169,11 @@ a.fb-person-img:hover { filter: brightness(1.1); }
   overflow: hidden;
   background: #000;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  /* The pinned cover is fixed and cannot size its column, so it never grows past it */
+  min-width: 0;
 }
 .fb-cover-card .fb-cover { border-radius: var(--fb-radius); }
-/* Pinned, the cover ad keeps the feed's width instead of widening to the profile's */
+/* Pinned, the ad matches the feed column it covers; the profile keeps its own width */
 .fb-cover-card .fb-cover.fb-cover--pinned { width: min(100%, 680px); }
 .fb-composer-card { padding: 0.9rem 1rem 0.8rem; }
 .fb-composer-card .fb-composer { padding: 0; }

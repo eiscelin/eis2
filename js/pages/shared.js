@@ -194,6 +194,17 @@ async function fbAdsHaveContact() {
   return fbAdsContactReady;
 }
 
+// How long an image ad stays on screen only saves once 030_ad_image_seconds.sql
+// has run, so the forms check the column before sending it
+let fbAdsTimingReady = null;
+async function fbAdsHaveImageSeconds() {
+  if (fbAdsTimingReady !== null) return fbAdsTimingReady;
+  if (typeof sb === 'undefined' || !sb) return false;
+  const { error } = await sb.from('ads').select('image_seconds').limit(1);
+  fbAdsTimingReady = !error;
+  return fbAdsTimingReady;
+}
+
 // What an ad keeps for its contact buttons: a dialable number, or the
 // advertiser's Facebook page address
 function fbAdContactValue(type, value) {

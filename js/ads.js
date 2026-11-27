@@ -29,20 +29,24 @@ window.Ads = (function () {
       .order('created_at', { ascending: true });
   }
 
-  // Before 027_ad_targeting.sql, 028_ad_play_schedule.sql or 029_ad_contact.sql
-  // run their columns are missing, so the ads keep playing (once, everywhere,
-  // without contact details) instead of stopping
+  // Before 027_ad_targeting.sql, 028_ad_play_schedule.sql, 029_ad_contact.sql or
+  // 030_ad_image_seconds.sql run their columns are missing, so the ads keep
+  // playing (once, everywhere, without contact details, for the default six
+  // seconds) instead of stopping
+  const AD_COLUMNS = [
+    'id, title, media_url, media_type, skip_seconds, created_by, play_limit, gap_minutes, target_user_id, target_post_id, contact_type, contact_value, image_seconds',
+    'id, title, media_url, media_type, skip_seconds, created_by, play_limit, gap_minutes, target_user_id, target_post_id, contact_type, contact_value',
+    'id, title, media_url, media_type, skip_seconds, created_by, play_limit, gap_minutes, target_user_id, target_post_id',
+    'id, title, media_url, media_type, skip_seconds, created_by, target_user_id, target_post_id',
+    'id, title, media_url, media_type, skip_seconds, created_by'
+  ];
+
   function fetchAds() {
-    return adsQuery('id, title, media_url, media_type, skip_seconds, created_by, play_limit, gap_minutes, target_user_id, target_post_id, contact_type, contact_value')
-      .then(result => (result && result.error)
-        ? adsQuery('id, title, media_url, media_type, skip_seconds, created_by, play_limit, gap_minutes, target_user_id, target_post_id')
-        : result)
-      .then(result => (result && result.error)
-        ? adsQuery('id, title, media_url, media_type, skip_seconds, created_by, target_user_id, target_post_id')
-        : result)
-      .then(result => (result && result.error)
-        ? adsQuery('id, title, media_url, media_type, skip_seconds, created_by')
-        : result);
+    function step(i) {
+      return adsQuery(AD_COLUMNS[i]).then(result =>
+        (result && result.error && i + 1 < AD_COLUMNS.length) ? step(i + 1) : result);
+    }
+    return step(0);
   }
 
   // The advertiser's Facebook page, whether the admin typed a page name or the
@@ -183,6 +187,37 @@ window.Ads = (function () {
     return el;
   }
 
+  // Every ad starts with its sound on. A browser that refuses a sounding start
+  // plays it silently for now and gives the sound back at the first tap anywhere
+  function playWithSound(el, opts) {
+    const o = opts || {};
+    el.muted = false;
+    el.volume = 1;
+    const attempt = el.play();
+    if (!attempt || !attempt.catch) return;
+    attempt.catch(() => {
+      el.muted = true;
+      el.play().catch(() => { if (o.onFail) o.onFail(); });
+      if (o.onBlocked) o.onBlocked();
+      const unlock = () => {
+        document.removeEventListener('pointerdown', unlock, true);
+        document.removeEventListener('keydown', unlock, true);
+        if (!el.isConnected) return;
+        el.muted = false;
+        el.volume = 1;
+        // A browser can stop a clip it was playing silently the moment it is
+        // unmuted, so it is started again here and once more a moment later
+        el.play().catch(() => {});
+        setTimeout(() => {
+          if (el.isConnected && el.paused && !el.ended) el.play().catch(() => {});
+        }, 150);
+        if (o.onUnmuted) o.onUnmuted();
+      };
+      document.addEventListener('pointerdown', unlock, true);
+      document.addEventListener('keydown', unlock, true);
+    });
+  }
+
   // How many times an ad may play, and how long it waits before it plays again
   function playLimit(ad) {
     const limit = Number(ad.play_limit);
@@ -193,6 +228,12 @@ window.Ads = (function () {
   function gapMs(ad) {
     const minutes = Number(ad.gap_minutes);
     return isFinite(minutes) && minutes > 0 ? minutes * 60000 : 0;
+  }
+
+  // How long an image ad stays on screen: the admin sets it per ad
+  function imageMs(ad) {
+    const seconds = Number(ad.image_seconds);
+    return (isFinite(seconds) && seconds > 0 ? seconds : IMAGE_AD_MS / 1000) * 1000;
   }
 
   function adState(ad) {
@@ -371,19 +412,13 @@ window.Ads = (function () {
         breakState.ticker = setInterval(() => countdown(until), 500);
         countdown(until);
       });
-      const attempt = adVideo.play();
-      if (attempt && attempt.catch) {
-        // A browser that blocks sound still shows the ad, played silently
-        attempt.catch(() => {
-          adVideo.muted = true;
-          adVideo.play().catch(finish);
-        });
-      }
+      playWithSound(adVideo, { onFail: finish });
     } else {
-      const until = Date.now() + IMAGE_AD_MS;
-      timeEl.textContent = Math.ceil(IMAGE_AD_MS / 1000) + 's';
+      const showMs = imageMs(ad);
+      const until = Date.now() + showMs;
+      timeEl.textContent = Math.ceil(showMs / 1000) + 's';
       breakState.ticker = setInterval(() => countdown(until), 500);
-      breakState.endTimer = setTimeout(finish, IMAGE_AD_MS);
+      breakState.endTimer = setTimeout(finish, showMs);
     }
   }
 
@@ -483,14 +518,20 @@ window.Ads = (function () {
     const adMedia = layer.querySelector('.fb-cover-ad-media');
     let imageTimer = 0;
     // The ad leaves the page flow for a bar pinned under the top bar, so it
-    // keeps playing and stays in view while the profile scrolls; the spacer
-    // keeps the page from jumping
+    // keeps playing and stays in view while the page scrolls; the spacer keeps
+    // the page from jumping, and the pinned width in the stylesheet keeps the ad
+    // on the cover's own column
     const spacer = document.createElement('div');
     spacer.className = 'fb-cover-ad-spacer';
     spacer.style.height = cover.offsetHeight + 'px';
     cover.parentElement.insertBefore(spacer, cover);
     const topbar = document.querySelector('.fb-topbar');
-    cover.style.top = (topbar ? topbar.getBoundingClientRect().height : 0) + 'px';
+    // Pinned under the top bar; the pinned width comes from the cover's own
+    // column in the stylesheet, so the ad lines up with the cover at any width
+    function pin() {
+      cover.style.top = (topbar ? topbar.getBoundingClientRect().height : 0) + 'px';
+    }
+    window.addEventListener('resize', pin);
 
     function fit() {
       const width = adMedia.videoWidth || adMedia.naturalWidth;
@@ -508,6 +549,7 @@ window.Ads = (function () {
       spacer.remove();
       cover.classList.remove('fb-cover--ad');
       cover.classList.remove('fb-cover--pinned');
+      window.removeEventListener('resize', pin);
       cover.style.removeProperty('aspect-ratio');
       cover.style.removeProperty('top');
       if (ownCover && ownCover.tagName === 'VIDEO') ownCover.play().catch(() => {});
@@ -516,6 +558,8 @@ window.Ads = (function () {
 
     cover.classList.add('fb-cover--ad');
     cover.classList.add('fb-cover--pinned');
+    // Only once it is fixed does the measured box mean the right thing
+    pin();
     // A shape to pin with until the ad's own one is known
     if (!cover.style.aspectRatio) cover.style.aspectRatio = '16 / 9';
     cover.appendChild(layer);
@@ -530,9 +574,6 @@ window.Ads = (function () {
       const coverPoster = adPoster(ad);
       if (coverPoster) adMedia.setAttribute('poster', coverPoster);
       adMedia.src = adVideoSrc(ad);
-      adMedia.volume = 1;
-      // Sound on, unless another clip already has it
-      syncCoverSound();
       const soundBtn = layer.querySelector('.fb-cover-ad-sound');
       // A browser that only allows a silent start plays the ad muted and offers
       // the Sound button, so one tap brings the sound up
@@ -540,25 +581,39 @@ window.Ads = (function () {
         adMedia.dataset.sound = '0';
         adMedia.muted = true;
         soundBtn.hidden = false;
-        adMedia.play().catch(() => restore(true));
       };
-      const attempt = adMedia.play();
-      if (attempt && attempt.catch) attempt.catch(silent);
+      // Sound on from the first frame — unless another clip already has it — and
+      // a blocked start gives the sound back at the member's first tap anywhere
+      playWithSound(adMedia, {
+        onFail: () => restore(true),
+        onBlocked: silent,
+        onUnmuted: () => {
+          delete adMedia.dataset.sound;
+          soundBtn.hidden = true;
+          syncCoverSound();
+        }
+      });
       soundBtn.addEventListener('click', event => {
         event.stopPropagation();
         delete adMedia.dataset.sound;
         soundBtn.hidden = true;
+        adMedia.muted = false;
+        adMedia.volume = 1;
+        // Another clip may hold the sound already: then the cover stays quiet
         syncCoverSound();
-        // A browser that still refuses sound keeps the ad playing silently
-        // instead of leaving it stopped, and keeps the button up
-        const attempt = adMedia.play();
-        if (attempt && attempt.catch) attempt.catch(silent);
+        // Unmuting a clip that is already running needs no play(); one the
+        // browser stopped for want of a gesture starts again here, and a
+        // browser that still refuses sound keeps the button up
+        if (adMedia.paused) {
+          const attempt = adMedia.play();
+          if (attempt && attempt.catch) attempt.catch(silent);
+        }
       });
     } else {
       if (adMedia.complete) fit();
       else adMedia.addEventListener('load', fit, { once: true });
       adMedia.addEventListener('error', () => restore(true), { once: true });
-      if (!repeat) imageTimer = setTimeout(() => restore(), IMAGE_AD_MS);
+      if (!repeat) imageTimer = setTimeout(() => restore(), imageMs(ad));
     }
   }
 
