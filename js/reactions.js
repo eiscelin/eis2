@@ -53,6 +53,16 @@ Posts.videoUrl = function (type) {
   return match ? match[1] : '';
 };
 
+// A reaction clip is drawn as a face a few dozen pixels wide, so Cloudinary
+// sends a small copy of the member's upload instead of the whole clip — an
+// eight megabyte video for a face is what made the feed and profiles crawl
+function reactionClip(url) {
+  const src = String(url || '');
+  if (!/res\.cloudinary\.com\/[^/]+\/video\/upload\//.test(src)) return src;
+  if (/\/video\/upload\/[^/]*(w_\d|q_auto|c_fill)/.test(src)) return src;
+  return src.replace('/video/upload/', '/video/upload/w_160,h_160,c_fill,q_auto/');
+}
+
 // Uploaded reactions on a post take turns growing and wiggling: js/posts.js
 // hands one of them the fb-rx-turning class at a time (css/facebook.css holds
 // the 2 second keyframes), so the order works the same on every device. The
@@ -64,11 +74,12 @@ Posts.reactionIcon = function (type) {
   if (video) {
     // The video plays while it holds its growing and wiggling turn. The #t=0.1
     // seeks to the first frame, so a phone paints the face instead of a black
-    // circle before the video is played.
-    return `<span class="fb-rx fb-rx-face fb-rx-video"><video class="fb-rx-img fb-rx-vid" src="${fbEscape(video)}#t=0.1" muted playsinline webkit-playsinline preload="auto"></video></span>`;
+    // circle before the video is played. Only that first frame is fetched up
+    // front: the rest of the clip loads when its turn comes.
+    return `<span class="fb-rx fb-rx-face fb-rx-video"><video class="fb-rx-img fb-rx-vid" src="${fbEscape(reactionClip(video))}#t=0.1" muted playsinline webkit-playsinline preload="metadata"></video></span>`;
   }
   if (face) {
-    return `<span class="fb-rx fb-rx-face"><img class="fb-rx-img" src="${fbEscape(face)}" alt="" loading="lazy"></span>`;
+    return `<span class="fb-rx fb-rx-face"><img class="fb-rx-img" src="${fbEscape(fbImageUrl(face, 96))}" alt="" loading="lazy" decoding="async"></span>`;
   }
   const art = FB_RX_ART[type] || FB_RX_ART.like;
   return `<span class="fb-rx fb-rx-${type}"><svg class="fb-rx-svg" viewBox="0 0 40 40" aria-hidden="true" focusable="false">${art}</svg></span>`;

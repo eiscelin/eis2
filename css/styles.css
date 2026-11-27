@@ -277,13 +277,15 @@ tr:last-child td { border-bottom: none; }
 .empty-state .icon { font-size: 2.5rem; margin-bottom: .75rem; }
 .loading { text-align: center; padding: 2rem; color: #999; }
 .toast {
-  position: fixed; bottom: 1.5rem; right: 1.5rem; background: #1e293b; color: #fff;
-  padding: .75rem 1.25rem; border-radius: 8px; font-size: .88rem; z-index: 200;
-  box-shadow: 0 4px 12px rgba(0,0,0,.15); animation: slideIn .3s ease;
+  position: fixed; top: 1.25rem; left: 50%; transform: translateX(-50%);
+  max-width: min(90vw, 520px); text-align: center;
+  background: #1e293b; color: #fff;
+  padding: .75rem 1.25rem; border-radius: 8px; font-size: .88rem; z-index: 100003;
+  box-shadow: 0 4px 12px rgba(0,0,0,.15); animation: toastIn .3s ease;
 }
 .toast.error { background: var(--red); }
 .toast.success { background: var(--green); }
-@keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes toastIn { from { transform: translate(-50%, -16px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
 
 /* ===== Tab Toggle ===== */
 .tab-toggle { display: inline-flex; gap: .25rem; background: #f3f4f6; padding: .25rem; border-radius: 10px; }

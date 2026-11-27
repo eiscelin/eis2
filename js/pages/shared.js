@@ -105,6 +105,27 @@ function fbImageUrl(url, width) {
   return src.replace('/image/upload/', '/image/upload/f_auto,q_auto,c_limit,w_' + width + '/');
 }
 
+// The same for a video: Cloudinary re-encodes it at the width the card shows
+// and at automatic quality, so a phone pulls a fraction of the original bytes
+// before the first frame plays
+function fbVideoUrl(url, width) {
+  const src = String(url || '');
+  if (!/res\.cloudinary\.com\/[^/]+\/video\/upload\//.test(src)) return src;
+  if (/\/video\/upload\/[^/]*(q_auto|w_\d|f_auto)/.test(src)) return src;
+  const params = 'q_auto,f_auto' + (width ? ',c_limit,w_' + width : '');
+  return src.replace('/video/upload/', '/video/upload/' + params + '/');
+}
+
+// A still frame of a Cloudinary video, so a card shows its picture at once and
+// nobody downloads a clip just to look at it
+function fbVideoPoster(url, width) {
+  const clean = String(url || '').split('#')[0];
+  const match = /^(https:\/\/res\.cloudinary\.com\/[^/]+\/video\/upload\/)(?:[^/]+\/)?([^/]+)$/.exec(clean);
+  if (!match) return '';
+  const name = match[2].replace(/\.[a-z0-9]+$/i, '') + '.jpg';
+  return match[1] + 'so_0,w_' + (width || 720) + ',q_auto/' + name;
+}
+
 // Loads a page script the first time that page is opened, so members who never
 // visit it never download it
 const fbLoadedScripts = {};
@@ -160,6 +181,38 @@ function showToast(msg, type = '', ms = 3000) {
 
 function emptyState(icon, msg) {
   return `<div class="empty-state"><div class="icon">${icon}</div><p>${msg}</p></div>`;
+}
+
+// Ads only carry contact details once 029_ad_contact.sql has run, so the forms
+// check the columns before sending them
+let fbAdsContactReady = null;
+async function fbAdsHaveContact() {
+  if (fbAdsContactReady !== null) return fbAdsContactReady;
+  if (typeof sb === 'undefined' || !sb) return false;
+  const { error } = await sb.from('ads').select('contact_type').limit(1);
+  fbAdsContactReady = !error;
+  return fbAdsContactReady;
+}
+
+// How long an image ad stays on screen only saves once 030_ad_image_seconds.sql
+// has run, so the forms check the column before sending it
+let fbAdsTimingReady = null;
+async function fbAdsHaveImageSeconds() {
+  if (fbAdsTimingReady !== null) return fbAdsTimingReady;
+  if (typeof sb === 'undefined' || !sb) return false;
+  const { error } = await sb.from('ads').select('image_seconds').limit(1);
+  fbAdsTimingReady = !error;
+  return fbAdsTimingReady;
+}
+
+// What an ad keeps for its contact buttons: a dialable number, or the
+// advertiser's Facebook page address
+function fbAdContactValue(type, value) {
+  const raw = String(value || '').trim();
+  if (type === 'mobile') return raw.replace(/[^\d+]/g, '');
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (/^(www\.)?(facebook\.com|fb\.com|m\.me)\//i.test(raw)) return 'https://' + raw;
+  return 'https://www.facebook.com/' + raw.replace(/^@/, '');
 }
 
 function fmtDate(d) {

@@ -27,8 +27,13 @@ var ProfileGallery = {
 
     function tile(post, index) {
       const video = post.media_type === 'video';
+      // A tile is a thumbnail: a still frame keeps nine videos from downloading
+      // nine clips just to paint a grid
+      const poster = video ? fbVideoPoster(post.media_url, 400) : '';
       const thumb = video
-        ? `<video src="${fbEscape(post.media_url)}#t=0.1" muted playsinline preload="metadata"></video>`
+        ? (poster
+          ? `<img src="${fbEscape(poster)}" alt="" loading="lazy" decoding="async">`
+          : `<video src="${fbEscape(fbVideoUrl(post.media_url, 480))}#t=0.1" muted playsinline preload="metadata"></video>`)
         : `<img src="${fbEscape(fbImageUrl(post.media_url, 400))}" alt="" loading="lazy" decoding="async">`;
       const when = post.created_at ? new Date(post.created_at).toLocaleDateString() : '';
       return `<button class="fb-gallery-tile" type="button" data-index="${index}"
@@ -140,9 +145,10 @@ var ProfileGallery = {
         const post = media[index];
         if (!post) return;
         counter.textContent = (index + 1) + ' / ' + media.length;
+        const poster = post.media_type === 'video' ? fbVideoPoster(post.media_url, 900) : '';
         stage.innerHTML = post.media_type === 'video'
-          ? `<video src="${fbEscape(post.media_url)}" controls autoplay muted playsinline></video>`
-          : `<img src="${fbEscape(post.media_url)}" alt="">`;
+          ? `<video src="${fbEscape(fbVideoUrl(post.media_url, 1280))}"${poster ? ` poster="${fbEscape(poster)}"` : ''} controls autoplay muted playsinline></video>`
+          : `<img src="${fbEscape(fbImageUrl(post.media_url, 1400))}" alt="">`;
         caption.textContent = post.content || '';
       }
 

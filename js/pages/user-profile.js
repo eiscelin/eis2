@@ -97,29 +97,30 @@ Pages.userProfile = async function (el, username) {
     return;
   }
 
-  // Friend requests: the button follows the state between the two members
+  // The friend state, the follower count and the age are three independent
+  // reads: they go out together so the page paints after one round trip
   let friendState = 'none';
-  if (viewer && window.Friends) {
-    try { await Friends.load(viewer); } catch { /* friend requests are optional */ }
-    friendState = Friends.statusWith(person.id);
-  }
-
-  // Friends are followers: the count beside the name is the accepted requests
   let followerCount = 0;
-  if (window.Friends) {
-    try { followerCount = await Friends.countFollowers(person.id); } catch { /* count stays 0 */ }
-  }
+  const friendReady = viewer && window.Friends
+    ? Friends.load(viewer).catch(() => { /* friend requests are optional */ })
+    : Promise.resolve();
+  const followersReady = window.Friends
+    ? Friends.countFollowers(person.id).catch(() => 0)
+    : Promise.resolve(0);
+  const [ageResult, , followers] = await Promise.all([
+    ageReady || Promise.resolve(null), friendReady, followersReady
+  ]);
+  if (viewer && window.Friends) friendState = Friends.statusWith(person.id);
+  followerCount = Number(followers) || 0;
 
   let age = null;
-  if (ageReady) {
-    const { data: ageRows } = await ageReady;
-    if (ageRows && ageRows[0]) age = ageRows[0].age;
-  }
+  if (ageResult && ageResult.data && ageResult.data[0]) age = ageResult.data[0].age;
 
   const name = person.full_name || person.username || 'Member';
 
   const cover = person.cover_url || '';
   const coverIsVideo = upIsVideo(cover);
+  const coverPoster = coverIsVideo ? fbVideoPoster(cover, 1200) : '';
   const avatar = person.avatar_url || '';
   const avatarIsVideo = upIsVideo(avatar);
   const link = fbProfileLink(person.username);
@@ -133,7 +134,7 @@ Pages.userProfile = async function (el, username) {
       <div class="fb-cover${cover ? ' fb-cover--media' : ' fb-cover--default'}" id="upCover">
         ${cover
           ? coverIsVideo
-            ? `<video class="fb-cover-media" src="${fbEscape(cover)}" autoplay muted loop playsinline></video>`
+            ? `<video class="fb-cover-media" src="${fbEscape(fbVideoUrl(cover, 1280))}"${coverPoster ? ` poster="${fbEscape(coverPoster)}"` : ''} autoplay muted loop playsinline preload="metadata"></video>`
             : `<img class="fb-cover-media" src="${fbEscape(fbImageUrl(cover, 1200))}" alt="" decoding="async">`
           : `<img class="fb-cover-media" src="${FB_DEFAULT_COVER}" alt="">`}
         ${coverIsVideo
@@ -145,7 +146,7 @@ Pages.userProfile = async function (el, username) {
       <div class="fb-profile-head">
         <div class="fb-avatar fb-profile-avatar">${avatar
           ? avatarIsVideo
-            ? `<video class="fb-avatar-img" src="${fbEscape(avatar)}" autoplay muted loop playsinline></video>`
+            ? `<video class="fb-avatar-img" src="${fbEscape(fbVideoUrl(avatar, 240))}" autoplay muted loop playsinline preload="metadata"></video>`
             : `<img class="fb-avatar-img" src="${fbEscape(fbImageUrl(avatar, 200))}" alt="${fbEscape(name)}" decoding="async">`
           : fbBrandMark()}${avatar && window.AdminModerate ? AdminModerate.mediaButton('avatar', person.id) : ''}</div>
         <div class="fb-profile-id">
@@ -209,6 +210,7 @@ Pages.userProfile = async function (el, username) {
   const expand = el.querySelector('#upExpand');
   if (expand) expand.addEventListener('click', () => fbPlayFullVideo(cover));
   if (cover && upIsVideo(cover)) upApplyFraming(el.querySelector('#upCover'));
+  if (window.Ads) window.Ads.mountCover(el.querySelector('#upCover'), person.id);
   // This member's posts, with their reactions and comments
   if (window.Posts) {
     Posts.mount(el.querySelector('#upFeed'), {

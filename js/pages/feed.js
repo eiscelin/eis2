@@ -6,8 +6,23 @@ Pages.feedTab = function (main, user) {
   const name = user.full_name || user.username;
   const firstName = String(name).split(' ')[0];
 
+  // The member's own cover heads the home feed too, with a cover ad on it when
+  // the admin has one for them
+  const coverUrl = user.cover_url || '';
+  const coverIsVideo = /\.(mp4|webm|mov|m4v|ogv)(\?|#|$)/i.test(String(coverUrl));
+  const coverPoster = coverIsVideo ? fbVideoPoster(coverUrl, 1200) : '';
+
   main.innerHTML = `
     <div class="fb-feed">
+      <section class="fb-cover-card" aria-label="Cover">
+        <div class="fb-cover${coverUrl ? ' fb-cover--media' : ' fb-cover--default'}" id="feedCover">
+          ${coverUrl
+            ? coverIsVideo
+              ? `<video class="fb-cover-media" src="${fbEscape(fbVideoUrl(coverUrl, 1280))}"${coverPoster ? ` poster="${fbEscape(coverPoster)}"` : ''} autoplay muted loop playsinline preload="metadata"></video>`
+              : `<img class="fb-cover-media" src="${fbEscape(fbImageUrl(coverUrl, 1200))}" alt="" decoding="async">`
+            : `<img class="fb-cover-media" src="${FB_DEFAULT_COVER}" alt="">`}
+        </div>
+      </section>
       <div id="feedAnnouncements" hidden></div>
       <section class="fb-card fb-composer-card" id="feedComposer">
         ${Posts.composerMarkup(user, `What's on your mind, ${firstName}?`)}
@@ -18,6 +33,8 @@ Pages.feedTab = function (main, user) {
       <div id="feedList"></div>
     </div>
   `;
+
+  if (window.Ads) window.Ads.mountCover(main.querySelector('#feedCover'), user.id);
 
   const list = main.querySelector('#feedList');
   const announcementsList = main.querySelector('#feedAnnouncements');

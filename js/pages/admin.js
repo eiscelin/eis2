@@ -9,6 +9,8 @@ var Pages = window.Pages || {};
     announcements: [],
     reactionMedia: [],
     reactionUses: [],
+    ads: [],
+    adsMissing: false,
     settings: {},
     search: '',
     showDeleted: false,
@@ -47,6 +49,10 @@ var Pages = window.Pages || {};
 
   function pendingTotal() {
     return state.users.reduce((sum, u) => sum + pendingKinds(u).length, 0);
+  }
+
+  function adsPending() {
+    return state.ads.filter(a => a.status === 'pending').length;
   }
 
   // Reactions a member uploaded themselves, shown on their row so an admin
@@ -125,6 +131,18 @@ var Pages = window.Pages || {};
 
   function toastError(e) {
     const message = String((e && e.message) || e || 'Something went wrong');
+    if (/target_user_id|target_post_id|target_label/i.test(message)) {
+      return showToast('Run 027_ad_targeting.sql in Supabase, then try again', 'error', 6000);
+    }
+    if (/play_limit|gap_minutes/i.test(message)) {
+      return showToast('Run 028_ad_play_schedule.sql in Supabase, then try again', 'error', 6000);
+    }
+    if (/contact_type|contact_value/i.test(message)) {
+      return showToast('Run 029_ad_contact.sql in Supabase, then try again', 'error', 6000);
+    }
+    if (/admin_review_ad|admin_set_ad_active|public\.ads|relation "ads"|table 'public\.ads'/i.test(message)) {
+      return showToast('Run 026_create_ads.sql in Supabase, then try again', 'error', 6000);
+    }
     showToast(/could not find the function|does not exist|schema cache/i.test(message)
       ? 'Run 008_add_admin_controls.sql in Supabase, then try again'
       : message, 'error', 6000);
@@ -140,19 +158,34 @@ var Pages = window.Pages || {};
     }
   }
 
+  // The ads table only exists after 026_create_ads.sql has been run, so a
+  // missing table is remembered instead of breaking the whole panel
+  async function loadAds() {
+    try {
+      const { data, error } = await sb.from('ads').select('*').order('created_at', { ascending: false });
+      state.adsMissing = !!error && /could not find|does not exist|schema cache|relation/i.test(error.message || '');
+      return error ? [] : (data || []);
+    } catch {
+      state.adsMissing = true;
+      return [];
+    }
+  }
+
   async function loadAll() {
-    const [users, messages, announcements, settings, reactionMedia, uses] = await Promise.all([
+    const [users, messages, announcements, settings, reactionMedia, uses, ads] = await Promise.all([
       rows(sb.from('users').select('*').order('created_at', { ascending: false })),
       rows(sb.from('chat_messages').select('*').order('created_at', { ascending: false }).limit(1000)),
       rows(sb.from('announcements').select('*').order('created_at', { ascending: false })),
       rows(sb.from('app_settings').select('*')),
       rows(sb.from('reaction_media').select('*').order('created_at', { ascending: true })),
-      rows(sb.from('post_reactions').select('user_id, type').order('created_at', { ascending: false }).limit(2000))
+      rows(sb.from('post_reactions').select('user_id, type').order('created_at', { ascending: false }).limit(2000)),
+      loadAds()
     ]);
     state.users = users;
     state.messages = messages;
     state.announcements = announcements;
     state.reactionMedia = reactionMedia;
+    state.ads = ads;
     // Before the upload table exists, the reactions a member used still show
     // who they belong to
     state.reactionUses = uses.filter(r => /^(face|vid):/.test(String(r.type)));
@@ -173,6 +206,28 @@ var Pages = window.Pages || {};
     </div>`;
   }
 
+  // One admin switch: flip the stored value, then repaint the panel
+  function bindSwitch(body, selector, key, onMsg, offMsg, migration) {
+    const el = body.querySelector(selector);
+    if (!el) return;
+    el.addEventListener('click', async () => {
+      const next = el.getAttribute('aria-checked') === 'true' ? 'false' : 'true';
+      try {
+        const { error } = await sb.rpc('admin_set_setting', {
+          p_admin_id: me.id, p_key: key, p_value: next
+        });
+        if (error) throw new Error(migration && /Unknown setting/.test(error.message)
+          ? `Run ${migration} in Supabase, then try again`
+          : error.message);
+        state.settings[key] = next;
+        showToast(next === 'true' ? onMsg : offMsg, 'success');
+        renderBody();
+      } catch (e) {
+        toastError(e);
+      }
+    });
+  }
+
   // ===================== Page shell =====================
 
   function renderPage(el) {
@@ -181,6 +236,7 @@ var Pages = window.Pages || {};
     const tabs = [
       { id: 'members', label: `Members (${memberCount()})` },
       { id: 'approvals', label: `Approvals (${pendingTotal()})` },
+      { id: 'ads', label: `Ads${adsPending() ? ` (${adsPending()})` : ''}` },
       { id: 'messages', label: `Messages (${state.messages.length})` },
       { id: 'announcements', label: 'Announcements' },
       { id: 'roles', label: 'Roles' },
@@ -197,7 +253,7 @@ var Pages = window.Pages || {};
               <span class="admin-shield" aria-hidden="true">🛡️</span>
               <div>
                 <h1>Admin Panel</h1>
-                <p>Approve profile media, read messages and manage ${fbEscape(brand.name)} members</p>
+                <p>Approve profile media and ads, read messages and manage ${fbEscape(brand.name)} members</p>
               </div>
             </div>
             <div class="admin-top-actions">
@@ -232,6 +288,8 @@ var Pages = window.Pages || {};
       });
     });
     renderBody();
+    // The customer service button docks into this page's header row
+    if (window.SupportWidget && window.SupportWidget.refresh) window.SupportWidget.refresh();
   }
 
   function renderBody() {
@@ -239,6 +297,7 @@ var Pages = window.Pages || {};
     if (!body) return;
     if (state.tab === 'members') return renderMembers(body);
     if (state.tab === 'approvals') return renderApprovals(body);
+    if (state.tab === 'ads') return renderAds(body);
     if (state.tab === 'messages') return renderMessages(body);
     if (state.tab === 'announcements') return renderAnnouncements(body);
     if (state.tab === 'roles') return renderRoles(body);
@@ -460,6 +519,440 @@ var Pages = window.Pages || {};
         <button class="admin-reject" type="button" data-review="reject" data-id="${fbEscape(user.id)}" data-kind="${kind}">✕ Reject</button>
       </div>
     </article>`;
+  }
+
+  // ===================== Ads =====================
+
+  function adStatusBadge(ad) {
+    if (ad.status === 'pending') return '<span class="admin-badge admin-badge-pending">Pending review</span>';
+    if (ad.status === 'rejected') return '<span class="admin-badge admin-badge-rejected">Rejected</span>';
+    return ad.is_active
+      ? `<span class="admin-badge admin-badge-active">${isCoverAd(ad) ? 'Live on profile covers' : 'Live in videos'}</span>`
+      : '<span class="admin-badge admin-badge-suspended">Paused</span>';
+  }
+
+  function adTargetLabel(ad) {
+    if (ad.target_label) return ad.target_label;
+    if (ad.target_post_id) return 'One specific video';
+    if (ad.target_user_id) return isCoverAd(ad) ? "One member's cover" : "One member's videos";
+    return isCoverAd(ad) ? 'All profile covers' : 'All member videos';
+  }
+
+  function isCoverAd(ad) {
+    return String(ad.media_type || '').indexOf('cover') === 0;
+  }
+
+  function adPlacementLabel(ad) {
+    return isCoverAd(ad) ? '🖼️ Profile cover' : '🎬 Inside videos';
+  }
+
+  // How often an ad runs and how long it waits before it runs again
+  function playLabel(ad) {
+    const limit = Number(ad.play_limit);
+    const times = ad.play_limit == null || !isFinite(limit)
+      ? 'Once'
+      : limit === 0 ? 'Unlimited' : limit === 1 ? 'Once' : `${limit} times`;
+    const gap = Number(ad.gap_minutes) || 0;
+    return gap > 0 ? `${times} · repeat after ${gap} min` : times;
+  }
+
+  function playsOptions(value, attr) {
+    const n = Number(value);
+    const current = isFinite(n) && n >= 0 ? n : 1;
+    const values = [1, 2, 3, 5, 10, 0];
+    if (values.indexOf(current) === -1) values.splice(values.length - 1, 0, current);
+    return `<select ${attr} aria-label="How many times this ad plays">${values.map(v =>
+      `<option value="${v}"${v === current ? ' selected' : ''}>${v === 0 ? 'Unlimited' : v === 1 ? 'Once' : `${v} times`}</option>`
+    ).join('')}</select>`;
+  }
+
+  // The contact picker used both when uploading an ad and on an existing one
+  function contactOptions(selected) {
+    return ['', 'mobile', 'facebook'].map(type =>
+      `<option value="${type}"${type === (selected || '') ? ' selected' : ''}>${
+        type === 'mobile' ? 'Mobile number' : type === 'facebook' ? 'Facebook page' : 'No contact details'
+      }</option>`
+    ).join('');
+  }
+
+  function adCard(ad) {
+    const isVideo = /video$/.test(String(ad.media_type || ''));
+    const submitter = ad.created_by ? state.users.find(u => String(u.id) === String(ad.created_by)) : null;
+    const acts = [];
+    if (ad.status !== 'approved') {
+      acts.push(`<button class="admin-approve" type="button" data-ad-review="approve" data-ad="${fbEscape(ad.id)}">✓ Approve</button>`);
+    }
+    if (ad.status !== 'rejected') {
+      acts.push(`<button class="admin-reject" type="button" data-ad-review="reject" data-ad="${fbEscape(ad.id)}">✕ Reject</button>`);
+    }
+    if (ad.status === 'approved') {
+      acts.push(`<button class="admin-tool" type="button" data-ad-active="${ad.is_active ? 'pause' : 'play'}" data-ad="${fbEscape(ad.id)}">${ad.is_active ? '⏸ Pause' : '▶️ Resume'}</button>`);
+    }
+    acts.push(`<button class="admin-act delete" type="button" data-del-ad="${fbEscape(ad.id)}" title="Delete ad">🗑️</button>`);
+
+    return `<article class="admin-ad" data-ad-id="${fbEscape(ad.id)}">
+      <div class="admin-ad-media">
+        ${isVideo
+          ? `<video src="${fbEscape(ad.media_url)}" controls muted playsinline preload="metadata"></video>`
+          : `<img src="${fbEscape(ad.media_url)}" alt="${fbEscape(ad.title || 'Ad')}">`}
+      </div>
+      <div class="admin-ad-body">
+        <div class="admin-ad-title">${fbEscape(ad.title || 'Untitled ad')}</div>
+        <div class="admin-ad-meta">${adStatusBadge(ad)}
+          <span class="admin-badge admin-badge-target">${fbEscape(adPlacementLabel(ad))}</span>
+          <span class="admin-badge admin-badge-target">🎯 ${fbEscape(adTargetLabel(ad))}</span>
+          <span class="admin-badge admin-badge-target">🔁 ${fbEscape(playLabel(ad))}</span>
+          ${ad.created_by ? `<span class="admin-badge admin-badge-target">👤 ${fbEscape(submitter ? nameOf(submitter) : 'Member')}</span>` : ''}
+          <span class="admin-handle">${isVideo ? 'Video ad' : 'Image ad'} · ${fbEscape(fmtWhen(ad.created_at))}</span>
+        </div>
+        <div class="admin-ad-schedule">
+          <label>Plays ${playsOptions(ad.play_limit, `data-ad-plays="${fbEscape(ad.id)}"`)}</label>
+          <label>Repeat after
+            <input type="number" min="0" max="1440" step="1" value="${fbEscape(Number(ad.gap_minutes) || 0)}" data-ad-gap="${fbEscape(ad.id)}" aria-label="Minutes before this ad plays again">
+            min
+          </label>
+          ${isVideo ? '' : `<label>Image shows
+            <input type="number" min="1" max="120" step="1" value="${fbEscape(Number(ad.image_seconds) || Number(ad.skip_seconds) || 6)}" data-ad-image-seconds="${fbEscape(ad.id)}" aria-label="Seconds this image ad stays on screen">
+            sec
+          </label>`}
+          <button class="admin-tool" type="button" data-save-ad="${fbEscape(ad.id)}">Save</button>
+        </div>
+        <div class="admin-ad-schedule">
+          <label>Contact
+            <select data-ad-contact-type="${fbEscape(ad.id)}" data-saved="${fbEscape(ad.contact_type || '')}" aria-label="Contact details on this ad">${contactOptions(ad.contact_type)}</select>
+          </label>
+          <input class="admin-ad-contact-input" type="text" value="${fbEscape(ad.contact_value || '')}" data-ad-contact-value="${fbEscape(ad.id)}" placeholder="Mobile number or Facebook page" aria-label="Contact details">
+        </div>
+        <div class="admin-ad-actions">${acts.join('')}</div>
+      </div>
+    </article>`;
+  }
+
+  function renderAds(body) {
+    const adsOn = state.settings.video_ads !== 'false';
+    const live = state.ads.filter(a => a.status === 'approved' && a.is_active).length;
+    const pending = adsPending();
+    let pickedAdFile = null;
+
+    body.innerHTML = `
+      <section class="admin-card">
+        <div class="admin-toolbar">
+          <div class="admin-toolbar-title">📺 Ads (${live} live)</div>
+          <button class="admin-tool" id="adminRefresh" type="button">↻ Refresh</button>
+        </div>
+        <div class="admin-setting">
+          <div>
+            <div class="admin-setting-name">Ad breaks inside member videos</div>
+            <div class="admin-setting-desc">A few seconds into a member's video an approved ad suddenly covers it. The member's video pauses while the ad plays and continues from where it stopped.</div>
+          </div>
+          <button class="admin-switch${adsOn ? ' on' : ''}" id="adminVideoAdsToggle" type="button" role="switch" aria-checked="${adsOn}" aria-label="Play ads inside member videos"><i></i></button>
+        </div>
+        <div class="admin-compose">
+          <input id="adminAdTitle" type="text" placeholder="Ad name (e.g. Summer sale)" aria-label="Ad name">
+          <div class="admin-ad-target">
+            <select id="adminAdPlacement" aria-label="Where this ad is inserted">
+              <option value="video">Insert inside member videos</option>
+              <option value="cover">Insert on member profile covers</option>
+            </select>
+            <select id="adminAdScope" aria-label="Where this ad plays">
+              <option value="all">Play in all member videos</option>
+              <option value="user">Play in all videos from one member</option>
+              <option value="video">Play in one specific video</option>
+            </select>
+            <select id="adminAdUser" aria-label="Member whose videos play this ad" hidden></select>
+            <select id="adminAdPost" aria-label="The video that plays this ad" hidden></select>
+          </div>
+          <div class="admin-ad-schedule">
+            <label>Plays ${playsOptions(1, 'id="adminAdPlays"')}</label>
+            <label>Repeat after
+              <input id="adminAdGap" type="number" min="0" max="1440" step="1" value="0" aria-label="Minutes before this ad plays again">
+              min
+            </label>
+            <label>Image shows
+              <input id="adminAdImageSeconds" type="number" min="1" max="120" step="1" value="6" aria-label="Seconds an image ad stays on screen">
+              sec
+            </label>
+          </div>
+          <div class="admin-ad-contact">
+            <select id="adminAdContactType" aria-label="Contact details on this ad">
+              <option value="">No contact details</option>
+              <option value="mobile">Mobile number</option>
+              <option value="facebook">Facebook page</option>
+            </select>
+            <input id="adminAdContactValue" type="text" placeholder="Mobile number" aria-label="Contact details" hidden>
+          </div>
+          <input id="adminAdFile" type="file" accept="image/*,video/*" hidden>
+          <div class="admin-compose-foot">
+            <button class="admin-tool" id="adminAdPick" type="button">🎞 Choose image or video</button>
+            <span class="admin-hint admin-ad-pick-label" id="adminAdFileLabel">No file chosen</span>
+            <button class="admin-approve" id="adminAdUpload" type="button">Upload ad</button>
+          </div>
+        </div>
+        ${state.adsMissing ? '<p class="admin-hint">Run <code>026_create_ads.sql</code>, <code>027_ad_targeting.sql</code> and <code>029_ad_contact.sql</code> in your Supabase SQL Editor to create the ads table, then refresh.</p>' : ''}
+        ${pending ? `<p class="admin-hint">${pending} ad${pending === 1 ? '' : 's'} waiting for your review.</p>` : ''}
+        <div id="adminAdList" class="admin-ads">
+          ${state.ads.length ? state.ads.map(adCard).join('') : `<div class="admin-empty">${emptyState('📺', 'No ads yet. Upload an image or video above to start an ad break.')}</div>`}
+        </div>
+      </section>`;
+
+    body.querySelector('#adminRefresh').addEventListener('click', refresh);
+    bindSwitch(body, '#adminVideoAdsToggle', 'video_ads',
+      'Ad breaks are on', 'Ad breaks are off — member videos play without ads',
+      '026_create_ads.sql');
+    const adsSwitch = body.querySelector('#adminVideoAdsToggle');
+    if (adsSwitch) adsSwitch.addEventListener('click', () => { if (window.Ads) window.Ads.refresh(); });
+
+    const fileInput = body.querySelector('#adminAdFile');
+    const fileLabel = body.querySelector('#adminAdFileLabel');
+    body.querySelector('#adminAdPick').addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => {
+      pickedAdFile = (fileInput.files && fileInput.files[0]) || null;
+      fileLabel.textContent = pickedAdFile
+        ? pickedAdFile.name
+        : 'No file chosen';
+    });
+
+    // Where the ad plays: every member video, one member's videos, or one video
+    // A cover ad is inserted on profile covers instead of inside videos
+    const placementSel = body.querySelector('#adminAdPlacement');
+    const scopeSel = body.querySelector('#adminAdScope');
+    const userSel = body.querySelector('#adminAdUser');
+    const postSel = body.querySelector('#adminAdPost');
+    const members = state.users.filter(u => statusOf(u) !== 'deleted');
+    userSel.innerHTML = members.map(u =>
+      `<option value="${fbEscape(u.id)}">${fbEscape(nameOf(u))}${u.username ? ` (@${fbEscape(u.username)})` : ''}</option>`
+    ).join('');
+    let memberVideos = [];
+
+    function videoPostLabel(post) {
+      const text = String(post.content || '').trim().replace(/\s+/g, ' ').slice(0, 50);
+      return `${text || `Video #${post.id}`} · ${fmtWhen(post.created_at)}`;
+    }
+
+    async function fillMemberVideos() {
+      memberVideos = [];
+      postSel.innerHTML = '<option value="">Loading videos…</option>';
+      if (!userSel.value) return;
+      const { data } = await sb.from('posts')
+        .select('id, content, created_at')
+        .eq('user_id', Number(userSel.value))
+        .eq('media_type', 'video')
+        .order('created_at', { ascending: false })
+        .limit(100);
+      memberVideos = data || [];
+      postSel.innerHTML = memberVideos.length
+        ? memberVideos.map(p => `<option value="${fbEscape(p.id)}">${fbEscape(videoPostLabel(p))}</option>`).join('')
+        : '<option value="">This member has no uploaded videos</option>';
+    }
+
+    function syncScope() {
+      const scope = scopeSel.value;
+      userSel.hidden = scope === 'all';
+      postSel.hidden = scope !== 'video';
+    }
+
+    function syncPlacement() {
+      const onCover = placementSel.value === 'cover';
+      const videoOpt = scopeSel.querySelector('option[value="video"]');
+      videoOpt.hidden = onCover;
+      videoOpt.disabled = onCover;
+      if (onCover && scopeSel.value === 'video') scopeSel.value = 'all';
+      scopeSel.options[0].textContent = onCover ? 'Play on all profile covers' : 'Play in all member videos';
+      scopeSel.options[1].textContent = onCover ? "Play on one member's cover" : 'Play in all videos from one member';
+      syncScope();
+    }
+
+    scopeSel.addEventListener('change', () => {
+      syncScope();
+      if (scopeSel.value !== 'all') fillMemberVideos();
+    });
+    placementSel.addEventListener('change', syncPlacement);
+    userSel.addEventListener('change', () => {
+      if (scopeSel.value !== 'all') fillMemberVideos();
+    });
+    syncPlacement();
+
+    // Contact details ride on the ad: a mobile number gets Call and SMS
+    // buttons, a Facebook page opens the advertiser's page
+    const contactTypeSel = body.querySelector('#adminAdContactType');
+    const contactValueEl = body.querySelector('#adminAdContactValue');
+    contactTypeSel.addEventListener('change', () => {
+      const type = contactTypeSel.value;
+      contactValueEl.hidden = !type;
+      contactValueEl.placeholder = type === 'facebook' ? 'facebook.com/yourpage' : '+63 917 000 0000';
+      if (!type) contactValueEl.value = '';
+    });
+
+    body.querySelector('#adminAdUpload').addEventListener('click', async () => {
+      if (state.adsMissing) return showToast('Run 026_create_ads.sql in Supabase, then try again', 'error', 6000);
+      if (!pickedAdFile) return showToast('Choose an ad image or video first', 'error');
+      const isVideo = String(pickedAdFile.type || '').startsWith('video/');
+      if (isVideo && pickedAdFile.size > 100 * 1024 * 1024) return showToast('Videos must be 100 MB or smaller', 'error', 5000);
+      if (!isVideo && pickedAdFile.size > 20 * 1024 * 1024) return showToast('Photos must be 20 MB or smaller', 'error', 5000);
+      const contactType = contactTypeSel.value;
+      const contactRaw = contactValueEl.value.trim();
+      if (contactType && !contactRaw) {
+        return showToast(contactType === 'mobile' ? 'Add the mobile number for this ad' : 'Add the Facebook page for this ad', 'error', 5000);
+      }
+      if (contactType && !(await fbAdsHaveContact())) {
+        return showToast('Run 029_ad_contact.sql in Supabase to save contact details', 'error', 6000);
+      }
+
+      const scope = scopeSel.value;
+      const onCover = placementSel.value === 'cover';
+      const target = {
+        target_user_id: null,
+        target_post_id: null,
+        target_label: onCover ? 'All profile covers' : 'All member videos'
+      };
+      if (scope !== 'all') {
+        const member = members.find(u => String(u.id) === String(userSel.value));
+        if (!member) return showToast(onCover ? "Choose the member whose cover plays this ad" : 'Choose the member whose videos play this ad', 'error');
+        target.target_user_id = member.id;
+        target.target_label = onCover ? `${nameOf(member)} · profile cover` : `${nameOf(member)} · all their videos`;
+        if (scope === 'video') {
+          const post = memberVideos.find(p => String(p.id) === String(postSel.value));
+          if (!post) return showToast('Choose the video that plays this ad', 'error');
+          target.target_post_id = post.id;
+          target.target_label = `${nameOf(member)} · ${videoPostLabel(post)}`;
+        }
+      }
+
+      const btn = body.querySelector('#adminAdUpload');
+      btn.disabled = true;
+      btn.textContent = 'Uploading…';
+      try {
+        const payload = isVideo ? pickedAdFile : await shrinkImage(pickedAdFile, 1600).catch(() => pickedAdFile);
+        const url = await cloudinaryUpload(payload);
+        if (!url) throw new Error('image hosting is not connected');
+        const title = body.querySelector('#adminAdTitle').value.trim();
+        const playsEl = body.querySelector('#adminAdPlays');
+        const gapEl = body.querySelector('#adminAdGap');
+        const secsEl = body.querySelector('#adminAdImageSeconds');
+        const imageSeconds = Math.min(120, Math.max(1, Math.floor(Number(secsEl && secsEl.value) || 6)));
+        // Until 030_ad_image_seconds.sql has run an image ad keeps its seconds
+        // in skip_seconds, the column every ads table already has
+        const timed = await fbAdsHaveImageSeconds();
+        const { error } = await sb.from('ads').insert([{
+          title: title || 'Sponsored',
+          media_url: url,
+          media_type: (onCover ? 'cover_' : '') + (isVideo ? 'video' : 'image'),
+          status: 'pending',
+          is_active: true,
+          created_by: me.id,
+          play_limit: Math.max(0, Number(playsEl && playsEl.value) || 0),
+          gap_minutes: Math.max(0, Math.floor(Number(gapEl && gapEl.value) || 0)),
+          ...(timed ? { image_seconds: imageSeconds } : (isVideo ? {} : { skip_seconds: imageSeconds })),
+          ...(contactType ? { contact_type: contactType, contact_value: fbAdContactValue(contactType, contactRaw) } : {}),
+          ...target
+        }]);
+        if (error) throw error;
+        showToast('Ad uploaded — approve it to start the ad break', 'success');
+        await refresh();
+      } catch (e) {
+        btn.disabled = false;
+        btn.textContent = 'Upload ad';
+        toastError(e);
+      }
+    });
+
+    body.querySelectorAll('[data-ad-review]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const approve = btn.dataset.adReview === 'approve';
+        btn.disabled = true;
+        try {
+          const { error } = await sb.rpc('admin_review_ad', {
+            p_admin_id: me.id, p_ad_id: Number(btn.dataset.ad), p_approve: approve
+          });
+          if (error) throw error;
+          showToast(approve ? 'Ad approved — it now plays in member videos' : 'Ad rejected', 'success');
+          if (window.Ads) window.Ads.refresh();
+          await refresh();
+        } catch (e) {
+          btn.disabled = false;
+          toastError(e);
+        }
+      });
+    });
+
+    body.querySelectorAll('[data-ad-active]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const play = btn.dataset.adActive === 'play';
+        btn.disabled = true;
+        try {
+          const { error } = await sb.rpc('admin_set_ad_active', {
+            p_admin_id: me.id, p_ad_id: Number(btn.dataset.ad), p_active: play
+          });
+          if (error) throw error;
+          showToast(play ? 'Ad is back in the rotation' : 'Ad paused', 'success');
+          if (window.Ads) window.Ads.refresh();
+          await refresh();
+        } catch (e) {
+          btn.disabled = false;
+          toastError(e);
+        }
+      });
+    });
+
+    body.querySelectorAll('[data-save-ad]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.saveAd;
+        const plays = body.querySelector(`[data-ad-plays="${id}"]`);
+        const gap = body.querySelector(`[data-ad-gap="${id}"]`);
+        const secsEl = body.querySelector(`[data-ad-image-seconds="${id}"]`);
+        const typeEl = body.querySelector(`[data-ad-contact-type="${id}"]`);
+        const valueEl = body.querySelector(`[data-ad-contact-value="${id}"]`);
+        const type = typeEl ? typeEl.value : '';
+        const raw = valueEl ? valueEl.value.trim() : '';
+        if (type && !raw) {
+          return showToast(type === 'mobile' ? 'Add the mobile number for this ad' : 'Add the Facebook page for this ad', 'error', 5000);
+        }
+        const patch = {
+          play_limit: Math.max(0, Number(plays && plays.value) || 0),
+          gap_minutes: Math.max(0, Math.floor(Number(gap && gap.value) || 0))
+        };
+        // Until 030_ad_image_seconds.sql has run an image ad keeps its seconds
+        // in skip_seconds, the column every ads table already has
+        if (secsEl) {
+          const seconds = Math.min(120, Math.max(1, Math.floor(Number(secsEl.value) || 6)));
+          patch[await fbAdsHaveImageSeconds() ? 'image_seconds' : 'skip_seconds'] = seconds;
+        }
+        // Contact columns only exist after 029_ad_contact.sql
+        if (type || (typeEl && typeEl.dataset.saved)) {
+          if (!(await fbAdsHaveContact())) {
+            return showToast('Run 029_ad_contact.sql in Supabase to save contact details', 'error', 6000);
+          }
+          patch.contact_type = type || null;
+          patch.contact_value = type ? fbAdContactValue(type, raw) : null;
+        }
+        btn.disabled = true;
+        try {
+          const { error } = await sb.from('ads').update(patch).eq('id', id);
+          if (error) throw error;
+          showToast('Ad settings saved', 'success');
+          if (window.Ads) window.Ads.refresh();
+          await refresh();
+        } catch (e) {
+          btn.disabled = false;
+          toastError(e);
+        }
+      });
+    });
+
+    body.querySelectorAll('[data-del-ad]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Delete this ad?')) return;
+        try {
+          const { error } = await sb.from('ads').delete().eq('id', btn.dataset.delAd);
+          if (error) throw error;
+          showToast('Ad deleted', 'success');
+          if (window.Ads) window.Ads.refresh();
+          await refresh();
+        } catch (e) {
+          toastError(e);
+        }
+      });
+    });
   }
 
   // ===================== Messages =====================
@@ -796,40 +1289,19 @@ var Pages = window.Pages || {};
       </section>`;
 
     body.querySelector('#adminRefresh').addEventListener('click', refresh);
-    // One switch: flip the stored value, then repaint the settings panel
-    function bindSwitch(selector, key, onMsg, offMsg, migration) {
-      const el = body.querySelector(selector);
-      if (!el) return;
-      el.addEventListener('click', async () => {
-        const next = el.getAttribute('aria-checked') === 'true' ? 'false' : 'true';
-        try {
-          const { error } = await sb.rpc('admin_set_setting', {
-            p_admin_id: me.id, p_key: key, p_value: next
-          });
-          if (error) throw new Error(migration && /Unknown setting/.test(error.message)
-            ? `Run ${migration} in Supabase, then try again`
-            : error.message);
-          state.settings[key] = next;
-          showToast(next === 'true' ? onMsg : offMsg, 'success');
-          renderBody();
-        } catch (e) {
-          toastError(e);
-        }
-      });
-    }
 
-    bindSwitch('#adminApprovalToggle', 'require_media_approval',
+    bindSwitch(body, '#adminApprovalToggle', 'require_media_approval',
       'Media approval is on', 'Media approval is off — new media goes live at once');
-    bindSwitch('#adminOverlayToggle', 'overlay_button',
+    bindSwitch(body, '#adminOverlayToggle', 'overlay_button',
       'Overlay button is on', 'Overlay button is hidden from profiles',
       '020_add_overlay_button_setting.sql');
-    bindSwitch('#adminCoverVideoToggle', 'cover_video',
+    bindSwitch(body, '#adminCoverVideoToggle', 'cover_video',
       'Members can use a cover video', 'Cover pictures only — video covers are off',
       '021_add_cover_video_and_video_post_settings.sql');
-    bindSwitch('#adminVideoPostToggle', 'video_posts',
+    bindSwitch(body, '#adminVideoPostToggle', 'video_posts',
       'Members can post videos', 'Video posts are off — the Video button is gone',
       '021_add_cover_video_and_video_post_settings.sql');
-    bindSwitch('#adminGuestSendToggle', 'guest_chat_send',
+    bindSwitch(body, '#adminGuestSendToggle', 'guest_chat_send',
       'Guests can send in group chats', 'Guest sending is off — guests can read only',
       '024_add_guest_chat_setting.sql');
 
