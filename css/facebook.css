@@ -795,10 +795,16 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
   padding: 0 1.5rem;
   margin-top: -62px;
   position: relative;
-  /* The profile photo or clip sits on top of a cover ad, never behind it */
-  z-index: 5;
+  /* The profile photo or clip sits on top of a pinned cover ad (115) and still
+     slides under the top bar (120) */
+  z-index: 118;
+  /* Only the photo, name and buttons take clicks: the empty space between them
+     lets the cover ad's contact buttons underneath stay usable */
+  pointer-events: none;
 }
-.fb-profile-head > .fb-profile-id { flex: 1 1 auto; }
+.fb-profile-head > * { pointer-events: auto; }
+/* The name is plain text: it never takes a click that belongs to the ad below */
+.fb-profile-head > .fb-profile-id { flex: 1 1 auto; pointer-events: none; }
 .fb-profile-avatar {
   position: relative;
   width: 152px; height: 152px; flex-shrink: 0;

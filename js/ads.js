@@ -187,8 +187,12 @@ window.Ads = (function () {
     return el;
   }
 
-  // Every ad starts with its sound on. A browser that refuses a sounding start
-  // plays it silently for now and gives the sound back at the first tap anywhere
+  // Every ad starts with its sound on. Phones refuse a sounding start until the
+  // visitor touches the page, so the ad plays silently for that moment and the
+  // first tap, touch (even the one that starts a scroll) or key press brings the
+  // sound up
+  const SOUND_UNLOCK_EVENTS = ['pointerdown', 'touchstart', 'keydown'];
+
   function playWithSound(el, opts) {
     const o = opts || {};
     el.muted = false;
@@ -200,21 +204,29 @@ window.Ads = (function () {
       el.play().catch(() => { if (o.onFail) o.onFail(); });
       if (o.onBlocked) o.onBlocked();
       const unlock = () => {
-        document.removeEventListener('pointerdown', unlock, true);
-        document.removeEventListener('keydown', unlock, true);
+        SOUND_UNLOCK_EVENTS.forEach(name => document.removeEventListener(name, unlock, true));
         if (!el.isConnected) return;
-        el.muted = false;
-        el.volume = 1;
         // A browser can stop a clip it was playing silently the moment it is
-        // unmuted, so it is started again here and once more a moment later
-        el.play().catch(() => {});
+        // unmuted, so the sound is asked for again here and once more a moment
+        // later; a browser that still refuses keeps the ad running silently
+        // instead of freezing it
+        const withSound = () => {
+          el.muted = false;
+          el.volume = 1;
+          const played = el.play();
+          if (played && played.catch) played.catch(() => {
+            el.muted = true;
+            el.play().catch(() => {});
+            if (o.onBlocked) o.onBlocked();
+          });
+        };
+        withSound();
         setTimeout(() => {
-          if (el.isConnected && el.paused && !el.ended) el.play().catch(() => {});
+          if (el.isConnected && el.paused && !el.ended) withSound();
         }, 150);
         if (o.onUnmuted) o.onUnmuted();
       };
-      document.addEventListener('pointerdown', unlock, true);
-      document.addEventListener('keydown', unlock, true);
+      SOUND_UNLOCK_EVENTS.forEach(name => document.addEventListener(name, unlock, true));
     });
   }
 
