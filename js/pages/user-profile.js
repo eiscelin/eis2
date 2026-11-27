@@ -97,24 +97,24 @@ Pages.userProfile = async function (el, username) {
     return;
   }
 
-  // Friend requests: the button follows the state between the two members
+  // The friend state, the follower count and the age are three independent
+  // reads: they go out together so the page paints after one round trip
   let friendState = 'none';
-  if (viewer && window.Friends) {
-    try { await Friends.load(viewer); } catch { /* friend requests are optional */ }
-    friendState = Friends.statusWith(person.id);
-  }
-
-  // Friends are followers: the count beside the name is the accepted requests
   let followerCount = 0;
-  if (window.Friends) {
-    try { followerCount = await Friends.countFollowers(person.id); } catch { /* count stays 0 */ }
-  }
+  const friendReady = viewer && window.Friends
+    ? Friends.load(viewer).catch(() => { /* friend requests are optional */ })
+    : Promise.resolve();
+  const followersReady = window.Friends
+    ? Friends.countFollowers(person.id).catch(() => 0)
+    : Promise.resolve(0);
+  const [ageResult, , followers] = await Promise.all([
+    ageReady || Promise.resolve(null), friendReady, followersReady
+  ]);
+  if (viewer && window.Friends) friendState = Friends.statusWith(person.id);
+  followerCount = Number(followers) || 0;
 
   let age = null;
-  if (ageReady) {
-    const { data: ageRows } = await ageReady;
-    if (ageRows && ageRows[0]) age = ageRows[0].age;
-  }
+  if (ageResult && ageResult.data && ageResult.data[0]) age = ageResult.data[0].age;
 
   const name = person.full_name || person.username || 'Member';
 

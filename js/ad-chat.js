@@ -207,11 +207,19 @@ window.AdChat = (function () {
     input.focus();
   }
 
+  // Auth is a top-level const in auth.js, so it is not a window property
+  function signedInMember() {
+    const auth = window.Auth || (typeof Auth === 'undefined' ? null : Auth);
+    return auth && auth.isLoggedIn() ? auth.currentUser : null;
+  }
+
   // ownerId is the member who placed the ad; ownerName is what they are called
   function open(ownerId, ownerName) {
     if (!ownerId || !sb) return;
     const name = String(ownerName || 'the advertiser');
-    if (window.Auth && Auth.isLoggedIn() && Auth.currentUser) {
+    // A member with an account messages as themselves, so the advertiser gets
+    // the thread in their own Messages list and can answer it there
+    if (signedInMember()) {
       openMemberChat(ownerId);
       return;
     }
