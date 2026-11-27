@@ -3171,6 +3171,17 @@ label {
   background: #f5b301; color: #111;
   font-size: 0.7rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
 }
+/* A browser that blocks a sounding autoplay leaves this button to bring the
+   ad's sound up with one tap */
+.fb-cover-ad-sound {
+  position: absolute; right: 1.1rem; top: 1rem; z-index: 2;
+  padding: 0.3rem 0.65rem; border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: rgba(0, 0, 0, 0.6); color: #fff;
+  font: inherit; font-size: 0.78rem; font-weight: 700; cursor: pointer;
+  pointer-events: auto;
+}
+.fb-cover-ad-sound:hover { background: rgba(0, 0, 0, 0.8); }
 .fb-cover-ad-title {
   position: absolute; left: 1.1rem; bottom: 1rem; max-width: 70%;
   padding: 0.25rem 0.6rem; border-radius: 6px;

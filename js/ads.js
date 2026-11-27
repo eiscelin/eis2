@@ -445,6 +445,21 @@ window.Ads = (function () {
       && (ad.target_user_id == null || String(ad.target_user_id) === String(ownerId)));
   }
 
+  // A cover ad plays with sound, but only one clip makes sound at a time: while
+  // an ad break or a member's own video plays out loud the cover ad keeps
+  // playing silently and gets the sound back when that clip stops
+  function syncCoverSound() {
+    const busy = [...document.querySelectorAll('video')].some(el =>
+      !el.closest('.fb-cover-ad') && !el.paused && !el.muted);
+    document.querySelectorAll('.fb-cover-ad video').forEach(el => {
+      el.muted = busy || el.dataset.sound === '0';
+    });
+  }
+
+  ['play', 'pause', 'ended', 'volumechange'].forEach(name => {
+    document.addEventListener(name, syncCoverSound, true);
+  });
+
   // The cover takes the ad's own shape so the whole image or video shows; when
   // the ad ends onEnd runs so the next ad (or the member's cover) can take over.
   // With `repeat` a lone ad never hands the cover back: its clip loops and its
@@ -459,7 +474,8 @@ window.Ads = (function () {
     layer.innerHTML = `
       <span class="fb-cover-ad-tag">Ad</span>
       ${videoAd
-        ? '<video class="fb-cover-ad-media" playsinline muted autoplay preload="auto"></video>'
+        ? '<video class="fb-cover-ad-media" playsinline autoplay preload="auto"></video>'
+          + '<button class="fb-cover-ad-sound" type="button" hidden>🔊 Sound</button>'
         : `<img class="fb-cover-ad-media" src="${escapeHtml(fbImageUrl(ad.media_url, 1200))}" alt="${escapeHtml(ad.title || 'Advertisement')}">`}
       ${ad.title ? `<span class="fb-cover-ad-title">${escapeHtml(ad.title)}</span>` : ''}
       ${adActions(ad, 'fb-cover-ad-contact')}`;
@@ -514,8 +530,30 @@ window.Ads = (function () {
       const coverPoster = adPoster(ad);
       if (coverPoster) adMedia.setAttribute('poster', coverPoster);
       adMedia.src = adVideoSrc(ad);
+      adMedia.volume = 1;
+      // Sound on, unless another clip already has it
+      syncCoverSound();
+      const soundBtn = layer.querySelector('.fb-cover-ad-sound');
+      // A browser that only allows a silent start plays the ad muted and offers
+      // the Sound button, so one tap brings the sound up
+      const silent = () => {
+        adMedia.dataset.sound = '0';
+        adMedia.muted = true;
+        soundBtn.hidden = false;
+        adMedia.play().catch(() => restore(true));
+      };
       const attempt = adMedia.play();
-      if (attempt && attempt.catch) attempt.catch(() => restore(true));
+      if (attempt && attempt.catch) attempt.catch(silent);
+      soundBtn.addEventListener('click', event => {
+        event.stopPropagation();
+        delete adMedia.dataset.sound;
+        soundBtn.hidden = true;
+        syncCoverSound();
+        // A browser that still refuses sound keeps the ad playing silently
+        // instead of leaving it stopped, and keeps the button up
+        const attempt = adMedia.play();
+        if (attempt && attempt.catch) attempt.catch(silent);
+      });
     } else {
       if (adMedia.complete) fit();
       else adMedia.addEventListener('load', fit, { once: true });
