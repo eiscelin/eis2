@@ -293,11 +293,11 @@ function postMediaHtml(post) {
   if (post.media_type !== 'video') {
     return `<div class="fb-post-media"><img class="fb-post-media-el" src="${fbEscape(fbImageUrl(post.media_url, 720))}" alt="" loading="lazy" decoding="async"></div>`;
   }
-  // A video card shows its first frame as a picture and only pulls the clip
-  // when the member presses play: a feed of videos no longer fights itself for
-  // bandwidth, so the clip being watched starts straight away
+  // A video card shows its first frame as a picture and downloads nothing until
+  // the member presses play, so a phone scrolling past a feed of clips never
+  // buffers them all at once
   const poster = fbVideoPoster(post.media_url, 720);
-  return `<div class="fb-post-media"><video class="fb-post-media-el" src="${fbEscape(fbVideoUrl(post.media_url, 960))}"${poster ? ` poster="${fbEscape(poster)}"` : ''} controls playsinline preload="metadata" data-post-id="${fbEscape(post.id || '')}" data-post-user="${fbEscape(post.user_id || '')}"></video></div>`;
+  return `<div class="fb-post-media"><video class="fb-post-media-el" src="${fbEscape(fbVideoUrl(post.media_url, 960))}"${poster ? ` poster="${fbEscape(poster)}"` : ''} controls playsinline preload="none" data-post-id="${fbEscape(post.id || '')}" data-post-user="${fbEscape(post.user_id || '')}"></video></div>`;
 }
 
 const POST_AUDIENCES = {
