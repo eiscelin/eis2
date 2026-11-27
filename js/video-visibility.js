@@ -18,6 +18,22 @@ window.VideoVisibility = (function () {
     video.pause();
   }
 
+  // A playing clip is a moving picture under glass: the cards around it give up
+  // their frosted blur while it runs, so a phone never re-blurs that backdrop
+  // for every frame of the video
+  function syncCards(video) {
+    // Only a clip filling the post, or the ad inside it, is worth the change: a
+    // small reaction video never blurs a backdrop wide enough to cost a frame
+    const big = v => !v.paused && !v.ended && (!!v.closest('.fb-post-media') || !!v.closest('.fb-cover-ad'));
+    let el = video.parentElement;
+    while (el && el !== document.body) {
+      if (el.classList && el.classList.contains('fb-card')) {
+        el.classList.toggle('fb-card-live', [...el.querySelectorAll('video')].some(big));
+      }
+      el = el.parentElement;
+    }
+  }
+
   function isWhole(entry) {
     const viewport = window.innerHeight || 0;
     const height = entry.boundingClientRect.height;
@@ -61,13 +77,22 @@ window.VideoVisibility = (function () {
     if (!video || video.tagName !== 'VIDEO') return;
     if (selfPaused.has(video)) selfPaused.delete(video);
     else auto.delete(video);
+    syncCards(video);
+  }, true);
+
+  // A clip that reaches its end has not paused, so the card is put back here
+  document.addEventListener('ended', event => {
+    const video = event.target;
+    if (video && video.tagName === 'VIDEO') syncCards(video);
   }, true);
 
   // A clip started while it is off screen stops at once — an ad that ends after
   // the member scrolled away must not leave it playing unseen
   document.addEventListener('play', event => {
     const video = event.target;
-    if (!video || video.tagName !== 'VIDEO' || isAd(video)) return;
+    if (!video || video.tagName !== 'VIDEO') return;
+    syncCards(video);
+    if (isAd(video)) return;
     const box = video.getBoundingClientRect();
     if (box.bottom <= 0 || box.top >= (window.innerHeight || 0)) {
       auto.add(video);

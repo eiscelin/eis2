@@ -3071,6 +3071,16 @@ label {
   -webkit-overflow-scrolling: touch;
 }
 
+/* A clip that is playing gets a plain card behind it: on a phone the frosted
+   backdrop would otherwise be re-blurred for every frame of the video */
+@media (max-width: 900px) {
+  .fb-card.fb-card-live,
+  .fb-card.fb-card-live:hover {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
 /* End of the feed: older posts arrive when the member gets here */
 .fb-feed-more { display: flex; justify-content: center; padding: 0.9rem 0 1.6rem; }
 .fb-feed-more[hidden] { display: none; }
