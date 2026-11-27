@@ -146,6 +146,18 @@
       root.style.setProperty('--sup-right', Math.round(document.documentElement.clientWidth - anchor) + 'px');
       return;
     }
+    // Pages without a top bar (the admin panel) keep the button at the top too,
+    // just before their own header buttons, so it never sits on the messenger
+    // bubble in the bottom corner
+    const pageActions = document.querySelector('.admin-top-actions');
+    if (pageActions) {
+      const actions = pageActions.getBoundingClientRect();
+      root.classList.add('dock-bar');
+      root.classList.remove('dock-cover', 'dock-compact');
+      root.style.setProperty('--sup-top', Math.round(actions.top + (actions.height - fab.offsetHeight) / 2) + 'px');
+      root.style.setProperty('--sup-right', Math.round(document.documentElement.clientWidth - actions.left + 10) + 'px');
+      return;
+    }
     root.classList.remove('dock-bar', 'dock-compact');
     if (cover && dockAboveCover(cover)) return;
     root.classList.remove('dock-cover');
@@ -170,7 +182,7 @@
     if (!sb) return;
     const identity = user ? String(user.id) : 'guest';
     // Same person as the widget already on screen: keep the open chat
-    if (root && root.isConnected && root.dataset.identity === identity) { syncDock(); return; }
+    if (root && root.isConnected && root.dataset.identity === identity) { onLayoutChange(); return; }
     unmount();
 
     const signedIn = !!user;
@@ -638,5 +650,6 @@
     })();
   }
 
-  window.SupportWidget = { mount, unmount };
+  // refresh: a page that renders its own header tells the button to dock again
+  window.SupportWidget = { mount, unmount, refresh: onLayoutChange };
 })();

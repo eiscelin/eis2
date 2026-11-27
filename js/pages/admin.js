@@ -282,6 +282,8 @@ var Pages = window.Pages || {};
       });
     });
     renderBody();
+    // The customer service button docks into this page's header row
+    if (window.SupportWidget && window.SupportWidget.refresh) window.SupportWidget.refresh();
   }
 
   function renderBody() {
