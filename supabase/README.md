@@ -30,6 +30,7 @@ Run each file in `migrations/` once in the Supabase dashboard (SQL Editor > New 
 19. `027_ad_targeting.sql` — choose where each ad plays: every member video, all videos from one member, or one specific video
 20. `028_ad_play_schedule.sql` — how many times an ad plays and the minutes it waits before it plays again
 21. `029_ad_contact.sql` — contact details on an ad (mobile number with Call/SMS buttons, or a Facebook page) and the Message button that opens the advertiser's chat
+22. `030_ad_image_seconds.sql` — optional: gives image ads their own `image_seconds` column. Without it the app keeps each image ad's seconds in `skip_seconds`, so the setting still works
 
 After running `008`, open `#/Admin` while signed in. If no admin exists yet, the panel offers
 "Make me the first admin" once; otherwise set the role in SQL:

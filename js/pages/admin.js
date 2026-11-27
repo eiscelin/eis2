@@ -612,7 +612,7 @@ var Pages = window.Pages || {};
             min
           </label>
           ${isVideo ? '' : `<label>Image shows
-            <input type="number" min="1" max="120" step="1" value="${fbEscape(Number(ad.image_seconds) || 6)}" data-ad-image-seconds="${fbEscape(ad.id)}" aria-label="Seconds this image ad stays on screen">
+            <input type="number" min="1" max="120" step="1" value="${fbEscape(Number(ad.image_seconds) || Number(ad.skip_seconds) || 6)}" data-ad-image-seconds="${fbEscape(ad.id)}" aria-label="Seconds this image ad stays on screen">
             sec
           </label>`}
           <button class="admin-tool" type="button" data-save-ad="${fbEscape(ad.id)}">Save</button>
@@ -830,11 +830,9 @@ var Pages = window.Pages || {};
         const gapEl = body.querySelector('#adminAdGap');
         const secsEl = body.querySelector('#adminAdImageSeconds');
         const imageSeconds = Math.min(120, Math.max(1, Math.floor(Number(secsEl && secsEl.value) || 6)));
-        // The image timing column arrives with 030_ad_image_seconds.sql
+        // Until 030_ad_image_seconds.sql has run an image ad keeps its seconds
+        // in skip_seconds, the column every ads table already has
         const timed = await fbAdsHaveImageSeconds();
-        if (!timed && !isVideo) {
-          showToast('Run 030_ad_image_seconds.sql in Supabase to set how long image ads show', 'error', 6000);
-        }
         const { error } = await sb.from('ads').insert([{
           title: title || 'Sponsored',
           media_url: url,
@@ -844,7 +842,7 @@ var Pages = window.Pages || {};
           created_by: me.id,
           play_limit: Math.max(0, Number(playsEl && playsEl.value) || 0),
           gap_minutes: Math.max(0, Math.floor(Number(gapEl && gapEl.value) || 0)),
-          ...(timed ? { image_seconds: imageSeconds } : {}),
+          ...(timed ? { image_seconds: imageSeconds } : (isVideo ? {} : { skip_seconds: imageSeconds })),
           ...(contactType ? { contact_type: contactType, contact_value: fbAdContactValue(contactType, contactRaw) } : {}),
           ...target
         }]);
@@ -913,9 +911,11 @@ var Pages = window.Pages || {};
           play_limit: Math.max(0, Number(plays && plays.value) || 0),
           gap_minutes: Math.max(0, Math.floor(Number(gap && gap.value) || 0))
         };
-        // The image timing column arrives with 030_ad_image_seconds.sql
-        if (secsEl && await fbAdsHaveImageSeconds()) {
-          patch.image_seconds = Math.min(120, Math.max(1, Math.floor(Number(secsEl.value) || 6)));
+        // Until 030_ad_image_seconds.sql has run an image ad keeps its seconds
+        // in skip_seconds, the column every ads table already has
+        if (secsEl) {
+          const seconds = Math.min(120, Math.max(1, Math.floor(Number(secsEl.value) || 6)));
+          patch[await fbAdsHaveImageSeconds() ? 'image_seconds' : 'skip_seconds'] = seconds;
         }
         // Contact columns only exist after 029_ad_contact.sql
         if (type || (typeEl && typeEl.dataset.saved)) {

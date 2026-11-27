@@ -230,10 +230,19 @@ window.Ads = (function () {
     return isFinite(minutes) && minutes > 0 ? minutes * 60000 : 0;
   }
 
-  // How long an image ad stays on screen: the admin sets it per ad
+  // How long an image ad stays on screen: the admin sets it per ad. Until
+  // 030_ad_image_seconds.sql has run the same number lives in skip_seconds,
+  // which an image ad has no other use for
+  function imageSeconds(ad) {
+    const own = Number(ad.image_seconds);
+    if (isFinite(own) && own > 0) return own;
+    const stored = Number(ad.skip_seconds);
+    if (isFinite(stored) && stored > 0) return stored;
+    return IMAGE_AD_MS / 1000;
+  }
+
   function imageMs(ad) {
-    const seconds = Number(ad.image_seconds);
-    return (isFinite(seconds) && seconds > 0 ? seconds : IMAGE_AD_MS / 1000) * 1000;
+    return imageSeconds(ad) * 1000;
   }
 
   function adState(ad) {
@@ -326,8 +335,11 @@ window.Ads = (function () {
     markPlayed(ad);
 
     const mediaType = isVideoAd(ad) ? 'video' : 'image';
-    const skipSeconds = Math.max(0, Number(ad.skip_seconds));
-    const waitBeforeSkip = ad.skip_seconds == null ? DEFAULT_SKIP_SECONDS : skipSeconds;
+    // An image ad may keep its length in skip_seconds, so its Skip button comes
+    // back to the usual few seconds instead of waiting for the whole image
+    const waitBeforeSkip = mediaType === 'video'
+      ? (ad.skip_seconds == null ? DEFAULT_SKIP_SECONDS : Math.max(0, Number(ad.skip_seconds)))
+      : Math.min(DEFAULT_SKIP_SECONDS, imageSeconds(ad));
 
     pauseOthers(video);
     video.pause();
@@ -613,7 +625,9 @@ window.Ads = (function () {
       if (adMedia.complete) fit();
       else adMedia.addEventListener('load', fit, { once: true });
       adMedia.addEventListener('error', () => restore(true), { once: true });
-      if (!repeat) imageTimer = setTimeout(() => restore(), imageMs(ad));
+      // An image ad always keeps its own time on screen, then hands the cover
+      // back to the member
+      imageTimer = setTimeout(() => restore(), imageMs(ad));
     }
   }
 
@@ -636,8 +650,13 @@ window.Ads = (function () {
         const pick = ready.length ? ready : list;
         const ad = pick[cursor++ % pick.length];
         markPlayed(ad);
+        // An image ad gives the cover back to the member after its seconds; only
+        // another ready ad takes over from there
+        const imageAd = !isVideoAd(ad);
         paintCoverAd(cover, ad, failedAd => {
           if (failedAd) failed.add(String(ad.id));
+          if (imageAd && !list.some(other => String(other.id) !== String(ad.id)
+            && !failed.has(String(other.id)) && waitFor(other) === 0)) return;
           next();
         }, list.length === 1);
       }
