@@ -795,6 +795,8 @@ tbody tr:hover td { background: rgba(255, 255, 255, 0.03); }
   padding: 0 1.5rem;
   margin-top: -62px;
   position: relative;
+  /* The profile photo or clip sits on top of a cover ad, never behind it */
+  z-index: 5;
 }
 .fb-profile-head > .fb-profile-id { flex: 1 1 auto; }
 .fb-profile-avatar {
