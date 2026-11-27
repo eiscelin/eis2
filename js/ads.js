@@ -425,10 +425,22 @@ window.Ads = (function () {
     const breakState = { video, overlay, adVideo, done: false, ticker: 0, skipTimer: 0, endTimer: 0 };
     active = breakState;
 
+    // The ad rides in the member's video: once that video has scrolled out of
+    // view the ad ends with it, so nothing keeps playing off screen
+    const watch = typeof IntersectionObserver === 'function'
+      ? new IntersectionObserver(entries => {
+          entries.forEach(entry => {
+            if (entry.intersectionRatio < 0.35) finish();
+          });
+        }, { threshold: [0, 0.35, 0.5, 1] })
+      : null;
+    if (watch) watch.observe(video);
+
     function stopTimers() {
       clearInterval(breakState.ticker);
       clearTimeout(breakState.skipTimer);
       clearTimeout(breakState.endTimer);
+      if (watch) watch.disconnect();
     }
 
     // The member's video continues from the second the ad interrupted it
