@@ -521,19 +521,27 @@ var Pages = window.Pages || {};
     if (ad.status === 'pending') return '<span class="admin-badge admin-badge-pending">Pending review</span>';
     if (ad.status === 'rejected') return '<span class="admin-badge admin-badge-rejected">Rejected</span>';
     return ad.is_active
-      ? '<span class="admin-badge admin-badge-active">Live in videos</span>'
+      ? `<span class="admin-badge admin-badge-active">${isCoverAd(ad) ? 'Live on profile covers' : 'Live in videos'}</span>`
       : '<span class="admin-badge admin-badge-suspended">Paused</span>';
   }
 
   function adTargetLabel(ad) {
     if (ad.target_label) return ad.target_label;
     if (ad.target_post_id) return 'One specific video';
-    if (ad.target_user_id) return "One member's videos";
-    return 'All member videos';
+    if (ad.target_user_id) return isCoverAd(ad) ? "One member's cover" : "One member's videos";
+    return isCoverAd(ad) ? 'All profile covers' : 'All member videos';
+  }
+
+  function isCoverAd(ad) {
+    return String(ad.media_type || '').indexOf('cover') === 0;
+  }
+
+  function adPlacementLabel(ad) {
+    return isCoverAd(ad) ? '🖼️ Profile cover' : '🎬 Inside videos';
   }
 
   function adCard(ad) {
-    const isVideo = ad.media_type === 'video';
+    const isVideo = /video$/.test(String(ad.media_type || ''));
     const acts = [];
     if (ad.status !== 'approved') {
       acts.push(`<button class="admin-approve" type="button" data-ad-review="approve" data-ad="${fbEscape(ad.id)}">✓ Approve</button>`);
@@ -555,6 +563,7 @@ var Pages = window.Pages || {};
       <div class="admin-ad-body">
         <div class="admin-ad-title">${fbEscape(ad.title || 'Untitled ad')}</div>
         <div class="admin-ad-meta">${adStatusBadge(ad)}
+          <span class="admin-badge admin-badge-target">${fbEscape(adPlacementLabel(ad))}</span>
           <span class="admin-badge admin-badge-target">🎯 ${fbEscape(adTargetLabel(ad))}</span>
           <span class="admin-handle">${isVideo ? 'Video ad' : 'Image ad'} · ${fbEscape(fmtWhen(ad.created_at))}</span>
         </div>
@@ -572,7 +581,7 @@ var Pages = window.Pages || {};
     body.innerHTML = `
       <section class="admin-card">
         <div class="admin-toolbar">
-          <div class="admin-toolbar-title">📺 Ads in member videos (${live} live)</div>
+          <div class="admin-toolbar-title">📺 Ads (${live} live)</div>
           <button class="admin-tool" id="adminRefresh" type="button">↻ Refresh</button>
         </div>
         <div class="admin-setting">
@@ -585,6 +594,10 @@ var Pages = window.Pages || {};
         <div class="admin-compose">
           <input id="adminAdTitle" type="text" placeholder="Ad name (e.g. Summer sale)" aria-label="Ad name">
           <div class="admin-ad-target">
+            <select id="adminAdPlacement" aria-label="Where this ad is inserted">
+              <option value="video">Insert inside member videos</option>
+              <option value="cover">Insert on member profile covers</option>
+            </select>
             <select id="adminAdScope" aria-label="Where this ad plays">
               <option value="all">Play in all member videos</option>
               <option value="user">Play in all videos from one member</option>
@@ -625,6 +638,8 @@ var Pages = window.Pages || {};
     });
 
     // Where the ad plays: every member video, one member's videos, or one video
+    // A cover ad is inserted on profile covers instead of inside videos
+    const placementSel = body.querySelector('#adminAdPlacement');
     const scopeSel = body.querySelector('#adminAdScope');
     const userSel = body.querySelector('#adminAdUser');
     const postSel = body.querySelector('#adminAdPost');
@@ -661,14 +676,26 @@ var Pages = window.Pages || {};
       postSel.hidden = scope !== 'video';
     }
 
+    function syncPlacement() {
+      const onCover = placementSel.value === 'cover';
+      const videoOpt = scopeSel.querySelector('option[value="video"]');
+      videoOpt.hidden = onCover;
+      videoOpt.disabled = onCover;
+      if (onCover && scopeSel.value === 'video') scopeSel.value = 'all';
+      scopeSel.options[0].textContent = onCover ? 'Play on all profile covers' : 'Play in all member videos';
+      scopeSel.options[1].textContent = onCover ? "Play on one member's cover" : 'Play in all videos from one member';
+      syncScope();
+    }
+
     scopeSel.addEventListener('change', () => {
       syncScope();
       if (scopeSel.value !== 'all') fillMemberVideos();
     });
+    placementSel.addEventListener('change', syncPlacement);
     userSel.addEventListener('change', () => {
       if (scopeSel.value !== 'all') fillMemberVideos();
     });
-    syncScope();
+    syncPlacement();
 
     body.querySelector('#adminAdUpload').addEventListener('click', async () => {
       if (state.adsMissing) return showToast('Run 026_create_ads.sql in Supabase, then try again', 'error', 6000);
@@ -678,12 +705,17 @@ var Pages = window.Pages || {};
       if (!isVideo && pickedAdFile.size > 20 * 1024 * 1024) return showToast('Photos must be 20 MB or smaller', 'error', 5000);
 
       const scope = scopeSel.value;
-      const target = { target_user_id: null, target_post_id: null, target_label: 'All member videos' };
+      const onCover = placementSel.value === 'cover';
+      const target = {
+        target_user_id: null,
+        target_post_id: null,
+        target_label: onCover ? 'All profile covers' : 'All member videos'
+      };
       if (scope !== 'all') {
         const member = members.find(u => String(u.id) === String(userSel.value));
-        if (!member) return showToast('Choose the member whose videos play this ad', 'error');
+        if (!member) return showToast(onCover ? "Choose the member whose cover plays this ad" : 'Choose the member whose videos play this ad', 'error');
         target.target_user_id = member.id;
-        target.target_label = `${nameOf(member)} · all their videos`;
+        target.target_label = onCover ? `${nameOf(member)} · profile cover` : `${nameOf(member)} · all their videos`;
         if (scope === 'video') {
           const post = memberVideos.find(p => String(p.id) === String(postSel.value));
           if (!post) return showToast('Choose the video that plays this ad', 'error');
@@ -703,7 +735,7 @@ var Pages = window.Pages || {};
         const { error } = await sb.from('ads').insert([{
           title: title || 'Sponsored',
           media_url: url,
-          media_type: isVideo ? 'video' : 'image',
+          media_type: (onCover ? 'cover_' : '') + (isVideo ? 'video' : 'image'),
           status: 'pending',
           is_active: true,
           created_by: me.id,

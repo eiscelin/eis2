@@ -37,6 +37,16 @@ window.Ads = (function () {
         : result);
   }
 
+  // Where an ad is inserted rides along in media_type: a cover ad is stored as
+  // 'cover_image' or 'cover_video', everything else plays inside member videos
+  function isCoverAd(ad) {
+    return String(ad.media_type || '').indexOf('cover') === 0;
+  }
+
+  function isVideoAd(ad) {
+    return /video$/.test(String(ad.media_type || ''));
+  }
+
   // The ads that may play, and the admin's on/off switch, read once per page
   function load() {
     if (loading) return loading;
@@ -60,6 +70,7 @@ window.Ads = (function () {
     const postId = video.dataset.postId || '';
     const userId = video.dataset.postUser || '';
     return pool.filter(ad => {
+      if (isCoverAd(ad)) return false;
       if (ad.target_post_id != null) return !!postId && String(ad.target_post_id) === postId;
       if (ad.target_user_id != null) return !!userId && String(ad.target_user_id) === userId;
       return true;
@@ -94,7 +105,7 @@ window.Ads = (function () {
     const holder = video.parentElement;
     if (!ad || !holder) return;
 
-    const mediaType = ad.media_type === 'video' ? 'video' : 'image';
+    const mediaType = isVideoAd(ad) ? 'video' : 'image';
     const skipSeconds = Math.max(0, Number(ad.skip_seconds));
     const waitBeforeSkip = ad.skip_seconds == null ? DEFAULT_SKIP_SECONDS : skipSeconds;
 
@@ -228,8 +239,77 @@ window.Ads = (function () {
     if (video && video.matches && video.matches(VIDEO_SELECTOR)) delete video.dataset.adBreakShown;
   }, true);
 
+  // ---------- Ads on a member's profile cover ----------
+
+  // A cover ad with no target plays on every profile, one with a member plays
+  // only on that member's profile
+  function coverAd(ownerId) {
+    return pool.find(ad => isCoverAd(ad)
+      && (ad.target_user_id == null || String(ad.target_user_id) === String(ownerId)));
+  }
+
+  // The cover takes the ad's own shape so the whole image or video shows, and a
+  // video ad plays through once before the member's own cover comes back
+  function paintCoverAd(cover, ad) {
+    const ownCover = cover.querySelector('.fb-cover-media');
+    const videoAd = isVideoAd(ad);
+    const layer = document.createElement('div');
+    layer.className = 'fb-cover-ad';
+    layer.setAttribute('role', 'group');
+    layer.setAttribute('aria-label', 'Advertisement');
+    layer.innerHTML = `
+      <span class="fb-cover-ad-tag">Ad</span>
+      ${videoAd
+        ? '<video class="fb-cover-ad-media" playsinline muted autoplay preload="auto"></video>'
+        : `<img class="fb-cover-ad-media" src="${escapeHtml(ad.media_url)}" alt="${escapeHtml(ad.title || 'Advertisement')}">`}
+      ${ad.title ? `<span class="fb-cover-ad-title">${escapeHtml(ad.title)}</span>` : ''}`;
+
+    const adMedia = layer.querySelector('.fb-cover-ad-media');
+
+    function fit() {
+      const width = adMedia.videoWidth || adMedia.naturalWidth;
+      const height = adMedia.videoHeight || adMedia.naturalHeight;
+      if (width && height) cover.style.aspectRatio = width + ' / ' + height;
+    }
+
+    function restore() {
+      layer.remove();
+      cover.classList.remove('fb-cover--ad');
+      cover.style.removeProperty('aspect-ratio');
+      if (ownCover && ownCover.tagName === 'VIDEO') ownCover.play().catch(() => {});
+    }
+
+    cover.classList.add('fb-cover--ad');
+    cover.appendChild(layer);
+    if (ownCover && ownCover.tagName === 'VIDEO') ownCover.pause();
+
+    if (videoAd) {
+      adMedia.addEventListener('loadedmetadata', fit, { once: true });
+      adMedia.addEventListener('ended', restore);
+      adMedia.addEventListener('error', restore);
+      adMedia.src = ad.media_url;
+      const attempt = adMedia.play();
+      if (attempt && attempt.catch) attempt.catch(restore);
+    } else if (adMedia.complete) {
+      fit();
+    } else {
+      adMedia.addEventListener('load', fit, { once: true });
+    }
+  }
+
+  // Called by the profile pages once the cover is painted
+  function mountCover(cover, ownerId) {
+    if (!cover) return Promise.resolve();
+    return load().then(() => {
+      if (!cover.isConnected || cover.querySelector('.fb-cover-ad')) return;
+      const ad = coverAd(ownerId);
+      if (ad) paintCoverAd(cover, ad);
+    });
+  }
+
   return {
     load,
+    mountCover,
     // Called after the admin changes an ad, so the next video uses the new list
     refresh() {
       loading = null;

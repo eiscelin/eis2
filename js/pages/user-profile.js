@@ -209,6 +209,7 @@ Pages.userProfile = async function (el, username) {
   const expand = el.querySelector('#upExpand');
   if (expand) expand.addEventListener('click', () => fbPlayFullVideo(cover));
   if (cover && upIsVideo(cover)) upApplyFraming(el.querySelector('#upCover'));
+  if (window.Ads) window.Ads.mountCover(el.querySelector('#upCover'), person.id);
   // This member's posts, with their reactions and comments
   if (window.Posts) {
     Posts.mount(el.querySelector('#upFeed'), {

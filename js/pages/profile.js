@@ -123,6 +123,9 @@ Pages.profileTab = function(main, user) {
     </div>
   `;
 
+  // An approved cover ad from the admin takes the cover first
+  if (window.Ads) window.Ads.mountCover(main.querySelector('#pfCover'), user.id);
+
   const sectionMap = {
     all: null,
     about: ['about'],
