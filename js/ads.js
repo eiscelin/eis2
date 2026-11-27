@@ -267,10 +267,12 @@ window.Ads = (function () {
     if (timer) releaseWarm();
   }
 
-  // Only one clip makes sound: every other video on the page stops
+  // Only one clip makes sound: every other video on the page stops — except the
+  // ad pinned on a profile cover, which keeps playing through everything else
   function pauseOthers(video) {
     document.querySelectorAll('video').forEach(other => {
-      if (other === video || other.paused || other.closest('.fb-ad')) return;
+      if (other === video || other.paused) return;
+      if (other.closest('.fb-ad') || other.closest('.fb-cover-ad')) return;
       other.pause();
     });
   }
@@ -444,8 +446,10 @@ window.Ads = (function () {
   }
 
   // The cover takes the ad's own shape so the whole image or video shows; when
-  // the ad ends onEnd runs so the next ad (or the member's cover) can take over
-  function paintCoverAd(cover, ad, onEnd) {
+  // the ad ends onEnd runs so the next ad (or the member's cover) can take over.
+  // With `repeat` a lone ad never hands the cover back: its clip loops and its
+  // image stays up
+  function paintCoverAd(cover, ad, onEnd, repeat) {
     const ownCover = cover.querySelector('.fb-cover-media');
     const videoAd = isVideoAd(ad);
     const layer = document.createElement('div');
@@ -504,7 +508,8 @@ window.Ads = (function () {
 
     if (videoAd) {
       adMedia.addEventListener('loadedmetadata', fit, { once: true });
-      adMedia.addEventListener('ended', () => restore());
+      if (repeat) adMedia.loop = true;
+      else adMedia.addEventListener('ended', () => restore());
       adMedia.addEventListener('error', () => restore(true));
       const coverPoster = adPoster(ad);
       if (coverPoster) adMedia.setAttribute('poster', coverPoster);
@@ -515,36 +520,33 @@ window.Ads = (function () {
       if (adMedia.complete) fit();
       else adMedia.addEventListener('load', fit, { once: true });
       adMedia.addEventListener('error', () => restore(true), { once: true });
-      imageTimer = setTimeout(() => restore(), IMAGE_AD_MS);
+      if (!repeat) imageTimer = setTimeout(() => restore(), IMAGE_AD_MS);
     }
   }
 
   // Called by the profile pages once the cover is painted: the ads take turns
-  // until their play counts run out, then the member's own cover comes back
+  // and start over, so the cover keeps showing an ad for as long as the page is
+  // open (only when there is no cover ad at all does the member's own cover show)
   function mountCover(cover, ownerId) {
     if (!cover) return Promise.resolve();
     return load().then(() => {
       if (!cover.isConnected || cover.querySelector('.fb-cover-ad')) return;
       const failed = new Set();
-      let timer = 0;
 
       function next() {
-        clearTimeout(timer);
         if (!cover.isConnected) return;
         const list = coverAds(ownerId).filter(ad => !failed.has(String(ad.id)));
+        if (!list.length) return;
+        // A cover ad keeps playing: one that is past its play count or still in
+        // its repeat gap starts over instead of handing the cover back
         const ready = list.filter(ad => waitFor(ad) === 0);
-        if (ready.length) {
-          const ad = ready[cursor++ % ready.length];
-          markPlayed(ad);
-          paintCoverAd(cover, ad, failedAd => {
-            if (failedAd) failed.add(String(ad.id));
-            next();
-          });
-          return;
-        }
-        // Nothing may play yet: an ad still inside its repeat gap gets another turn
-        const waits = list.map(waitFor).filter(ms => isFinite(ms));
-        if (waits.length) timer = setTimeout(next, Math.min.apply(null, waits));
+        const pick = ready.length ? ready : list;
+        const ad = pick[cursor++ % pick.length];
+        markPlayed(ad);
+        paintCoverAd(cover, ad, failedAd => {
+          if (failedAd) failed.add(String(ad.id));
+          next();
+        }, list.length === 1);
       }
 
       next();
