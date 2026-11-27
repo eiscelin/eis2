@@ -1162,6 +1162,17 @@ a.fb-person-img:hover { filter: brightness(1.1); }
 
 /* ===================== Social feed & people ===================== */
 .fb-feed { max-width: 680px; margin: 0 auto; display: flex; flex-direction: column; gap: 0.75rem; }
+/* The member's own cover heads the home feed, with a cover ad on it when one is available.
+   No backdrop-filter here: it would trap the pinned cover ad inside the card */
+.fb-cover-card {
+  border-radius: var(--fb-radius);
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+.fb-cover-card .fb-cover { border-radius: var(--fb-radius); }
+/* Pinned, the cover ad keeps the feed's width instead of widening to the profile's */
+.fb-cover-card .fb-cover.fb-cover--pinned { width: min(100%, 680px); }
 .fb-composer-card { padding: 0.9rem 1rem 0.8rem; }
 .fb-composer-card .fb-composer { padding: 0; }
 .fb-composer-foot { display: flex; justify-content: flex-end; margin-top: 0.55rem; }
