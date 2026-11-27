@@ -47,7 +47,8 @@ Pages.app = async function (el, startTab) {
   const navItems = [
     { id: 'home', icon: '🏠', label: 'Home' },
     { id: 'friends', icon: '👥', label: 'Friends' },
-    { id: 'profile', icon: '👤', label: 'Profile' }
+    { id: 'profile', icon: '👤', label: 'Profile' },
+    { id: 'ads', icon: '📊', label: 'Ads' }
   ];
 
   if (user.role === 'admin') {
@@ -58,6 +59,7 @@ Pages.app = async function (el, startTab) {
     if (tab === 'home') Pages.feedTab(main, user);
     else if (tab === 'friends') Pages.peopleTab(main, user);
     else if (tab === 'messages') Pages.messagesTab(main, user);
+    else if (tab === 'ads') Pages.myAdsTab(main, user);
     else if (tab === 'admin') location.hash = '#/Admin';
     else Pages.profileTab(main, user);
   }, startTab);

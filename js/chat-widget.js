@@ -134,9 +134,21 @@ window.ChatWidget = function(container, currentUser) {
       });
       const ids = [...lastSeen.keys()];
       if (!ids.length) { users = []; renderUserList(); return; }
-      const { data } = await sb.from('users').select('*').in('id', ids);
-      users = (data || [])
-        .filter(u => u.role !== 'admin' && !u.deleted_at && u.status !== 'deleted' && u.status !== 'suspended')
+      // A guest who wrote from an ad has no account row: their name rides in the id
+      const guestIds = ids.filter(id => window.GroupChat && GroupChat.isGuest(id));
+      const memberIds = ids.filter(id => guestIds.indexOf(id) === -1);
+      const { data } = memberIds.length
+        ? await sb.from('users').select('*').in('id', memberIds)
+        : { data: [] };
+      const guests = guestIds.map(id => ({
+        id,
+        full_name: GroupChat.guestName(id) + ' (guest)',
+        username: GroupChat.guestName(id),
+        role: 'guest',
+        guest: true
+      }));
+      users = guests.concat((data || [])
+        .filter(u => u.role !== 'admin' && !u.deleted_at && u.status !== 'deleted' && u.status !== 'suspended'))
         .sort((a, b) => (lastSeen.get(String(b.id)) || 0) - (lastSeen.get(String(a.id)) || 0));
       renderUserList();
     } catch (e) {
@@ -276,14 +288,29 @@ window.ChatWidget = function(container, currentUser) {
     const thread = String(activeChat.id);
     const full = !!force || loadedThread !== thread;
     try {
-      let query = sb.from('chat_messages').select(MESSAGE_COLUMNS)
-        .or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${activeChat.id}),and(sender_id.eq.${activeChat.id},receiver_id.eq.${currentUser.id})`)
-        .order('created_at', { ascending: true });
-      // After the first read only messages that arrived since reach the phone,
-      // and nothing is repainted when there is nothing new
-      if (!full && lastMessageAt) query = query.gt('created_at', lastMessageAt);
-      const { data, error } = await query;
-      if (error) throw error;
+      let data = null;
+      if (window.GroupChat && GroupChat.isGuest(thread)) {
+        // A guest name can hold brackets or commas, so the two sides of that
+        // thread are read apart instead of in one filter
+        const [mine, theirs] = await Promise.all([
+          sb.from('chat_messages').select(MESSAGE_COLUMNS).eq('sender_id', currentUser.id).eq('receiver_id', thread).order('created_at', { ascending: true }),
+          sb.from('chat_messages').select(MESSAGE_COLUMNS).eq('sender_id', thread).eq('receiver_id', currentUser.id).order('created_at', { ascending: true })
+        ]);
+        if (mine.error) throw mine.error;
+        if (theirs.error) throw theirs.error;
+        data = (mine.data || []).concat(theirs.data || [])
+          .sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
+      } else {
+        let query = sb.from('chat_messages').select(MESSAGE_COLUMNS)
+          .or(`and(sender_id.eq.${currentUser.id},receiver_id.eq.${activeChat.id}),and(sender_id.eq.${activeChat.id},receiver_id.eq.${currentUser.id})`)
+          .order('created_at', { ascending: true });
+        // After the first read only messages that arrived since reach the phone,
+        // and nothing is repainted when there is nothing new
+        if (!full && lastMessageAt) query = query.gt('created_at', lastMessageAt);
+        const result = await query;
+        if (result.error) throw result.error;
+        data = result.data;
+      }
       if (full) {
         messages = data || [];
         loadedThread = thread;

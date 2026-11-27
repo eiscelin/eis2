@@ -137,6 +137,9 @@ var Pages = window.Pages || {};
     if (/play_limit|gap_minutes/i.test(message)) {
       return showToast('Run 028_ad_play_schedule.sql in Supabase, then try again', 'error', 6000);
     }
+    if (/contact_type|contact_value/i.test(message)) {
+      return showToast('Run 029_ad_contact.sql in Supabase, then try again', 'error', 6000);
+    }
     if (/admin_review_ad|admin_set_ad_active|public\.ads|relation "ads"|table 'public\.ads'/i.test(message)) {
       return showToast('Run 026_create_ads.sql in Supabase, then try again', 'error', 6000);
     }
@@ -563,8 +566,18 @@ var Pages = window.Pages || {};
     ).join('')}</select>`;
   }
 
+  // The contact picker used both when uploading an ad and on an existing one
+  function contactOptions(selected) {
+    return ['', 'mobile', 'facebook'].map(type =>
+      `<option value="${type}"${type === (selected || '') ? ' selected' : ''}>${
+        type === 'mobile' ? 'Mobile number' : type === 'facebook' ? 'Facebook page' : 'No contact details'
+      }</option>`
+    ).join('');
+  }
+
   function adCard(ad) {
     const isVideo = /video$/.test(String(ad.media_type || ''));
+    const submitter = ad.created_by ? state.users.find(u => String(u.id) === String(ad.created_by)) : null;
     const acts = [];
     if (ad.status !== 'approved') {
       acts.push(`<button class="admin-approve" type="button" data-ad-review="approve" data-ad="${fbEscape(ad.id)}">✓ Approve</button>`);
@@ -589,6 +602,7 @@ var Pages = window.Pages || {};
           <span class="admin-badge admin-badge-target">${fbEscape(adPlacementLabel(ad))}</span>
           <span class="admin-badge admin-badge-target">🎯 ${fbEscape(adTargetLabel(ad))}</span>
           <span class="admin-badge admin-badge-target">🔁 ${fbEscape(playLabel(ad))}</span>
+          ${ad.created_by ? `<span class="admin-badge admin-badge-target">👤 ${fbEscape(submitter ? nameOf(submitter) : 'Member')}</span>` : ''}
           <span class="admin-handle">${isVideo ? 'Video ad' : 'Image ad'} · ${fbEscape(fmtWhen(ad.created_at))}</span>
         </div>
         <div class="admin-ad-schedule">
@@ -598,6 +612,12 @@ var Pages = window.Pages || {};
             min
           </label>
           <button class="admin-tool" type="button" data-save-ad="${fbEscape(ad.id)}">Save</button>
+        </div>
+        <div class="admin-ad-schedule">
+          <label>Contact
+            <select data-ad-contact-type="${fbEscape(ad.id)}" data-saved="${fbEscape(ad.contact_type || '')}" aria-label="Contact details on this ad">${contactOptions(ad.contact_type)}</select>
+          </label>
+          <input class="admin-ad-contact-input" type="text" value="${fbEscape(ad.contact_value || '')}" data-ad-contact-value="${fbEscape(ad.id)}" placeholder="Mobile number or Facebook page" aria-label="Contact details">
         </div>
         <div class="admin-ad-actions">${acts.join('')}</div>
       </div>
@@ -645,6 +665,14 @@ var Pages = window.Pages || {};
               min
             </label>
           </div>
+          <div class="admin-ad-contact">
+            <select id="adminAdContactType" aria-label="Contact details on this ad">
+              <option value="">No contact details</option>
+              <option value="mobile">Mobile number</option>
+              <option value="facebook">Facebook page</option>
+            </select>
+            <input id="adminAdContactValue" type="text" placeholder="Mobile number" aria-label="Contact details" hidden>
+          </div>
           <input id="adminAdFile" type="file" accept="image/*,video/*" hidden>
           <div class="admin-compose-foot">
             <button class="admin-tool" id="adminAdPick" type="button">🎞 Choose image or video</button>
@@ -652,7 +680,7 @@ var Pages = window.Pages || {};
             <button class="admin-approve" id="adminAdUpload" type="button">Upload ad</button>
           </div>
         </div>
-        ${state.adsMissing ? '<p class="admin-hint">Run <code>026_create_ads.sql</code> and <code>027_ad_targeting.sql</code> in your Supabase SQL Editor to create the ads table, then refresh.</p>' : ''}
+        ${state.adsMissing ? '<p class="admin-hint">Run <code>026_create_ads.sql</code>, <code>027_ad_targeting.sql</code> and <code>029_ad_contact.sql</code> in your Supabase SQL Editor to create the ads table, then refresh.</p>' : ''}
         ${pending ? `<p class="admin-hint">${pending} ad${pending === 1 ? '' : 's'} waiting for your review.</p>` : ''}
         <div id="adminAdList" class="admin-ads">
           ${state.ads.length ? state.ads.map(adCard).join('') : `<div class="admin-empty">${emptyState('📺', 'No ads yet. Upload an image or video above to start an ad break.')}</div>`}
@@ -736,12 +764,31 @@ var Pages = window.Pages || {};
     });
     syncPlacement();
 
+    // Contact details ride on the ad: a mobile number gets Call and SMS
+    // buttons, a Facebook page opens the advertiser's page
+    const contactTypeSel = body.querySelector('#adminAdContactType');
+    const contactValueEl = body.querySelector('#adminAdContactValue');
+    contactTypeSel.addEventListener('change', () => {
+      const type = contactTypeSel.value;
+      contactValueEl.hidden = !type;
+      contactValueEl.placeholder = type === 'facebook' ? 'facebook.com/yourpage' : '+63 917 000 0000';
+      if (!type) contactValueEl.value = '';
+    });
+
     body.querySelector('#adminAdUpload').addEventListener('click', async () => {
       if (state.adsMissing) return showToast('Run 026_create_ads.sql in Supabase, then try again', 'error', 6000);
       if (!pickedAdFile) return showToast('Choose an ad image or video first', 'error');
       const isVideo = String(pickedAdFile.type || '').startsWith('video/');
       if (isVideo && pickedAdFile.size > 100 * 1024 * 1024) return showToast('Videos must be 100 MB or smaller', 'error', 5000);
       if (!isVideo && pickedAdFile.size > 20 * 1024 * 1024) return showToast('Photos must be 20 MB or smaller', 'error', 5000);
+      const contactType = contactTypeSel.value;
+      const contactRaw = contactValueEl.value.trim();
+      if (contactType && !contactRaw) {
+        return showToast(contactType === 'mobile' ? 'Add the mobile number for this ad' : 'Add the Facebook page for this ad', 'error', 5000);
+      }
+      if (contactType && !(await fbAdsHaveContact())) {
+        return showToast('Run 029_ad_contact.sql in Supabase to save contact details', 'error', 6000);
+      }
 
       const scope = scopeSel.value;
       const onCover = placementSel.value === 'cover';
@@ -782,6 +829,7 @@ var Pages = window.Pages || {};
           created_by: me.id,
           play_limit: Math.max(0, Number(playsEl && playsEl.value) || 0),
           gap_minutes: Math.max(0, Math.floor(Number(gapEl && gapEl.value) || 0)),
+          ...(contactType ? { contact_type: contactType, contact_value: fbAdContactValue(contactType, contactRaw) } : {}),
           ...target
         }]);
         if (error) throw error;
@@ -837,14 +885,30 @@ var Pages = window.Pages || {};
         const id = btn.dataset.saveAd;
         const plays = body.querySelector(`[data-ad-plays="${id}"]`);
         const gap = body.querySelector(`[data-ad-gap="${id}"]`);
+        const typeEl = body.querySelector(`[data-ad-contact-type="${id}"]`);
+        const valueEl = body.querySelector(`[data-ad-contact-value="${id}"]`);
+        const type = typeEl ? typeEl.value : '';
+        const raw = valueEl ? valueEl.value.trim() : '';
+        if (type && !raw) {
+          return showToast(type === 'mobile' ? 'Add the mobile number for this ad' : 'Add the Facebook page for this ad', 'error', 5000);
+        }
+        const patch = {
+          play_limit: Math.max(0, Number(plays && plays.value) || 0),
+          gap_minutes: Math.max(0, Math.floor(Number(gap && gap.value) || 0))
+        };
+        // Contact columns only exist after 029_ad_contact.sql
+        if (type || (typeEl && typeEl.dataset.saved)) {
+          if (!(await fbAdsHaveContact())) {
+            return showToast('Run 029_ad_contact.sql in Supabase to save contact details', 'error', 6000);
+          }
+          patch.contact_type = type || null;
+          patch.contact_value = type ? fbAdContactValue(type, raw) : null;
+        }
         btn.disabled = true;
         try {
-          const { error } = await sb.from('ads').update({
-            play_limit: Math.max(0, Number(plays && plays.value) || 0),
-            gap_minutes: Math.max(0, Math.floor(Number(gap && gap.value) || 0))
-          }).eq('id', id);
+          const { error } = await sb.from('ads').update(patch).eq('id', id);
           if (error) throw error;
-          showToast('Ad schedule saved', 'success');
+          showToast('Ad settings saved', 'success');
           if (window.Ads) window.Ads.refresh();
           await refresh();
         } catch (e) {

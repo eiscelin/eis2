@@ -13,7 +13,7 @@ var openAppMenu = (function () {
     { label: 'Pages', icon: '🚩' },
     { label: 'Memories', icon: '🕘' },
     { label: 'Events', icon: '📅' },
-    { label: 'Ads Manager', icon: '📊' }
+    { label: 'Ads Manager', icon: '📊', tab: 'ads' }
   ];
 
   const settings = [

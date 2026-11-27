@@ -29,16 +29,80 @@ window.Ads = (function () {
       .order('created_at', { ascending: true });
   }
 
-  // Before 027_ad_targeting.sql or 028_ad_play_schedule.sql run their columns are
-  // missing, so the ads keep playing (once, everywhere) instead of stopping
+  // Before 027_ad_targeting.sql, 028_ad_play_schedule.sql or 029_ad_contact.sql
+  // run their columns are missing, so the ads keep playing (once, everywhere,
+  // without contact details) instead of stopping
   function fetchAds() {
-    return adsQuery('id, title, media_url, media_type, skip_seconds, play_limit, gap_minutes, target_user_id, target_post_id')
+    return adsQuery('id, title, media_url, media_type, skip_seconds, created_by, play_limit, gap_minutes, target_user_id, target_post_id, contact_type, contact_value')
       .then(result => (result && result.error)
-        ? adsQuery('id, title, media_url, media_type, skip_seconds, target_user_id, target_post_id')
+        ? adsQuery('id, title, media_url, media_type, skip_seconds, created_by, play_limit, gap_minutes, target_user_id, target_post_id')
         : result)
       .then(result => (result && result.error)
-        ? adsQuery('id, title, media_url, media_type, skip_seconds')
+        ? adsQuery('id, title, media_url, media_type, skip_seconds, created_by, target_user_id, target_post_id')
+        : result)
+      .then(result => (result && result.error)
+        ? adsQuery('id, title, media_url, media_type, skip_seconds, created_by')
         : result);
+  }
+
+  // The advertiser's Facebook page, whether the admin typed a page name or the
+  // whole address
+  function fbPageUrl(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    if (/^https?:\/\//i.test(raw)) return raw;
+    if (/^(www\.)?(facebook\.com|fb\.com|m\.me)\//i.test(raw)) return 'https://' + raw;
+    return 'https://www.facebook.com/' + raw.replace(/^@/, '');
+  }
+
+  // What an ad offers while it plays, in its bottom bar next to Skip: the
+  // advertiser's phone number or Facebook page, and a Message button that opens
+  // the chat of the member who placed the ad
+  function adActions(ad, cls) {
+    const parts = [];
+    const value = String(ad.contact_value || '').trim();
+    if (value && ad.contact_type === 'mobile') {
+      const digits = value.replace(/[^\d+]/g, '');
+      if (digits) {
+        parts.push(`<a class="${cls}-btn" href="tel:${escapeHtml(digits)}" aria-label="Call the advertiser">📞 Call</a>`);
+        parts.push(`<a class="${cls}-btn" href="sms:${escapeHtml(digits)}" aria-label="Send an SMS to the advertiser">💬 SMS</a>`);
+      }
+    } else if (value && ad.contact_type === 'facebook') {
+      parts.push(`<a class="${cls}-btn" href="${escapeHtml(fbPageUrl(value))}" target="_blank" rel="noopener" aria-label="Open the advertiser's Facebook page">f Facebook page</a>`);
+    }
+    if (ad.owner) {
+      const ownerName = ad.owner.full_name || ad.owner.username || 'the advertiser';
+      parts.push(`<button class="${cls}-btn ${cls}-msg" type="button" data-ad-chat="${escapeHtml(ad.owner.id)}" data-ad-owner="${escapeHtml(ownerName)}">💬 Message</button>`);
+    }
+    return parts.length ? `<span class="${cls}">${parts.join('')}</span>` : '';
+  }
+
+  // The member behind each ad, so the ad can offer its Message button
+  function attachOwners(list) {
+    const ids = [...new Set(list.map(ad => ad.created_by).filter(id => id != null))];
+    if (!ids.length || typeof sb === 'undefined' || !sb) return Promise.resolve();
+    return sb.from('users').select('id, username, full_name, role, status, deleted_at').in('id', ids)
+      .then(({ data }) => {
+        const byId = new Map((data || []).map(user => [String(user.id), user]));
+        list.forEach(ad => {
+          const owner = byId.get(String(ad.created_by));
+          if (!owner || owner.role === 'admin' || owner.deleted_at) return;
+          if (owner.status === 'deleted' || owner.status === 'suspended') return;
+          ad.owner = owner;
+        });
+      })
+      .catch(() => {});
+  }
+
+  // A click on the ad's Message button opens the chat of the ad's owner
+  function bindChatButtons(scope) {
+    scope.querySelectorAll('[data-ad-chat]').forEach(btn => {
+      btn.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (window.AdChat) window.AdChat.open(Number(btn.dataset.adChat), btn.dataset.adOwner);
+      });
+    });
   }
 
   // Where an ad is inserted rides along in media_type: a cover ad is stored as
@@ -91,6 +155,7 @@ window.Ads = (function () {
     ]).then(([setting, ads]) => {
       enabled = !(setting && setting.data && setting.data.value === 'false');
       pool = (ads && !ads.error && ads.data) || [];
+      return attachOwners(pool);
     }).catch(() => {
       pool = [];
     });
@@ -164,11 +229,13 @@ window.Ads = (function () {
       <div class="fb-ad-bar">
         <span class="fb-ad-tag">Ad</span>
         <span class="fb-ad-title">${escapeHtml(ad.title || 'Sponsored')}</span>
+        ${adActions(ad, 'fb-ad-contact')}
         <span class="fb-ad-time" aria-hidden="true"></span>
         <button class="fb-ad-skip" type="button" hidden>Skip ad</button>
       </div>`;
     holder.classList.add('fb-post-media-ad');
     holder.appendChild(overlay);
+    bindChatButtons(overlay);
 
     const skipBtn = overlay.querySelector('.fb-ad-skip');
     const timeEl = overlay.querySelector('.fb-ad-time');
@@ -308,7 +375,8 @@ window.Ads = (function () {
       ${videoAd
         ? '<video class="fb-cover-ad-media" playsinline muted autoplay preload="auto"></video>'
         : `<img class="fb-cover-ad-media" src="${escapeHtml(ad.media_url)}" alt="${escapeHtml(ad.title || 'Advertisement')}">`}
-      ${ad.title ? `<span class="fb-cover-ad-title">${escapeHtml(ad.title)}</span>` : ''}`;
+      ${ad.title ? `<span class="fb-cover-ad-title">${escapeHtml(ad.title)}</span>` : ''}
+      ${adActions(ad, 'fb-cover-ad-contact')}`;
 
     const adMedia = layer.querySelector('.fb-cover-ad-media');
     let imageTimer = 0;
@@ -334,6 +402,7 @@ window.Ads = (function () {
 
     cover.classList.add('fb-cover--ad');
     cover.appendChild(layer);
+    bindChatButtons(layer);
     if (ownCover && ownCover.tagName === 'VIDEO') ownCover.pause();
 
     if (videoAd) {

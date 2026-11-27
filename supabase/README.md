@@ -28,6 +28,8 @@ Run each file in `migrations/` once in the Supabase dashboard (SQL Editor > New 
 17. `023_create_chat_groups.sql` — group chats with friends: create a group, invite with a link, and send text, photos, videos and files
 18. `026_create_ads.sql` — ads: upload an image or video in Admin > Ads, approve it, and it plays as an ad break inside member videos
 19. `027_ad_targeting.sql` — choose where each ad plays: every member video, all videos from one member, or one specific video
+20. `028_ad_play_schedule.sql` — how many times an ad plays and the minutes it waits before it plays again
+21. `029_ad_contact.sql` — contact details on an ad (mobile number with Call/SMS buttons, or a Facebook page) and the Message button that opens the advertiser's chat
 
 After running `008`, open `#/Admin` while signed in. If no admin exists yet, the panel offers
 "Make me the first admin" once; otherwise set the role in SQL:

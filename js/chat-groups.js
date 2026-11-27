@@ -1034,6 +1034,7 @@ window.GroupChat = (function () {
     isGuest,
     guestName,
     storedGuest,
+    saveGuest,
     kindOf,
     postAttachment,
     groupError

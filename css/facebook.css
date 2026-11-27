@@ -3087,6 +3087,10 @@ label {
 .admin-ad-pick-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .admin-ad-target { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .admin-ad-target select { flex: 1 1 180px; min-width: 0; }
+/* Contact details an ad carries: a mobile number or a Facebook page */
+.admin-ad-contact { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.admin-ad-contact select, .admin-ad-contact input { flex: 1 1 180px; min-width: 0; }
+.admin-ad-contact-input { flex: 1 1 200px; min-width: 0; }
 /* How often an ad runs and how long it waits before it runs again */
 .admin-ad-schedule { display: flex; gap: 0.45rem; align-items: center; flex-wrap: wrap; }
 .admin-ad-schedule label { display: flex; align-items: center; gap: 0.35rem; font-size: 0.76rem; color: var(--fb-muted); }
@@ -3109,7 +3113,7 @@ label {
 .fb-ad-image, .fb-ad-video { width: 100%; height: 100%; max-height: 560px; object-fit: contain; display: block; background: #000; }
 .fb-ad-bar {
   position: absolute; left: 0; right: 0; bottom: 0;
-  display: flex; align-items: center; gap: 0.55rem;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 0.55rem;
   padding: 0.55rem 0.7rem;
   background: linear-gradient(0deg, rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0));
   color: #fff; font-size: 0.82rem;
@@ -3128,6 +3132,19 @@ label {
   font: inherit; font-size: 0.78rem; font-weight: 700; cursor: pointer;
 }
 .fb-ad-skip:hover { background: rgba(0, 0, 0, 0.7); }
+/* The advertiser's contact details sit in that same bottom bar: a mobile
+   number gets Call and Message, a Facebook page opens in a new tab */
+.fb-ad-contact, .fb-cover-ad-contact { display: flex; align-items: center; gap: 0.35rem; flex: 0 0 auto; }
+.fb-ad-contact-btn, .fb-cover-ad-contact-btn {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  padding: 0.35rem 0.6rem; border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff; font-size: 0.78rem; font-weight: 700;
+  font-family: inherit; cursor: pointer;
+  text-decoration: none; white-space: nowrap;
+}
+.fb-ad-contact-btn:hover, .fb-cover-ad-contact-btn:hover { background: rgba(0, 0, 0, 0.72); }
 
 /* A cover ad takes the profile cover, shaped like the ad so nothing is cropped */
 .fb-cover.fb-cover--ad { height: auto; }
@@ -3151,8 +3168,74 @@ label {
   font-size: 0.82rem; font-weight: 600;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+/* The cover ad lets clicks through to the profile, so its contact buttons
+   take them back */
+.fb-cover-ad-contact {
+  position: absolute; right: 1.1rem; bottom: 1rem; z-index: 2;
+  pointer-events: auto;
+}
 
 @media (max-width: 900px) {
   .admin-ads { grid-template-columns: 1fr; }
   .admin-ad-media { height: 170px; }
+}
+
+/* ===================== My ads (member submissions) ===================== */
+.my-ads { margin-bottom: 1rem; }
+.my-ads-hint { padding: 0 1rem; color: var(--fb-muted); font-size: 0.86rem; }
+.my-ads-form { display: flex; flex-direction: column; gap: 0.6rem; padding: 0.9rem 1rem 1rem; }
+.my-ads-form input[type="text"], .my-ads-form select {
+  padding: 0.55rem 0.7rem; border-radius: 8px;
+  border: 1px solid var(--fb-line); background: var(--fb-elevated);
+  color: var(--fb-text); font: inherit; font-size: 0.9rem;
+}
+.my-ads-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.my-ads-row select, .my-ads-row input { flex: 1 1 200px; min-width: 0; }
+.my-ads-foot { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.my-ads-file { flex: 1 1 120px; min-width: 0; color: var(--fb-muted); font-size: 0.82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.my-ad { display: flex; gap: 0.8rem; align-items: center; padding: 0.8rem 1rem; border-top: 1px solid var(--fb-line-soft); }
+.my-ad-media { flex: 0 0 auto; width: 92px; height: 64px; border-radius: 8px; overflow: hidden; background: #000; }
+.my-ad-media img, .my-ad-media video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.my-ad-body { min-width: 0; }
+.my-ad-title { font-weight: 700; }
+.my-ad-meta { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-top: 0.2rem; color: var(--fb-muted); font-size: 0.82rem; }
+.my-ad-status { padding: 0.1rem 0.45rem; border-radius: 999px; background: rgba(255, 255, 255, 0.12); font-weight: 700; }
+.my-ad-status.approved { background: rgba(49, 162, 76, 0.22); color: #6ee7a0; }
+.my-ad-status.rejected { background: rgba(240, 40, 73, 0.2); color: #ff8a9b; }
+
+/* ===================== Guest chat from an ad ===================== */
+/* The Message button on a playing ad opens this chat for a visitor without
+   an account, the way a guest replies in a group chat */
+.ad-chat {
+  position: fixed; inset: 0; z-index: 600;
+  display: flex; align-items: flex-end; justify-content: flex-end;
+  padding: 1rem; background: rgba(0, 0, 0, 0.45);
+}
+.ad-chat-panel {
+  width: min(360px, 100%); max-height: min(70vh, 560px);
+  display: flex; flex-direction: column;
+  background: var(--fb-card); color: var(--fb-text);
+  border: 1px solid var(--fb-line); border-radius: 14px;
+  overflow: hidden; box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+.ad-chat-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.7rem 0.9rem; border-bottom: 1px solid var(--fb-line-soft); }
+.ad-chat-title { font-weight: 700; font-size: 0.92rem; }
+.ad-chat-title span { color: var(--fb-muted); font-weight: 600; }
+.ad-chat-close { border: 0; background: transparent; color: inherit; font-size: 1rem; cursor: pointer; padding: 0.2rem 0.35rem; border-radius: 6px; }
+.ad-chat-close:hover { background: var(--fb-hover); }
+.ad-chat-body { flex: 1; min-height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.45rem; padding: 0.8rem 0.9rem; }
+.ad-chat-meta { padding: 0 0.9rem 0.4rem; color: var(--fb-muted); font-size: 0.74rem; }
+.ad-chat-input-row { display: flex; gap: 0.4rem; padding: 0.6rem 0.9rem 0.8rem; border-top: 1px solid var(--fb-line-soft); }
+.ad-chat-input-row input {
+  flex: 1; min-width: 0; padding: 0.5rem 0.7rem; border-radius: 999px;
+  border: 1px solid var(--fb-line); background: var(--fb-elevated);
+  color: var(--fb-text); font: inherit; font-size: 0.88rem;
+}
+.ad-chat-send { flex: 0 0 auto; width: 38px; height: 38px; border-radius: 50%; border: 0; background: var(--fb-blue); color: #fff; cursor: pointer; font-size: 1rem; }
+.ad-chat-name { display: flex; flex-direction: column; gap: 0.6rem; padding: 0.9rem; }
+.ad-chat-hint { color: var(--fb-muted); font-size: 0.86rem; }
+.ad-chat-name-input {
+  padding: 0.55rem 0.7rem; border-radius: 8px;
+  border: 1px solid var(--fb-line); background: var(--fb-elevated);
+  color: var(--fb-text); font: inherit;
 }

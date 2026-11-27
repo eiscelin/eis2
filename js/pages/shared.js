@@ -162,6 +162,27 @@ function emptyState(icon, msg) {
   return `<div class="empty-state"><div class="icon">${icon}</div><p>${msg}</p></div>`;
 }
 
+// Ads only carry contact details once 029_ad_contact.sql has run, so the forms
+// check the columns before sending them
+let fbAdsContactReady = null;
+async function fbAdsHaveContact() {
+  if (fbAdsContactReady !== null) return fbAdsContactReady;
+  if (typeof sb === 'undefined' || !sb) return false;
+  const { error } = await sb.from('ads').select('contact_type').limit(1);
+  fbAdsContactReady = !error;
+  return fbAdsContactReady;
+}
+
+// What an ad keeps for its contact buttons: a dialable number, or the
+// advertiser's Facebook page address
+function fbAdContactValue(type, value) {
+  const raw = String(value || '').trim();
+  if (type === 'mobile') return raw.replace(/[^\d+]/g, '');
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (/^(www\.)?(facebook\.com|fb\.com|m\.me)\//i.test(raw)) return 'https://' + raw;
+  return 'https://www.facebook.com/' + raw.replace(/^@/, '');
+}
+
 function fmtDate(d) {
   return d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 }
