@@ -3358,3 +3358,20 @@ html.fb-ad-hold, html.fb-ad-hold body { overflow: hidden; }
   border: 1px solid var(--fb-line); background: var(--fb-elevated);
   color: var(--fb-text); font: inherit;
 }
+
+/* ===================== Lite device (weak phone) =====================
+   js/device-profile.js puts .fb-lite on <html> when the device reports few
+   cores or little memory, or the connection is slow / data saving. Every
+   feature stays; only the paint-heavy parts go. A live backdrop blur is the
+   one effect a cheap Android GPU cannot keep up with while the feed scrolls or
+   a video plays, so the panes keep their fill, edges and glints and lose the
+   blur behind them. */
+html.fb-lite {
+  --fb-glass-blur: none;
+}
+html.fb-lite .fb-cover-badge,
+html.fb-lite .fb-cover-expand,
+html.fb-lite .fb-overlay-sound {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}

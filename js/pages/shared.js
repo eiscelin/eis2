@@ -102,7 +102,9 @@ function fbImageUrl(url, width) {
   const src = String(url || '');
   if (!width || !/res\.cloudinary\.com\/[^/]+\/image\/upload\//.test(src)) return src;
   if (/\/image\/upload\/[^/]*(f_auto|q_auto|w_\d)/.test(src)) return src;
-  return src.replace('/image/upload/', '/image/upload/f_auto,q_auto,c_limit,w_' + width + '/');
+  // A lite device is handed a smaller picture for the same slot
+  const w = window.DeviceProfile ? DeviceProfile.imageWidth(width) : width;
+  return src.replace('/image/upload/', '/image/upload/f_auto,q_auto,c_limit,w_' + w + '/');
 }
 
 // The same for a video: Cloudinary re-encodes it at the width the card shows
@@ -112,7 +114,8 @@ function fbVideoUrl(url, width) {
   const src = String(url || '');
   if (!/res\.cloudinary\.com\/[^/]+\/video\/upload\//.test(src)) return src;
   if (/\/video\/upload\/[^/]*(q_auto|w_\d|f_auto)/.test(src)) return src;
-  const params = 'q_auto,f_auto' + (width ? ',c_limit,w_' + width : '');
+  const w = width && window.DeviceProfile ? DeviceProfile.videoWidth(width) : width;
+  const params = 'q_auto,f_auto' + (w ? ',c_limit,w_' + w : '');
   return src.replace('/video/upload/', '/video/upload/' + params + '/');
 }
 
@@ -123,7 +126,8 @@ function fbVideoPoster(url, width) {
   const match = /^(https:\/\/res\.cloudinary\.com\/[^/]+\/video\/upload\/)(?:[^/]+\/)?([^/]+)$/.exec(clean);
   if (!match) return '';
   const name = match[2].replace(/\.[a-z0-9]+$/i, '') + '.jpg';
-  return match[1] + 'so_0,w_' + (width || 720) + ',q_auto/' + name;
+  const w = width || 720;
+  return match[1] + 'so_0,w_' + (window.DeviceProfile ? DeviceProfile.videoWidth(w) : w) + ',q_auto/' + name;
 }
 
 // Loads a page script the first time that page is opened, so members who never
