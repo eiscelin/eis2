@@ -760,6 +760,10 @@ Posts.mount = function (listEl, opts) {
 
   const hiddenAtStart = hiddenFriends();
 
+  // True while a phone's gallery, camera or camcorder is in front of the feed,
+  // so the reaction shelf and its add button never slide away behind it
+  let rxPicking = false;
+
   const state = {
     posts: [],
     users: new Map(),
@@ -788,6 +792,16 @@ Posts.mount = function (listEl, opts) {
   function closePickers() {
     state.openPicker = null;
     listEl.querySelectorAll('.fb-react-wrap.open').forEach(w => w.classList.remove('open'));
+  }
+
+  // Holds one reaction shelf open — a phone gets no hover, so the shelf and its
+  // add button are kept on screen by hand around an upload
+  function holdPickerOpen(key) {
+    if (!key) return;
+    state.openPicker = key;
+    listEl.querySelectorAll('.fb-react-wrap').forEach(wrap => {
+      wrap.classList.toggle('open', pickerKeyFor(wrap) === key);
+    });
   }
 
   // Repaints every reaction picker so an upload or a delete shows up in all of
@@ -1497,19 +1511,60 @@ Posts.mount = function (listEl, opts) {
     return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
   }
 
-  function pickReactionFile() {
+  // Opens one file dialog and hands back the picked file
+  function pickFileFrom(accept, capture) {
     return new Promise(resolve => {
       const input = document.createElement('input');
       input.type = 'file';
-      input.accept = 'image/*,video/*';
+      input.accept = accept;
+      if (capture) input.setAttribute('capture', capture);
       input.style.display = 'none';
       document.body.appendChild(input);
-      input.addEventListener('change', () => {
-        const file = input.files && input.files[0];
+      const finish = file => {
         input.remove();
         resolve(file || null);
-      });
+      };
+      input.addEventListener('change', () => finish(input.files && input.files[0]));
+      // Backing out of the dialog fires nothing on some phones
+      input.addEventListener('cancel', () => finish(null));
       input.click();
+    });
+  }
+
+  // A phone cannot offer its gallery, its camera and its camcorder in one file
+  // dialog, so the add button asks which one to open first. A computer keeps
+  // the single file dialog it always had.
+  function pickReactionFile() {
+    if (!window.matchMedia('(pointer: coarse)').matches) return pickFileFrom('image/*,video/*');
+    return new Promise(resolve => {
+      const sheet = document.createElement('div');
+      sheet.className = 'fb-rx-source';
+      sheet.innerHTML = `<div class="fb-rx-source-panel" role="dialog" aria-label="Add a reaction">
+        <button class="fb-rx-source-btn" type="button" data-source="library"><span aria-hidden="true">🖼️</span><span>Photo or video</span></button>
+        <button class="fb-rx-source-btn" type="button" data-source="photo"><span aria-hidden="true">📷</span><span>Take a photo</span></button>
+        <button class="fb-rx-source-btn" type="button" data-source="record"><span aria-hidden="true">🎥</span><span>Record a video</span></button>
+        <button class="fb-rx-source-btn fb-rx-source-cancel" type="button" data-source="cancel">Cancel</button>
+      </div>`;
+      const close = file => {
+        sheet.remove();
+        resolve(file);
+      };
+      sheet.addEventListener('click', async e => {
+        const btn = e.target.closest('[data-source]');
+        if (!btn) {
+          if (e.target === sheet) close(null);
+          return;
+        }
+        const source = btn.dataset.source;
+        if (source === 'cancel') return close(null);
+        // Asked for inside the tap, so the phone opens the dialog itself
+        const file = source === 'library' ? await pickFileFrom('image/*,video/*')
+          : source === 'photo' ? await pickFileFrom('image/*', 'environment')
+            : await pickFileFrom('video/*', 'environment');
+        close(file);
+      });
+      document.body.appendChild(sheet);
+      requestAnimationFrame(() => sheet.classList.add('open'));
     });
   }
 
@@ -1542,7 +1597,14 @@ Posts.mount = function (listEl, opts) {
   // Uploads a face or a video reaction (5 seconds at most), remembers it for
   // next time and for the admin list, then reacts with it
   async function addOwnReaction(postId, commentId) {
+    const key = String(postId) + (commentId ? ':' + commentId : '');
+    // The shelf and its add button stay put while the phone's gallery, camera
+    // or camcorder is in front, then open again on the post it was started from
+    rxPicking = true;
+    holdPickerOpen(key);
     const file = await pickReactionFile();
+    rxPicking = false;
+    holdPickerOpen(key);
     if (!file) return;
     if (!sb || !viewer.id) return showToast('Sign in to save your own reaction', 'error');
     const type = String(file.type || '');
@@ -1584,6 +1646,7 @@ Posts.mount = function (listEl, opts) {
       showToast(kind === 'video' ? 'Your video reaction is ready' : 'Your face reaction is ready', 'success');
       if (commentId) await setCommentReaction(postId, commentId, typeName);
       else await setReaction(postId, typeName);
+      holdPickerOpen(key);
     } catch (err) {
       const message = String((err && err.message) || '');
       showToast('Could not save your reaction: ' + message, 'error', 6000);
@@ -1625,6 +1688,8 @@ Posts.mount = function (listEl, opts) {
     // Each of these hands itself back once this feed leaves the page
     const onDocClick = e => {
       if (!listEl.isConnected) return document.removeEventListener('click', onDocClick);
+      // Tapping the phone's source sheet is not tapping away from the shelf
+      if (e.target.closest('.fb-rx-source')) return;
       if (!state.openPicker) return;
       if (e.target.closest('.fb-react-wrap.open')) return;
       closePickers();
@@ -1635,6 +1700,9 @@ Posts.mount = function (listEl, opts) {
     };
     const onDocScroll = () => {
       if (!listEl.isConnected) return window.removeEventListener('scroll', onDocScroll, true);
+      // A phone shifts the page when its picker or camera closes: the shelf the
+      // member is uploading from stays put through that
+      if (rxPicking) return;
       if (state.openPicker) closePickers();
     };
     document.addEventListener('click', onDocClick);

@@ -2601,6 +2601,42 @@ a.fb-post-name:hover { text-decoration: underline; }
   transition: border-color 0.15s ease, color 0.15s ease;
 }
 .fb-reaction-add:hover { border-color: var(--fb-blue); color: var(--fb-blue); }
+/* The add button answers a thumb on the first tap: no double-tap zoom delay,
+   no grey flash, and a clear pressed state */
+.fb-reaction-add, .fb-reaction-option, .fb-reaction-remove, .fb-react-more {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.fb-reaction-add { transition: border-color 0.15s ease, color 0.15s ease, transform 0.1s ease; }
+.fb-reaction-add:active { transform: scale(0.92); border-color: var(--fb-blue); color: var(--fb-blue); }
+/* Phone-only chooser behind the add button: a phone keeps its gallery, its
+   camera and its camcorder in three different dialogs, and one file dialog
+   cannot offer all three */
+.fb-rx-source {
+  position: fixed; inset: 0; z-index: 9600;
+  display: flex; align-items: flex-end;
+  padding: 0.75rem 0.75rem calc(0.75rem + env(safe-area-inset-bottom));
+  background: rgba(0, 0, 0, 0.55);
+  opacity: 0; transition: opacity 0.12s ease;
+}
+.fb-rx-source.open { opacity: 1; }
+.fb-rx-source-panel {
+  width: 100%; max-width: 26rem; margin: 0 auto;
+  display: flex; flex-direction: column; gap: 0.35rem;
+  padding: 0.5rem; border-radius: 16px;
+  background: var(--fb-card); border: 1px solid var(--fb-line);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+}
+.fb-rx-source-btn {
+  display: flex; align-items: center; gap: 0.65rem;
+  padding: 0.9rem; border: none; border-radius: 12px;
+  background: none; color: var(--fb-text);
+  font: inherit; font-size: 0.95rem; font-weight: 600; text-align: left;
+  cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+.fb-rx-source-btn span[aria-hidden] { font-size: 1.2rem; line-height: 1; }
+.fb-rx-source-btn:active { background: var(--fb-hover); }
+.fb-rx-source-cancel { justify-content: center; color: var(--fb-muted); }
 /* An uploaded reaction carries a delete badge for the member who owns it */
 .fb-reaction-own { position: relative; display: inline-flex; }
 .fb-reaction-remove {
