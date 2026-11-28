@@ -208,22 +208,31 @@ function bigClipPlaying() {
   return bigClips.size > 0;
 }
 
-function stopReactionClips(root) {
-  (root || document).querySelectorAll('.fb-post-summary .fb-rx-video').forEach(holder => {
-    clearTimeout(holder.rxStop);
-    holder.rxPlaying = false;
-    const video = holder.querySelector('video');
-    if (video && !video.paused) video.pause();
-  });
+// Only one reaction clip is decoded at a time on the page: the others keep
+// growing and wiggling on their still frame and play their clip on a turn of
+// their own, so a phone never runs several small videos at once
+let rxPlayingHolder = null;
+
+function stopReactionClip(holder) {
+  clearTimeout(holder.rxStop);
+  holder.rxPlaying = false;
+  if (rxPlayingHolder === holder) rxPlayingHolder = null;
+  const video = holder.querySelector('video');
+  if (video && !video.paused) video.pause();
+}
+
+function anotherClipBusy(holder) {
+  return !!rxPlayingHolder && rxPlayingHolder !== holder
+    && rxPlayingHolder.rxPlaying && rxPlayingHolder.isConnected;
 }
 
 document.addEventListener('play', event => {
   const video = event.target;
   if (!video || video.tagName !== 'VIDEO' || !isBigClip(video)) return;
   bigClips.add(video);
-  // Clips already growing make way at once, not at their next turn
-  stopReactionClips();
-  document.querySelectorAll('.fb-post-summary .fb-rx-turning').forEach(el => el.classList.remove('fb-rx-turning'));
+  // The growth carries on — only the second decode stops, so the posted video
+  // keeps every frame and the reactions keep moving
+  document.querySelectorAll('.fb-post-summary .fb-rx-video').forEach(stopReactionClip);
 }, true);
 
 ['pause', 'ended'].forEach(name => document.addEventListener(name, event => {
@@ -235,6 +244,10 @@ function playVideoReaction(holder) {
   const video = holder.querySelector('video');
   if (!video) return;
   clearTimeout(holder.rxStop);
+  // The posted video already holds the decoder, or another reaction clip is
+  // mid-motion: this one keeps growing on its still frame and plays its clip
+  // on a later turn, so the member's video never stutters
+  if (bigClipPlaying() || anotherClipBusy(holder)) return;
   const card = holder.closest('[data-post]');
   // Silent unless the member switched this post's sound on
   const soundOn = card ? rxSoundOn(card.dataset.post) : false;
@@ -248,6 +261,7 @@ function playVideoReaction(holder) {
     try { video.currentTime = 0; } catch (err) { /* not seekable yet */ }
   }
   holder.rxPlaying = true;
+  rxPlayingHolder = holder;
   const attempt = video.play();
   if (attempt && attempt.catch) attempt.catch(() => {
     // A browser that blocks sound still shows the video, played silently
@@ -257,6 +271,7 @@ function playVideoReaction(holder) {
   // It plays its full maximum on its turn and then stops, sound included
   holder.rxStop = setTimeout(() => {
     holder.rxPlaying = false;
+    if (rxPlayingHolder === holder) rxPlayingHolder = null;
     video.pause();
   }, REACTION_VIDEO_MAX * 1000);
 }
@@ -268,12 +283,6 @@ function runReactionTurn(card) {
   if (card.querySelector('.fb-face-anim-off')) return RX_TURN_MS;
   const faces = card.querySelectorAll('.fb-post-summary .fb-rx-face');
   if (!faces.length) return 0;
-  // The post's own video is playing: the reactions wait their turn again once
-  // it stops, so nothing steals its frames
-  if (bigClipPlaying()) {
-    stopReactionClips(card);
-    return RX_TURN_MS;
-  }
   const turn = (rxTurnAt.get(card) || 0) % faces.length;
   rxTurnAt.set(card, turn + 1);
   let hold = RX_TURN_MS;
