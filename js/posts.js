@@ -191,6 +191,46 @@ const RX_TURN_MS = 2000;
 const rxTurnAt = new WeakMap();
 const rxCardTimer = new WeakMap();
 
+// A phone decodes one clip well. While a post's own video — or an ad break
+// playing inside it — runs, the uploaded reactions stop and hold their turn, so
+// the two never fight for the decoder and the member's video keeps every frame.
+// Cover ads are left out: one looping in the background would freeze reactions.
+const bigClips = new Set();
+
+function isBigClip(video) {
+  return !!video.closest('.fb-post-media') || !!video.closest('.fb-ad');
+}
+
+function bigClipPlaying() {
+  bigClips.forEach(video => {
+    if (!video.isConnected || video.paused || video.ended) bigClips.delete(video);
+  });
+  return bigClips.size > 0;
+}
+
+function stopReactionClips(root) {
+  (root || document).querySelectorAll('.fb-post-summary .fb-rx-video').forEach(holder => {
+    clearTimeout(holder.rxStop);
+    holder.rxPlaying = false;
+    const video = holder.querySelector('video');
+    if (video && !video.paused) video.pause();
+  });
+}
+
+document.addEventListener('play', event => {
+  const video = event.target;
+  if (!video || video.tagName !== 'VIDEO' || !isBigClip(video)) return;
+  bigClips.add(video);
+  // Clips already growing make way at once, not at their next turn
+  stopReactionClips();
+  document.querySelectorAll('.fb-post-summary .fb-rx-turning').forEach(el => el.classList.remove('fb-rx-turning'));
+}, true);
+
+['pause', 'ended'].forEach(name => document.addEventListener(name, event => {
+  const video = event.target;
+  if (video && video.tagName === 'VIDEO') bigClips.delete(video);
+}, true));
+
 function playVideoReaction(holder) {
   const video = holder.querySelector('video');
   if (!video) return;
@@ -228,6 +268,12 @@ function runReactionTurn(card) {
   if (card.querySelector('.fb-face-anim-off')) return RX_TURN_MS;
   const faces = card.querySelectorAll('.fb-post-summary .fb-rx-face');
   if (!faces.length) return 0;
+  // The post's own video is playing: the reactions wait their turn again once
+  // it stops, so nothing steals its frames
+  if (bigClipPlaying()) {
+    stopReactionClips(card);
+    return RX_TURN_MS;
+  }
   const turn = (rxTurnAt.get(card) || 0) % faces.length;
   rxTurnAt.set(card, turn + 1);
   let hold = RX_TURN_MS;
