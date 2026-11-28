@@ -181,6 +181,16 @@ function postFaceSlots(groups) {
   }).join('')}</span>`;
 }
 
+// A video post shows its uploaded reactions in one slot bigger than an emoji
+// that spins to the next one on every turn (js/posts.js hands over the active
+// item). Nothing grows and no reaction clip plays, so the member's own video
+// keeps the phone's decoder and still every face gets seen.
+function postFaceRotor(groups) {
+  return `<span class="fb-reaction-group fb-rx-rotor" title="${fbEscape(groups.map(g => g.label).join(', '))}">${
+    groups.map((g, i) => `<span class="fb-rx-rotor-item${i === 0 ? ' active' : ''}">${Posts.reactionIcon(g.type)}</span>`).join('')
+  }</span>`;
+}
+
 // Uploaded reactions take a two second turn each, in the order they sit on the
 // post. The order is driven here instead of by a CSS delay on each face: some
 // phones only ever ran the face that had no delay, so the others never took
@@ -276,11 +286,34 @@ function playVideoReaction(holder) {
   }, REACTION_VIDEO_MAX * 1000);
 }
 
+// The spinning slot of a video post: one uploaded reaction on screen at a
+// time, each holding the floor for a turn. The first one is already showing
+// when the feed paints, so the first tick only starts the count.
+const rxRotorAt = new WeakMap();
+
+function spinRotor(rotor) {
+  const items = rotor.querySelectorAll('.fb-rx-rotor-item');
+  if (items.length < 2) return RX_TURN_MS;
+  if (!rxRotorAt.has(rotor)) {
+    rxRotorAt.set(rotor, 0);
+    return RX_TURN_MS;
+  }
+  const at = rxRotorAt.get(rotor);
+  const next = (at + 1) % items.length;
+  rxRotorAt.set(rotor, next);
+  items[at].classList.remove('active');
+  items[next].classList.add('active');
+  return RX_TURN_MS;
+}
+
 // One turn for one post: its next uploaded reaction grows and wiggles (a video
 // also plays). Returns how long that turn lasts, 0 when the post has none.
 function runReactionTurn(card) {
   // The post's grow switch is off: its reactions stay still
   if (card.querySelector('.fb-face-anim-off')) return RX_TURN_MS;
+  // A video post spins its bigger reaction slot to the next upload instead
+  const rotor = card.querySelector('.fb-rx-rotor');
+  if (rotor) return spinRotor(rotor);
   const faces = card.querySelectorAll('.fb-post-summary .fb-rx-face');
   if (!faces.length) return 0;
   const turn = (rxTurnAt.get(card) || 0) % faces.length;
@@ -461,6 +494,11 @@ Posts.card = function (post, ctx) {
   // and sit in the free space between the reactions and the comment count
   const faceGroups = groups.filter(g => postOwnReaction(g.type));
   const emojiGroups = groups.filter(g => !postOwnReaction(g.type));
+  // A video post spins through its uploaded reactions in one bigger slot, so
+  // the grow and sound switches (which drive the growing clips) have nothing
+  // to switch there
+  const rotorFaces = post.media_type === 'video' && faceGroups.length > 0;
+  const showFaceSwitches = hasFaces && !rotorFaces;
   const children = postCommentChildren(comments);
   // A friend's post on the home feed can be hidden, and restored later
   const canHideAuthor = !!ctx.friendsOnly && !!viewer.id
@@ -474,9 +512,9 @@ Posts.card = function (post, ctx) {
         <a class="fb-post-name" href="${postProfileHref(authorUsername)}">${fbEscape(authorName)}</a>
         <div class="fb-post-time">${fbEscape(postTimeAgo(post.created_at))} · <span title="${audience.label}" aria-label="${audience.label}">${audience.icon}</span></div>
       </div>
-      ${(canHideAuthor || hasFaces) ? `<span class="fb-post-toggles">
+      ${(canHideAuthor || showFaceSwitches) ? `<span class="fb-post-toggles">
         ${canHideAuthor ? `<button class="fb-post-hide" type="button" data-act="hide-author" data-author="${fbEscape(post.user_id)}" title="Hide posts from ${fbEscape(authorName)}" aria-label="Hide posts from ${fbEscape(authorName)}">✕</button>` : ''}
-        ${hasFaces ? `${postFaceAnimSwitch(post.id, faceOff)}${postRxSoundSwitch(post.id, rxSoundOn(post.id))}` : ''}
+        ${showFaceSwitches ? `${postFaceAnimSwitch(post.id, faceOff)}${postRxSoundSwitch(post.id, rxSoundOn(post.id))}` : ''}
       </span>` : ''}
     </div>
     ${post.content ? `<div class="fb-post-text">${fbEscape(post.content)}</div>` : ''}
@@ -485,7 +523,7 @@ Posts.card = function (post, ctx) {
     ${totalReactions || comments.length || shares
       ? `<div class="fb-post-stats">
           <span class="fb-post-summary">${totalReactions
-            ? `<span class="fb-reaction-icons${faceOff ? ' fb-face-anim-off' : ''}">${postFaceSlots(faceGroups.length ? faceGroups : groups)}</span>${postCount(totalReactions)}`
+            ? `<span class="fb-reaction-icons${faceOff ? ' fb-face-anim-off' : ''}">${rotorFaces ? postFaceRotor(faceGroups) : postFaceSlots(faceGroups.length ? faceGroups : groups)}</span>${postCount(totalReactions)}`
             : ''}</span>
           ${faceGroups.length && emojiGroups.length
             ? `<span class="fb-post-emoji fb-reaction-icons">${postFaceSlots(emojiGroups)}</span>`

@@ -2711,6 +2711,32 @@ a.fb-post-name:hover { text-decoration: underline; }
   .fb-post-summary .fb-rx-face { animation-name: none !important; }
 }
 
+/* A video post shows its uploaded reactions in one slot bigger than an emoji
+   that spins to the next one every turn (js/posts.js hands over the active
+   item), instead of growing them one by one: the posted clip keeps the phone's
+   decoder and every face still gets seen. */
+.fb-post-summary .fb-reaction-group.fb-rx-rotor {
+  position: relative; flex-shrink: 0;
+  width: 56px; height: 56px;
+  perspective: 240px;
+}
+.fb-post-summary .fb-reaction-group > .fb-rx-rotor-item {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  margin: 0; box-shadow: none; border-radius: 50%;
+  opacity: 0;
+  transform: rotateY(120deg) scale(0.7);
+  transition: transform 0.45s cubic-bezier(0.2, 1.2, 0.4, 1), opacity 0.3s ease;
+  backface-visibility: hidden;
+}
+.fb-post-summary .fb-reaction-group > .fb-rx-rotor-item.active { opacity: 1; transform: rotateY(0) scale(1); }
+.fb-rx-rotor-item .fb-rx { width: 100%; height: 100%; }
+@media (max-width: 640px) {
+  .fb-post-summary .fb-reaction-group.fb-rx-rotor { width: 44px; height: 44px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fb-post-summary .fb-reaction-group > .fb-rx-rotor-item { transition: none; }
+}
+
 .fb-comments { padding: 0.6rem 1rem 1rem; }
 .fb-avatar-xs { width: 30px; height: 30px; font-size: 0.8rem; }
 .fb-comment { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
