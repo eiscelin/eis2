@@ -2643,7 +2643,10 @@ a.fb-post-name:hover { text-decoration: underline; }
   background: none;
   box-shadow: none;
 }
-.fb-post-summary .fb-rx-face.fb-rx-turning { animation: fb-rx-turn 2s ease-in-out; }
+/* The growing face gets its own compositor layer, so its scale and wiggle are
+   drawn by the GPU instead of repainting the card (and the video beside it)
+   for every frame */
+.fb-post-summary .fb-rx-face.fb-rx-turning { animation: fb-rx-turn 2s ease-in-out; will-change: transform; }
 @keyframes fb-rx-turn {
   0% { transform: scale(1) rotate(0deg); z-index: 4; }
   18% { transform: scale(2) rotate(-8deg); z-index: 20; }

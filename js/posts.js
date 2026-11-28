@@ -191,10 +191,63 @@ const RX_TURN_MS = 2000;
 const rxTurnAt = new WeakMap();
 const rxCardTimer = new WeakMap();
 
+// A phone decodes one clip well. While a post's own video — or an ad break
+// playing inside it — runs, the uploaded reactions stop and hold their turn, so
+// the two never fight for the decoder and the member's video keeps every frame.
+// Cover ads are left out: one looping in the background would freeze reactions.
+const bigClips = new Set();
+
+function isBigClip(video) {
+  return !!video.closest('.fb-post-media') || !!video.closest('.fb-ad');
+}
+
+function bigClipPlaying() {
+  bigClips.forEach(video => {
+    if (!video.isConnected || video.paused || video.ended) bigClips.delete(video);
+  });
+  return bigClips.size > 0;
+}
+
+// Only one reaction clip is decoded at a time on the page: the others keep
+// growing and wiggling on their still frame and play their clip on a turn of
+// their own, so a phone never runs several small videos at once
+let rxPlayingHolder = null;
+
+function stopReactionClip(holder) {
+  clearTimeout(holder.rxStop);
+  holder.rxPlaying = false;
+  if (rxPlayingHolder === holder) rxPlayingHolder = null;
+  const video = holder.querySelector('video');
+  if (video && !video.paused) video.pause();
+}
+
+function anotherClipBusy(holder) {
+  return !!rxPlayingHolder && rxPlayingHolder !== holder
+    && rxPlayingHolder.rxPlaying && rxPlayingHolder.isConnected;
+}
+
+document.addEventListener('play', event => {
+  const video = event.target;
+  if (!video || video.tagName !== 'VIDEO' || !isBigClip(video)) return;
+  bigClips.add(video);
+  // The growth carries on — only the second decode stops, so the posted video
+  // keeps every frame and the reactions keep moving
+  document.querySelectorAll('.fb-post-summary .fb-rx-video').forEach(stopReactionClip);
+}, true);
+
+['pause', 'ended'].forEach(name => document.addEventListener(name, event => {
+  const video = event.target;
+  if (video && video.tagName === 'VIDEO') bigClips.delete(video);
+}, true));
+
 function playVideoReaction(holder) {
   const video = holder.querySelector('video');
   if (!video) return;
   clearTimeout(holder.rxStop);
+  // The posted video already holds the decoder, or another reaction clip is
+  // mid-motion: this one keeps growing on its still frame and plays its clip
+  // on a later turn, so the member's video never stutters
+  if (bigClipPlaying() || anotherClipBusy(holder)) return;
   const card = holder.closest('[data-post]');
   // Silent unless the member switched this post's sound on
   const soundOn = card ? rxSoundOn(card.dataset.post) : false;
@@ -208,6 +261,7 @@ function playVideoReaction(holder) {
     try { video.currentTime = 0; } catch (err) { /* not seekable yet */ }
   }
   holder.rxPlaying = true;
+  rxPlayingHolder = holder;
   const attempt = video.play();
   if (attempt && attempt.catch) attempt.catch(() => {
     // A browser that blocks sound still shows the video, played silently
@@ -217,6 +271,7 @@ function playVideoReaction(holder) {
   // It plays its full maximum on its turn and then stops, sound included
   holder.rxStop = setTimeout(() => {
     holder.rxPlaying = false;
+    if (rxPlayingHolder === holder) rxPlayingHolder = null;
     video.pause();
   }, REACTION_VIDEO_MAX * 1000);
 }
