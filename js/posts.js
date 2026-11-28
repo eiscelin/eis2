@@ -181,6 +181,16 @@ function postFaceSlots(groups) {
   }).join('')}</span>`;
 }
 
+// A video post shows its uploaded reactions in one slot bigger than an emoji
+// that spins to the next one on every turn (js/posts.js hands over the active
+// item). Nothing grows and no reaction clip plays, so the member's own video
+// keeps the phone's decoder and still every face gets seen.
+function postFaceRotor(groups) {
+  return `<span class="fb-reaction-group fb-rx-rotor" title="${fbEscape(groups.map(g => g.label).join(', '))}">${
+    groups.map((g, i) => `<span class="fb-rx-rotor-item${i === 0 ? ' active' : ''}">${Posts.reactionIcon(g.type)}</span>`).join('')
+  }</span>`;
+}
+
 // Uploaded reactions take a two second turn each, in the order they sit on the
 // post. The order is driven here instead of by a CSS delay on each face: some
 // phones only ever ran the face that had no delay, so the others never took
@@ -276,11 +286,34 @@ function playVideoReaction(holder) {
   }, REACTION_VIDEO_MAX * 1000);
 }
 
+// The spinning slot of a video post: one uploaded reaction on screen at a
+// time, each holding the floor for a turn. The first one is already showing
+// when the feed paints, so the first tick only starts the count.
+const rxRotorAt = new WeakMap();
+
+function spinRotor(rotor) {
+  const items = rotor.querySelectorAll('.fb-rx-rotor-item');
+  if (items.length < 2) return RX_TURN_MS;
+  if (!rxRotorAt.has(rotor)) {
+    rxRotorAt.set(rotor, 0);
+    return RX_TURN_MS;
+  }
+  const at = rxRotorAt.get(rotor);
+  const next = (at + 1) % items.length;
+  rxRotorAt.set(rotor, next);
+  items[at].classList.remove('active');
+  items[next].classList.add('active');
+  return RX_TURN_MS;
+}
+
 // One turn for one post: its next uploaded reaction grows and wiggles (a video
 // also plays). Returns how long that turn lasts, 0 when the post has none.
 function runReactionTurn(card) {
   // The post's grow switch is off: its reactions stay still
   if (card.querySelector('.fb-face-anim-off')) return RX_TURN_MS;
+  // A video post spins its bigger reaction slot to the next upload instead
+  const rotor = card.querySelector('.fb-rx-rotor');
+  if (rotor) return spinRotor(rotor);
   const faces = card.querySelectorAll('.fb-post-summary .fb-rx-face');
   if (!faces.length) return 0;
   const turn = (rxTurnAt.get(card) || 0) % faces.length;
@@ -461,6 +494,11 @@ Posts.card = function (post, ctx) {
   // and sit in the free space between the reactions and the comment count
   const faceGroups = groups.filter(g => postOwnReaction(g.type));
   const emojiGroups = groups.filter(g => !postOwnReaction(g.type));
+  // A video post spins through its uploaded reactions in one bigger slot, so
+  // the grow and sound switches (which drive the growing clips) have nothing
+  // to switch there
+  const rotorFaces = post.media_type === 'video' && faceGroups.length > 0;
+  const showFaceSwitches = hasFaces && !rotorFaces;
   const children = postCommentChildren(comments);
   // A friend's post on the home feed can be hidden, and restored later
   const canHideAuthor = !!ctx.friendsOnly && !!viewer.id
@@ -474,9 +512,9 @@ Posts.card = function (post, ctx) {
         <a class="fb-post-name" href="${postProfileHref(authorUsername)}">${fbEscape(authorName)}</a>
         <div class="fb-post-time">${fbEscape(postTimeAgo(post.created_at))} · <span title="${audience.label}" aria-label="${audience.label}">${audience.icon}</span></div>
       </div>
-      ${(canHideAuthor || hasFaces) ? `<span class="fb-post-toggles">
+      ${(canHideAuthor || showFaceSwitches) ? `<span class="fb-post-toggles">
         ${canHideAuthor ? `<button class="fb-post-hide" type="button" data-act="hide-author" data-author="${fbEscape(post.user_id)}" title="Hide posts from ${fbEscape(authorName)}" aria-label="Hide posts from ${fbEscape(authorName)}">✕</button>` : ''}
-        ${hasFaces ? `${postFaceAnimSwitch(post.id, faceOff)}${postRxSoundSwitch(post.id, rxSoundOn(post.id))}` : ''}
+        ${showFaceSwitches ? `${postFaceAnimSwitch(post.id, faceOff)}${postRxSoundSwitch(post.id, rxSoundOn(post.id))}` : ''}
       </span>` : ''}
     </div>
     ${post.content ? `<div class="fb-post-text">${fbEscape(post.content)}</div>` : ''}
@@ -485,7 +523,7 @@ Posts.card = function (post, ctx) {
     ${totalReactions || comments.length || shares
       ? `<div class="fb-post-stats">
           <span class="fb-post-summary">${totalReactions
-            ? `<span class="fb-reaction-icons${faceOff ? ' fb-face-anim-off' : ''}">${postFaceSlots(faceGroups.length ? faceGroups : groups)}</span>${postCount(totalReactions)}`
+            ? `<span class="fb-reaction-icons${faceOff ? ' fb-face-anim-off' : ''}">${rotorFaces ? postFaceRotor(faceGroups) : postFaceSlots(faceGroups.length ? faceGroups : groups)}</span>${postCount(totalReactions)}`
             : ''}</span>
           ${faceGroups.length && emojiGroups.length
             ? `<span class="fb-post-emoji fb-reaction-icons">${postFaceSlots(emojiGroups)}</span>`
@@ -722,6 +760,10 @@ Posts.mount = function (listEl, opts) {
 
   const hiddenAtStart = hiddenFriends();
 
+  // True while a phone's gallery, camera or camcorder is in front of the feed,
+  // so the reaction shelf and its add button never slide away behind it
+  let rxPicking = false;
+
   const state = {
     posts: [],
     users: new Map(),
@@ -750,6 +792,16 @@ Posts.mount = function (listEl, opts) {
   function closePickers() {
     state.openPicker = null;
     listEl.querySelectorAll('.fb-react-wrap.open').forEach(w => w.classList.remove('open'));
+  }
+
+  // Holds one reaction shelf open — a phone gets no hover, so the shelf and its
+  // add button are kept on screen by hand around an upload
+  function holdPickerOpen(key) {
+    if (!key) return;
+    state.openPicker = key;
+    listEl.querySelectorAll('.fb-react-wrap').forEach(wrap => {
+      wrap.classList.toggle('open', pickerKeyFor(wrap) === key);
+    });
   }
 
   // Repaints every reaction picker so an upload or a delete shows up in all of
@@ -1459,19 +1511,60 @@ Posts.mount = function (listEl, opts) {
     return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
   }
 
-  function pickReactionFile() {
+  // Opens one file dialog and hands back the picked file
+  function pickFileFrom(accept, capture) {
     return new Promise(resolve => {
       const input = document.createElement('input');
       input.type = 'file';
-      input.accept = 'image/*,video/*';
+      input.accept = accept;
+      if (capture) input.setAttribute('capture', capture);
       input.style.display = 'none';
       document.body.appendChild(input);
-      input.addEventListener('change', () => {
-        const file = input.files && input.files[0];
+      const finish = file => {
         input.remove();
         resolve(file || null);
-      });
+      };
+      input.addEventListener('change', () => finish(input.files && input.files[0]));
+      // Backing out of the dialog fires nothing on some phones
+      input.addEventListener('cancel', () => finish(null));
       input.click();
+    });
+  }
+
+  // A phone cannot offer its gallery, its camera and its camcorder in one file
+  // dialog, so the add button asks which one to open first. A computer keeps
+  // the single file dialog it always had.
+  function pickReactionFile() {
+    if (!window.matchMedia('(pointer: coarse)').matches) return pickFileFrom('image/*,video/*');
+    return new Promise(resolve => {
+      const sheet = document.createElement('div');
+      sheet.className = 'fb-rx-source';
+      sheet.innerHTML = `<div class="fb-rx-source-panel" role="dialog" aria-label="Add a reaction">
+        <button class="fb-rx-source-btn" type="button" data-source="library"><span aria-hidden="true">🖼️</span><span>Photo or video</span></button>
+        <button class="fb-rx-source-btn" type="button" data-source="photo"><span aria-hidden="true">📷</span><span>Take a photo</span></button>
+        <button class="fb-rx-source-btn" type="button" data-source="record"><span aria-hidden="true">🎥</span><span>Record a video</span></button>
+        <button class="fb-rx-source-btn fb-rx-source-cancel" type="button" data-source="cancel">Cancel</button>
+      </div>`;
+      const close = file => {
+        sheet.remove();
+        resolve(file);
+      };
+      sheet.addEventListener('click', async e => {
+        const btn = e.target.closest('[data-source]');
+        if (!btn) {
+          if (e.target === sheet) close(null);
+          return;
+        }
+        const source = btn.dataset.source;
+        if (source === 'cancel') return close(null);
+        // Asked for inside the tap, so the phone opens the dialog itself
+        const file = source === 'library' ? await pickFileFrom('image/*,video/*')
+          : source === 'photo' ? await pickFileFrom('image/*', 'environment')
+            : await pickFileFrom('video/*', 'environment');
+        close(file);
+      });
+      document.body.appendChild(sheet);
+      requestAnimationFrame(() => sheet.classList.add('open'));
     });
   }
 
@@ -1504,7 +1597,14 @@ Posts.mount = function (listEl, opts) {
   // Uploads a face or a video reaction (5 seconds at most), remembers it for
   // next time and for the admin list, then reacts with it
   async function addOwnReaction(postId, commentId) {
+    const key = String(postId) + (commentId ? ':' + commentId : '');
+    // The shelf and its add button stay put while the phone's gallery, camera
+    // or camcorder is in front, then open again on the post it was started from
+    rxPicking = true;
+    holdPickerOpen(key);
     const file = await pickReactionFile();
+    rxPicking = false;
+    holdPickerOpen(key);
     if (!file) return;
     if (!sb || !viewer.id) return showToast('Sign in to save your own reaction', 'error');
     const type = String(file.type || '');
@@ -1546,6 +1646,7 @@ Posts.mount = function (listEl, opts) {
       showToast(kind === 'video' ? 'Your video reaction is ready' : 'Your face reaction is ready', 'success');
       if (commentId) await setCommentReaction(postId, commentId, typeName);
       else await setReaction(postId, typeName);
+      holdPickerOpen(key);
     } catch (err) {
       const message = String((err && err.message) || '');
       showToast('Could not save your reaction: ' + message, 'error', 6000);
@@ -1587,6 +1688,8 @@ Posts.mount = function (listEl, opts) {
     // Each of these hands itself back once this feed leaves the page
     const onDocClick = e => {
       if (!listEl.isConnected) return document.removeEventListener('click', onDocClick);
+      // Tapping the phone's source sheet is not tapping away from the shelf
+      if (e.target.closest('.fb-rx-source')) return;
       if (!state.openPicker) return;
       if (e.target.closest('.fb-react-wrap.open')) return;
       closePickers();
@@ -1597,6 +1700,9 @@ Posts.mount = function (listEl, opts) {
     };
     const onDocScroll = () => {
       if (!listEl.isConnected) return window.removeEventListener('scroll', onDocScroll, true);
+      // A phone shifts the page when its picker or camera closes: the shelf the
+      // member is uploading from stays put through that
+      if (rxPicking) return;
       if (state.openPicker) closePickers();
     };
     document.addEventListener('click', onDocClick);
