@@ -86,6 +86,17 @@ window.VideoVisibility = (function () {
     if (video && video.tagName === 'VIDEO') syncCards(video);
   }, true);
 
+  // A hidden tab has nobody watching it: every clip that is not an ad stops, so
+  // a phone in a pocket is not decoding video and spending its battery
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) return;
+    document.querySelectorAll('video').forEach(video => {
+      if (video.paused || isAd(video)) return;
+      auto.add(video);
+      pauseQuietly(video);
+    });
+  });
+
   // A clip started while it is off screen stops at once — an ad that ends after
   // the member scrolled away must not leave it playing unseen
   document.addEventListener('play', event => {

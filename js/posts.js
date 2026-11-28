@@ -308,7 +308,24 @@ function spinRotor(rotor) {
 
 // One turn for one post: its next uploaded reaction grows and wiggles (a video
 // also plays). Returns how long that turn lasts, 0 when the post has none.
+// Only a card the member could be looking at gets a turn: a hidden tab, or a
+// card a screen or more away, costs no decoding and no animation, so a cheap
+// phone spends its frames on what is actually in front of it
+function reactionCardWatched(card) {
+  if (document.hidden) return false;
+  const box = card.getBoundingClientRect();
+  const height = window.innerHeight || 0;
+  return box.bottom > -height && box.top < height * 2;
+}
+
 function runReactionTurn(card) {
+  if (!reactionCardWatched(card)) {
+    card.querySelectorAll('.fb-rx-turning').forEach(el => el.classList.remove('fb-rx-turning'));
+    card.querySelectorAll('.fb-post-summary video').forEach(video => {
+      if (!video.paused) video.pause();
+    });
+    return RX_TURN_MS;
+  }
   // The post's grow switch is off: its reactions stay still
   if (card.querySelector('.fb-face-anim-off')) return RX_TURN_MS;
   // A video post spins its bigger reaction slot to the next upload instead
